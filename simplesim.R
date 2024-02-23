@@ -1,6 +1,6 @@
 library(secr)
 source("movingdetectorlikelihood.R")
-lambda0 = .005
+lambda0 = .5
 sigma = 200
 timeincrement = 6*60
 meshgrid <- expand.grid(x = seq(950, 5500, 500), y = seq(950,5500, 500))
@@ -60,7 +60,7 @@ dist_dat$distmat <- sapply(as.array(dist_dat$times),  FUN = function(timet){
 #check if detected while trap was open 
 #distance data object (created from traps and mesh)
 
-sim_capthist <- function(pop, traps, timeincrement, lambda0, sigma) {
+
   traptopop <- apply(as.array(1:nrow(pop)), 1, FUN = 
                        function(meshrow){
                          apply(as.array(1:nrow(traps)), 
@@ -108,10 +108,25 @@ sim_capthist <- function(pop, traps, timeincrement, lambda0, sigma) {
                                 return(ymd_hms(capik))
                               })
                      }) 
-}
 
-capthist_ls <- sim_capthist(pop, traps, timeincrement, lambda0, sigma)
-capthist_array <- structure(array(unlist(capthist_ls), dim = c(596,4)), class = c("POSIXct", "POSIXt"))
+  capthist_array <- t(structure(array(unlist(capthist), dim = c(4,nrow(dist_dat_pop$mesh))), class = c("POSIXct", "POSIXt")))
+gettrapwcap <- function(trapk){
+  trapwcap <- traps[traps$trapID == trapk & as.numeric(traps$time) %in% as.numeric(capthist_array[,trapk]),]
+  timecapcounts <- as.data.frame(table(as.numeric(capthist_array[,trapk])))
+  colnames(timecapcounts) <- c("timenum", "count")
+  trapwcap$numdets <- timecapcounts[timecapcounts$time == as.numeric(trapwcap$time),"count"]
+  return(trapwcap)
+}
+trapwcap <- rbind(gettrapwcap(1), 
+                  gettrapwcap(2),
+                  gettrapwcap(3),
+                  gettrapwcap(4))
+
+ggplot() +
+  geom_point(data = mesh, aes(x = x, y = y)) +
+  geom_point(data = trapwcap, aes(x = x, y = y, col = numdets), size = 5) +
+  scale_color_viridis_c() +
+  theme_classic()
 
 llk <- likelihood(lambda0, sigma, D_mesh, timeincrement, capthist_array, dist_dat)
 
@@ -132,12 +147,12 @@ survxi <- apply(as.array(1:length(dist_dat$times)), 1, FUN = function(et){
 cumhaz <- -log(survxi)
 detxi <- survxi * hazxi
 plotdat <- data.frame(time = dist_dat$times, 
-                      distance = dxi,
+                      distance = dxi/2000*3,
                       hazard = hazxi,
                       cumulativehazard = cumhaz,
                       survival = survxi,
                       detection = detxi)
-plotdat_long <- pivot_longer(plotdat, cols = c("hazard", "survival", "detection", "cumulativehazard"))
+plotdat_long <- pivot_longer(plotdat, cols = c("hazard", "survival", "detection", "distance","cumulativehazard"))
 ggplot() +
   geom_point(data = mesh, mapping = aes(x = x, y = y)) +
   geom_line(data = traps[traps$trapID == testk,], mapping = aes(x =x, y =y)) +
@@ -145,7 +160,12 @@ ggplot() +
 
 ggplot() +
   geom_line(data = plotdat_long, mapping = aes(x = time, y = value, col = name)) +
-  xlim(min(plotdat$time[!is.na(plotdat$distance)]), max(plotdat$time[!is.na(plotdat$distance)]))
+  #geom_line(data = plotdat_long, mapping = aes(x = time, y = distance/2000*3)) +
+  xlim(min(plotdat$time[!is.na(plotdat$distance)]), max(plotdat$time[!is.na(plotdat$distance)])) +
+  scale_y_continuous(
+    name = "",
+    sec.axis = sec_axis(~.*2000/3, name="Distance (m)")
+  )
 
 ggplot()+
   geom_line(data = plotdat, mapping = aes(x = time, y = distance))+
@@ -166,3 +186,4 @@ ggplot()+
 ggplot()+
   geom_line(data = plotdat, mapping = aes(x = time, y = detection))+
   xlim(min(plotdat$time[!is.na(plotdat$distance)]), max(plotdat$time[!is.na(plotdat$distance)]))
+

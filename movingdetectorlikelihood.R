@@ -10,7 +10,7 @@ distkxt <- function(k, x, t, dist_dat, timesnap = 10*60){
     if(timediffs[closesttime] <= timesnap){
       tindex <- closesttime
     } else {
-      simpleError(paste("Closest time is more than", timesnap, "seconds away"))
+      stop(paste("Closest time is more than", timesnap, "seconds away"))
     }
     distout <- distmat[k, x, tindex]
   return(distout)
@@ -31,7 +31,7 @@ surv <- function(timestart, timeend, timeincr, x, k, lambda0, sigma, dist_dat){
     hazs <- apply(as.array(1:length(times)), 1, FUN = function(tt){
       timet <- times[tt]
       haz(timet, x = x, k = k, lambda0 = lambda0, sigma = sigma, dist_dat = dist_dat)})
-    integral <- sum(hazs * timeincr)
+    integral <- sum(hazs) #* timeincr?
     survout <- exp(-integral)
   }
   return(survout)
@@ -44,9 +44,12 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
     Dx <- D_mesh[meshx]
     studystart <- min(dist_dat$times)
     studyend <- max(dist_dat$times)
-    surv_eachtrap <- apply(as.array(1:length(dist_dat$traps)), 1, 
+    surv_eachtrap <- apply(as.array(1:nrow(dist_dat$traps)), 1, 
                                     FUN = function(trapk){
-                                      surv(studystart, studyend, timeincr, 
+                                      opentimeindx <- which(!is.na(colSums(dist_dat$distmat[trapk,,], na.rm = F)))
+                                      topentime <- dist_dat$times[min(opentimeindx)]
+                                      tclosetime <- dist_dat$times[max(opentimeindx)]
+                                      surv(topentime, tclosetime, timeincr, 
                                            x = meshx, k = trapk, 
                                            lambda0 = lambda0, sigma = sigma,
                                            dist_dat = dist_dat)}
@@ -63,11 +66,10 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
 likelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
   lambdan. <- lambdan(dist_dat, D_mesh, timeincr, lambda0, sigma)
   n <- nrow(capthist)
-  firstterm <- exp(-lambdan.)/(factorial(n))
   integral_eachi <- apply(as.array(1:n), 1, FUN = function(i){
     DKprod_eachx <- apply(as.array(1:nrow(dist_dat$mesh)), 1, FUN = function(x){
       Sxhx_eachtrap <- 
-        apply(as.array(1:length(dist_dat$traps)), 1,
+        apply(as.array(1:nrow(dist_dat$traps)), 1,
               FUN = function(trapk){
                 opentimeindx <- which(!is.na(colSums(dist_dat$distmat[trapk,,], na.rm = F)))
                 starttime <- dist_dat$times[min(opentimeindx)]
@@ -89,7 +91,7 @@ likelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
     integral <- sum(DKprod_eachx)
     return(integral)
   })
-  secondterm <- prod(integral_eachi)
-  out <- firstterm * secondterm
+  out <- exp(-lambdan.)/(factorial(n)) * prod(integral_eachi)
+ 
 }
 
