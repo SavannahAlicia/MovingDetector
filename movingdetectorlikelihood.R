@@ -63,7 +63,7 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
   return(integral)
 }
 
-likelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
+loglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
   lambdan. <- lambdan(dist_dat, D_mesh, timeincr, lambda0, sigma)
   n <- nrow(capthist)
   integral_eachi <- apply(as.array(1:n), 1, FUN = function(i){
@@ -91,7 +91,7 @@ likelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
     integral <- sum(DKprod_eachx)
     return(integral)
   })
-  out <- exp(-lambdan.)/(factorial(n)) * prod(integral_eachi)
- 
-}
+  lognfact <- sum(apply(as.array(0:(n-1)), 1, FUN = function(n_){ log(n-n_)}))
+  out <- -lambdan. - lognfact + n * log(sum(integral_eachi))
+ }
 
