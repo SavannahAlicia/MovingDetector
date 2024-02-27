@@ -4,21 +4,24 @@ library(lubridate)
 #distance
 distkxt <- function(k, x, t, dist_dat, timesnap = 10*60){
   #referencing a distance matrix data object
-    distmat <- dist_dat$distmat
-    timediffs <- abs(difftime(dist_dat$times, t, units = "secs"))
-    closesttime <- which(timediffs == min(timediffs, na.rm = T))[1]
-    if(timediffs[closesttime] <= timesnap){
-      tindex <- closesttime
-    } else {
-      stop(paste("Closest time is more than", timesnap, "seconds away"))
-    }
-    distout <- distmat[k, x, tindex]
+  distmat <- dist_dat$distmat
+  timediffs <- abs(difftime(dist_dat$times, t, units = "secs"))
+  closesttime <- which(timediffs == min(timediffs, na.rm = T))[1]
+  if(timediffs[closesttime] <= timesnap){
+    tindex <- closesttime
+  } else {
+    stop(paste("Closest time is more than", timesnap, "seconds away"))
+  }
+  distout <- distmat[k, x, tindex]
   return(distout)
 }
 #hazard function
+hazdist <- function(lambda0, sigma, d){
+  lambda0 * exp(-(d^2/(2 * sigma^2)))
+}
 haz <- function(t, x, k, lambda0, sigma, dist_dat){
   distkxt. <- distkxt(k = k, x = x, t = t, dist_dat)
-  hazout <- lambda0 * exp(-(distkxt.^2/(2 * sigma^2)))
+  hazout <- hazdist(lambda0 = lambda0, sigma = sigma, d = distkxt.)
   return(hazout)
 }
 #survival function
@@ -42,8 +45,6 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
   meshx_array <- as.array(1:nrow(dist_dat$mesh))
   Dx_pdotxs <- apply(meshx_array, 1, FUN = function(meshx){
     Dx <- D_mesh[meshx]
-    studystart <- min(dist_dat$times)
-    studyend <- max(dist_dat$times)
     surv_eachtrap <- apply(as.array(1:nrow(dist_dat$traps)), 1, 
                                     FUN = function(trapk){
                                       opentimeindx <- which(!is.na(colSums(dist_dat$distmat[trapk,,], na.rm = F)))
@@ -59,11 +60,11 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
     Dx_pdotx <- Dx * pdot
     return(Dx_pdotx)
   })
-  integral <- sum(Dx_pdotxs)
+  integral <- mean(Dx_pdotxs)
   return(integral)
 }
 
-loglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
+negloglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
   lambdan. <- lambdan(dist_dat, D_mesh, timeincr, lambda0, sigma)
   n <- nrow(capthist)
   integral_eachi <- apply(as.array(1:n), 1, FUN = function(i){
@@ -88,10 +89,10 @@ loglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
       DKprod_out <- D_mesh[x] * Sxhx_alltraps 
       return(DKprod_out)
     })
-    integral <- sum(DKprod_eachx)
+    integral <- mean(DKprod_eachx) #sum * mesh area
     return(integral)
   })
   lognfact <- sum(apply(as.array(0:(n-1)), 1, FUN = function(n_){ log(n-n_)}))
-  out <- -lambdan. - lognfact + n * log(sum(integral_eachi))
+  out <- -1 * (-lambdan. - lognfact + n * sum(log(integral_eachi)))
  }
 
