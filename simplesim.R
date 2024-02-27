@@ -1,11 +1,11 @@
 library(secr)
 source("movingdetectorlikelihood.R")
-lambda0 = .5
-sigma = 200
-timeincrement = 6*60
-meshgrid <- expand.grid(x = seq(950, 5500, 500), y = seq(950,5500, 500))
+lambda0 = .9
+sigma = 300
+timeincrement = 6*60*10
+meshgrid <- expand.grid(x = seq(000, 6000, 300), y = seq(000,6000, 300))
 mesh <- make.mask(meshgrid, buffer = 0, spacing = 500)
-D_mesh <- rep(.3, nrow(mesh))
+D_mesh <- rep(.1, nrow(mesh))
 
 #simulate N home range centers
 # simulate population
@@ -121,14 +121,34 @@ trapwcap <- rbind(gettrapwcap(1),
                   gettrapwcap(2),
                   gettrapwcap(3),
                   gettrapwcap(4))
+popcap <- cbind(pop, apply(capthist_array, 1, FUN = function(x){length(which(!is.na(x)))}))
+colnames(popcap)[3] <- "captures"
 
 ggplot() +
   geom_point(data = mesh, aes(x = x, y = y)) +
+  geom_point(data = popcap, aes(x = x, y = y, size = as.factor(captures)), shape = 5) +
   geom_point(data = trapwcap, aes(x = x, y = y, col = numdets), size = 5) +
   scale_color_viridis_c() +
   theme_classic()
 
-llk <- likelihood(lambda0, sigma, D_mesh, timeincrement, capthist_array, dist_dat)
+
+llk <- negloglikelihood(lambda0, sigma, D_mesh, timeincrement, capthist_array, dist_dat)
+
+trylambda0s <- parallel::mclapply(as.list(seq(0,1,.1)),  FUN = function(lambda0_){
+  negloglikelihood(lambda0_, sigma, D_mesh, timeincrement, capthist_array, dist_dat)
+}, mc.cores = 4)
+trysigmas <- parallel::mclapply(as.list(seq(50,500,50)),  FUN = function(sigma_){
+  negloglikelihood(lambda0, sigma_, D_mesh, timeincrement, capthist_array, dist_dat)
+}, mc.cores = 4)
+plotlambdas <- data.frame(lambda0 = seq(0,1,.1),
+                          llk = unlist(trylambda0s))
+plotsigmas <- data.frame(sigma = seq(50,500,50),
+                          llk = unlist(trysigmas))
+ggplot() +
+  geom_point(data = plotlambdas, aes(x = lambda0, y = llk))
+ggplot() +
+  geom_point(data = plotsigmas, aes(x = sigma, y = llk))
+
 
 #inspect
 #example individual 1, trap 1
@@ -168,7 +188,7 @@ ggplot() +
   )
 
 ggplot()+
-  geom_line(data = plotdat, mapping = aes(x = time, y = distance))+
+  geom_line(data = plotdat, mapping = aes(x = time, y = distance*2000/3))+
   xlim(min(plotdat$time[!is.na(plotdat$distance)]), max(plotdat$time[!is.na(plotdat$distance)]))
 
 ggplot()+
