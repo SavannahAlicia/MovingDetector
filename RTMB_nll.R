@@ -20,13 +20,13 @@ negloglikelihood_RTMB <- function(pars){
   getAll(dist_dat)
   lambda0 <- exp(pars$loglambda0)
   sigma <- exp(pars$logsigma)
-  D_mesh <- exp(pars$logD_mesh)
+  D_mesh <- rep(exp(pars$logD), 144)
   out <- as.numeric(0)
   
   #temp testings
-  times <- dist_dat$times
-  traps <- dist_dat$traps
-  distmat <- dist_dat$distmat
+  #times <- dist_dat$times
+  #traps <- dist_dat$traps
+  #distmat <- dist_dat$distmat
   
   surv_rtmb <- function(timestart, timeend, timeincr, x, k, lambda0, sigma, distmat, times){ 
     survout <- as.numeric(NA)
@@ -168,7 +168,7 @@ capthist <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh)
 dist_dat$capthist <- capthist
 dist_dat$timeincr <- timeincr
 
-pars <- list(loglambda0 = as.numeric(0), logsigma = as.numeric(0), logD_mesh = as.numeric(rep(0, 144)))
+pars <- list(loglambda0 = as.numeric(0), logsigma = as.numeric(0), logD = as.numeric(0))
 myobj <- MakeADFun(func = negloglikelihood_RTMB, parameters = pars)  ## First call is 100% R while turning into C++ and AD
 fit <- nlminb(myobj$par, myobj$fn, myobj$gr, control=list(iter.max=1000,eval.max=1000))
 
