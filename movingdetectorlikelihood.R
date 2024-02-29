@@ -77,9 +77,9 @@ surv <- function(timestart, timeend, timeincr, x, k, lambda0, sigma, dist_dat){
   if(timeend < timestart) {
     survout <- NA
   } else {
-    times <- as.array(seq(from = timestart, to = timeend, by = timeincr))
-    hazs <- apply(as.array(1:length(times)), 1, FUN = function(tt){
-      timet <- times[tt]
+    timesopen <- as.array(seq(from = timestart, to = timeend, by = timeincr))
+    hazs <- apply(as.array(1:length(timesopen)), 1, FUN = function(tt){
+      timet <- timesopen[tt]
       haz(timet, x = x, k = k, lambda0 = lambda0, sigma = sigma, dist_dat = dist_dat)})
     integral <- sum(hazs) #* timeincr?
     survout <- exp(-integral)
@@ -117,7 +117,7 @@ lambdan <- function(dist_dat, D_mesh, timeincr, lambda0, sigma){
     Dx_pdotx <- Dx * pdot
     return(Dx_pdotx)
   })
-  integral <- mean(Dx_pdotxs)
+  integral <- sum(Dx_pdotxs) * attr(mesh, "area")
   return(integral)
 }
 
@@ -159,12 +159,40 @@ negloglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_da
       DKprod_out <- D_mesh[x] * Sxhx_alltraps 
       return(DKprod_out)
     })
-    integral <- mean(DKprod_eachx) #sum * mesh area
+    integral <- sum(DKprod_eachx) * attr(mesh, "area") #all mesh same size
     return(integral)
   })
   lognfact <- sum(apply(as.array(0:(n-1)), 1, FUN = function(n_){ log(n-n_)}))
   out <- -1 * (-lambdan. - lognfact + n * sum(log(integral_eachi)))
- }
+  return(out)
+}
+
+create_distdat <- function(traps, mesh){
+  #distance data object (created from traps and mesh)
+  traptomesh <- apply(as.array(1:nrow(mesh)), 1, FUN = 
+                        function(meshrow){
+                          apply(as.array(1:nrow(traps)), 
+                                1, FUN = 
+                                  function(traprow){
+                                    dist(rbind(traps[traprow, c("x", "y")],
+                                               mesh[meshrow,c("x","y")]), method = "euclidean")
+                                  })})
+  dist_dat <- list(traps = data.frame(traps = unique(traps$trapID)),
+                   mesh = as.data.frame(mesh),
+                   times = sort(unique(traps$time)))
+  dist_dat$distmat <- sapply(as.array(dist_dat$times),  FUN = function(timet){ 
+    apply(as.array(1:nrow(dist_dat$mesh)), 1, FUN = function(meshcol){
+      apply(as.array(1:nrow(dist_dat$traps)), 1, FUN = function(trapid){
+        dist <- traptomesh[traps$trapID == trapid & traps$time == timet,meshcol]
+        if (length(dist) == 0){
+          dist <- NA
+        }
+        return(dist)
+      })
+    })
+  }, simplify = "array")
+  return(dist_dat)
+}#see about using this in sim_capthist
 
 #' Simulate moving detector capture history
 #' 
