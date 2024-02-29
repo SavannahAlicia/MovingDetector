@@ -212,29 +212,9 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                     Ndist = "poisson", buffertype = "rect")
     rownames(pop) <- NULL
   }
-  traptopop <- apply(as.array(1:nrow(pop)), 1, FUN = 
-                       function(meshrow){
-                         apply(as.array(1:nrow(traps)), 
-                               1, FUN = 
-                                 function(traprow){
-                                   dist(rbind(traps[traprow, c("x", "y")],
-                                              pop[meshrow,c("x","y")]), method = "euclidean")
-                                 })})
   
-  dist_dat_pop <- list(traps = data.frame(traps = unique(traps$trapID)),
-                       mesh = as.data.frame(pop),
-                       times = sort(unique(traps$time)))
-  dist_dat_pop$distmat <- sapply(as.array(dist_dat_pop$times),  FUN = function(timet){ 
-    apply(as.array(1:nrow(dist_dat_pop$mesh)), 1, FUN = function(meshcol){
-      apply(as.array(1:nrow(dist_dat_pop$traps)), 1, FUN = function(trapid){
-        dist <- traptopop[traps$trapID == trapid & traps$time == timet,meshcol]
-        if (length(dist) == 0){
-          dist <- NA
-        }
-        return(dist)
-      })
-    })
-  }, simplify = "array")
+  dist_dat_pop <- create_distdat(traps, pop)
+
   capthist <- lapply(as.list(1:nrow(dist_dat_pop$mesh)), 
                      FUN = function(hrcx){
                        lapply(as.list(1:nrow(dist_dat_pop$traps)),
