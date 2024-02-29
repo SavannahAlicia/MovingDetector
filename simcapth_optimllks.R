@@ -25,30 +25,7 @@ traps <- rbind(
                         by = 360))
 )
 
-#distance data object (created from traps and mesh)
-traptomesh <- apply(as.array(1:nrow(mesh)), 1, FUN = 
-                      function(meshrow){
-                        apply(as.array(1:nrow(traps)), 
-                              1, FUN = 
-                                function(traprow){
-                                  dist(rbind(traps[traprow, c("x", "y")],
-                                             mesh[meshrow,c("x","y")]), method = "euclidean")
-                                })})
-dist_dat <- list(traps = data.frame(traps = unique(traps$trapID)),
-                 mesh = as.data.frame(mesh),
-                 times = sort(unique(traps$time)))
-dist_dat$distmat <- sapply(as.array(dist_dat$times),  FUN = function(timet){ 
-  apply(as.array(1:nrow(dist_dat$mesh)), 1, FUN = function(meshcol){
-    apply(as.array(1:nrow(dist_dat$traps)), 1, FUN = function(trapid){
-      dist <- traptomesh[traps$trapID == trapid & traps$time == timet,meshcol]
-      if (length(dist) == 0){
-        dist <- NA
-      }
-      return(dist)
-    })
-  })
-}, simplify = "array")
-
+dist_dat <- create_distdat(traps, mesh)
 #simulate population
 pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", 
                 Ndist = "poisson", buffertype = "rect")
@@ -58,22 +35,14 @@ rownames(pop) <- NULL
 ch_ls <- lapply(list(1:1), FUN = function(x){
   sim_capthist(pop, traps, timeincrement, lambda0, sigma, D_mesh)})
 
-#set up for optimizing parameters
-nllk_pars <- function(pars, timeincr, capthist, dist_dat){
-  lambda0 <- exp(pars[1])
-  sigma <- exp(pars[2])
-  D_mesh <- exp(pars[3:length(pars)])
-  negloglikelihood(lambda0, sigma, D_mesh, 
-                   timeincr = timeincr, capthist = capthist, dist_dat = dist_dat)
-}
-
-init <- log(c(lambda0 = 0.91, sigma = 310, D_mesh = c(rep(0.11, 144))))
 system.time(foo <- optim(init, nllk_pars, timeincr = timeincrement, capthist = capthist_array, dist_dat = dist_dat))
 
 #estimate parameters based on capture histories
+startsystime <- Sys.time()
 estimates <- lapply(ch_ls, FUN = function(capthist_arrays){
-  optim(init, nllk_pars, timeincr = timeincrement, capthist = capthist_arrays, dist_dat = dist_dat)
+  optim(init, nllk_pars, timeincr = timeincrement, capthist = capthist_arrays, dist_dat = dist_dat, control = list(trace = 1))
 })
+runtime <- Sys.time() - startsystime
                     
 
 init <- log(c(lambda0 = 0.8, sigma = 500, D = .001))
