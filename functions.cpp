@@ -27,9 +27,9 @@ double
     Rcpp::DatetimeVector
     times = dist_dat["times"];
     Rcpp::NumericVector
-    timediffs = abs(times - t);
+    timediffs = Rcpp::na_omit(abs(times - Rcpp::rep(t, times.length())));
     int
-    closesttime = which_min(na_omit(timediffs));
+    closesttime = Rcpp::which_min(timediffs);
     int 
     tindex = NA_INTEGER;
     if(timediffs(closesttime) <= timesnap){
@@ -38,7 +38,7 @@ double
       Rcpp::stop("Error: Closest time in more than timesnap seconds away");
     }
     double
-      distout = distmat(k, x, tindex);
+      distout = distmat(k - 1, x - 1, tindex); //0 index to 1 index
     return distout;
   }
 
