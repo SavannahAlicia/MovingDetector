@@ -3,12 +3,11 @@
 //[[Rcpp::plugins(cpp11)]]
 
 // [[Rcpp::export]]
-Rcpp::NumericVector
+double
 hazdist_cpp(double lambda0,
             double sigma,
             double d) {
-  Rcpp::NumericVector
-  haz(1);
+  double
   haz = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
   return haz;
 }
@@ -42,3 +41,19 @@ double
     return distout;
   }
 
+// [[Rcpp::export]]
+double
+  haz_cpp(Rcpp::DatetimeVector t,
+      int x, 
+      int k,
+      double lambda0,
+      double sigma,
+      Rcpp::List dist_dat,
+      double timesnap = 600
+  ){
+    double
+    distkxt_cpp_ = distkxt_cpp(k, x, t, dist_dat, timesnap);
+    double
+      hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_);
+    return(hazout);
+  }
