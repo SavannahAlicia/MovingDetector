@@ -15,6 +15,18 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
 }
 
 // [[Rcpp::export]]
+Rcpp::NumericVector seqC(int &first, int &last) {
+  Rcpp::NumericVector y(abs(last - first) + 1);
+  if (first < last) 
+    std::iota(y.begin(), y.end(), first);
+  else {
+    std::iota(y.begin(), y.end(), last);
+    std::reverse(y.begin(), y.end());
+  }
+  return y;
+}
+
+// [[Rcpp::export]]
 Rcpp::NumericMatrix cubeRowToNumericMatrix(arma::cube cube,
                                            int row) {
   // Get dimensions of the cube
@@ -45,6 +57,16 @@ double product(Rcpp::NumericVector x) {
     prod *= x[i];
   }
   return prod;
+}
+
+// [[Rcpp::export]]
+double sumC(Rcpp::NumericVector x) {
+  int n = x.size();
+  double total = 0;
+  for(int i = 0; i < n; ++i) {
+    total += x[i];
+  }
+  return total;
 }
 
 // [[Rcpp::export]]
@@ -142,7 +164,8 @@ double surv_cpp(Rcpp::Datetime timestart,
 
 //-----------------Likelihood --------------------------------------------------
 // [[Rcpp::export]]
-double negloglikelihood_cpp(
+Rcpp::NumericVector //double
+  negloglikelihood_cpp( //add log link 
     double lambda0,
     double sigma, 
     Rcpp::NumericVector D_mesh,
@@ -182,78 +205,44 @@ double negloglikelihood_cpp(
       Dx_pdotxs(m) = Dx_pdotx;
     }
     double lambdan = sum(Dx_pdotxs) * mesharea;
-    return(lambdan);
+    //rest of likelihood
+    double n = capthist.nrow();
+    // Rcpp::NumericVector integral_eachi(n);
+    // for(int i = 0; i < n; i++){
+    //   Rcpp::NumericVector DKprod_eachx(meshx.length());
+    //   for(int x = 0; x < meshx.length(); x++){
+         Rcpp::NumericVector Sxhx_eachtrap(traps.length());
+         for(int trapk = 0; trapk < traps.length(); trapk++){
+           int x = 0;//remove
+           int i = 36; //remove
+           Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
+           Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
+           double openidx = vec_min(opentimeindx);
+           double closeidx = vec_max(opentimeindx);
+           Rcpp::Datetime starttime = times[openidx];
+           Rcpp::Datetime endtime = times[closeidx];
+           Rcpp::NumericVector captik(1, capthist(i,trapk));
+           //turn this into time?
+           bool ikcaught = all(Rcpp::is_na(captik)).is_false();//isna returns false, so a capture time exists
+           if(ikcaught){
+             Rcpp::Datetime dettime = capthist(i,trapk);
+             double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+             double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat);
+             Sxhx_eachtrap(trapk) = Sx * hx;
+           }else{
+             double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+             Sxhx_eachtrap(trapk) = Sx;
+           }
+         }
+    //     double Sxhx_alltraps = product(Sxhx_eachtrap);
+    //     DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
+    //   }
+    //   integral_eachi(i) = sumC(DKprod_eachx) * mesharea;
+    // }
+    //       ns <- 1:n
+    //       logns <- log(ns)
+    //         lognfact <- sum(logns)
+    //         out <- (-lambdan_ - lognfact + n * sum(log(integral_eachi)))
+    //         return(-out)
+    return(Sxhx_eachtrap);
   }
-
-// double out;
-
-// negloglikelihood_RTMB <- function(pars){
-//function(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat){
-//   getAll(dist_dat)
-//   lambda0 <- exp(pars$loglambda0)
-//   sigma <- exp(pars$logsigma)
-//   D_mesh <- rep(exp(pars$logD), 144)
-//   out <- as.numeric(0)
-//   
-//   meshx_array <- as.array(1:nrow(mesh))
-//     Dx_pdotxs <- rep(0, length(meshx_array))
-//     for (meshx in meshx_array){
-//       Dx <- as.numeric(D_mesh[meshx])
-//       surv_eachtrap <- rep(0, nrow(traps))
-//       for(trapk in 1:nrow(traps)){
-//         opentimeindx <- which(!is.na(colSums(distmat[trapk,,], na.rm = F)))
-//         topentime <- times[min(opentimeindx)]
-//         tclosetime <- times[max(opentimeindx)]
-//         surv_eachtrap[trapk] <- as.numeric(surv_rtmb(timestart = topentime, 
-//                                                      timeend = tclosetime, 
-//                                                      timeincr = timeincr, 
-//                                                      x = meshx, k = trapk, 
-//                                                      lambda0 = lambda0, 
-//                                                      sigma = sigma,
-//                                                      distmat = distmat,
-//                                                      times = times))
-//       }
-//       surv_alltraps <- prod(surv_eachtrap)
-//         pdot <- 1 - surv_alltraps
-//       Dx_pdotx <- Dx * pdot
-//       Dx_pdotxs[meshx] <- (Dx_pdotx)
-//     }
-//     lambdan_ <- as.numeric(sum(Dx_pdotxs) * attr(mesh, "area"))
-//       n <- nrow(capthist)
-//       integral_eachi <- rep(0, n)
-//       for (i in 1:n){
-//         DKprod_eachx <- rep(0, nrow(mesh))
-//         for (x in 1:nrow(mesh)){
-//           Sxhx_eachtrap <- rep(0, nrow(traps))
-//           for(trapk in 1:nrow(traps)){
-//             opentimeindx <- which(!is.na(colSums(distmat[trapk,,], na.rm = F)))
-//             starttime <- times[min(opentimeindx)]
-//             if(!is.na(capthist[i,trapk])){
-//               dettime <- capthist[i, trapk]
-//               Sx <- as.numeric(surv_rtmb(starttime, dettime, timeincr, x, trapk, lambda0, sigma, distmat, times))
-//               hx <- as.numeric(haz_rtmb(dettime, x, trapk, lambda0, sigma, distmat, times))
-//               Sxhxout <- as.numeric(Sx * hx)
-//             } else { #individual never detected by this trap
-//               endtime <- times[max(opentimeindx)]
-//               Sx <- as.numeric(surv_rtmb(starttime, endtime, timeincr, x, trapk, lambda0, sigma, distmat, times))
-//               Sxhxout <- Sx
-//             }
-//             Sxhx_eachtrap[trapk] <- Sxhxout
-//           }
-//           Sxhx_alltraps <- prod(Sxhx_eachtrap)
-//             DKprod_out <- as.numeric(D_mesh[x]) * Sxhx_alltraps 
-//           DKprod_eachx[x] <- DKprod_out
-//         }
-//         integral_eachi[i] <- sum(DKprod_eachx) * attr(mesh, "area") #sum * mesh area
-//       }
-//       ns <- 1:n
-//       logns <- log(ns)
-//         lognfact <- sum(logns)
-//         out <- (-lambdan_ - lognfact + n * sum(log(integral_eachi)))
-//         ADREPORT(sigma) ## If I want estimates on the real scale.
-//       ADREPORT(lambda0)
-//         ADREPORT(D_mesh)
-//         return(-out)
-// }
-// 
-
