@@ -207,13 +207,13 @@ Rcpp::NumericVector //double
     double lambdan = sum(Dx_pdotxs) * mesharea;
     //rest of likelihood
     double n = capthist.nrow();
-    // Rcpp::NumericVector integral_eachi(n);
-    // for(int i = 0; i < n; i++){
-    //   Rcpp::NumericVector DKprod_eachx(meshx.length());
-    //   for(int x = 0; x < meshx.length(); x++){
+  //  Rcpp::NumericVector integral_eachi(capthist.nrow());
+ //   for(int i = 0; i < n; i++){
+        int i = 0;
+       Rcpp::NumericVector DKprod_eachx(meshx.length());
+       for(int x = 0; x < meshx.length(); x++){
          Rcpp::NumericVector Sxhx_eachtrap(traps.length());
          for(int trapk = 0; trapk < traps.length(); trapk++){
-           int x = 0;//remove
            int i = 36; //remove
            Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
            Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
@@ -234,15 +234,16 @@ Rcpp::NumericVector //double
              Sxhx_eachtrap(trapk) = Sx;
            }
          }
-    //     double Sxhx_alltraps = product(Sxhx_eachtrap);
-    //     DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
-    //   }
-    //   integral_eachi(i) = sumC(DKprod_eachx) * mesharea;
-    // }
+         double Sxhx_alltraps = product(Sxhx_eachtrap);
+         DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
+       }
+    //   double DKprod_sum = sumC(DKprod_eachx);
+    //   integral_eachi(i) = DKprod_sum * mesharea;
+    //}
     //       ns <- 1:n
     //       logns <- log(ns)
     //         lognfact <- sum(logns)
     //         out <- (-lambdan_ - lognfact + n * sum(log(integral_eachi)))
     //         return(-out)
-    return(Sxhx_eachtrap);
+    return(DKprod_eachx);
   }
