@@ -1,5 +1,6 @@
 #likelihood formulation
 library(lubridate)
+library(secr)
 
 #' Calculate distance using dist_dat
 #'
@@ -17,7 +18,7 @@ distkxt <- function(k, x, t, dist_dat, timesnap = 10*60){
   #referencing a distance matrix data object
   distmat <- dist_dat$distmat
   timediffs <- abs(difftime(dist_dat$times, t, units = "secs"))
-  closesttime <- which(timediffs == min(timediffs, na.rm = T))[1]
+  closesttime <- which(timediffs == base::min(timediffs, na.rm = T))[1]
   if(timediffs[closesttime] <= timesnap){
     tindex <- closesttime
   } else {
@@ -81,7 +82,7 @@ surv <- function(timestart, timeend, timeincr, x, k, lambda0, sigma, dist_dat){
     hazs <- apply(as.array(1:length(timesopen)), 1, FUN = function(tt){
       timet <- timesopen[tt]
       haz(timet, x = x, k = k, lambda0 = lambda0, sigma = sigma, dist_dat = dist_dat)})
-    integral <- sum(hazs) #* timeincr?
+    integral <- sum(hazs) * timeincr
     survout <- exp(-integral)
   }
   return(survout)
