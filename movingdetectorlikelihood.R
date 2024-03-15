@@ -169,6 +169,25 @@ negloglikelihood <- function(lambda0, sigma, D_mesh, timeincr, capthist, dist_da
 }
 
 create_distdat <- function(traps, mesh){
+  #if only one trap, create dummy trap to preserve matrix dimensions
+  #note: need to do this for time and mesh too
+  dummytrap = F
+  if(length(unique(traps$trapID)) == 1){
+    dummytrap <- traps[1,]
+    dummytrap$trapID <- max(traps$trapID) + 1
+    traps = rbind(traps,
+                 dummytrap)
+    dummytrap = T
+  }
+  dummymesh = F
+  if(nrow(mesh) == 1){
+    meshdf <- as.data.frame(mesh) 
+    dummymesh <- rbind(meshdf[nrow(meshdf),] + c(-.5,-.5),
+                       meshdf[nrow(meshdf),] + c(1.5,0.5)
+    )
+    mesh <- make.mask(dummymesh, buffer = 0, spacing = 1)
+    dummymesh <- T
+  }
   #distance data object (created from traps and mesh)
   traptomesh <- apply(as.array(1:nrow(mesh)), 1, FUN = 
                         function(meshrow){
@@ -181,7 +200,7 @@ create_distdat <- function(traps, mesh){
   dist_dat <- list(traps = data.frame(traps = unique(traps$trapID)),
                    mesh = as.data.frame(mesh),
                    times = sort(unique(traps$time)))
-  dist_dat$distmat <- sapply(as.array(dist_dat$times),  FUN = function(timet){ 
+  distmat <- sapply(as.array(dist_dat$times),  FUN = function(timet){ 
     apply(as.array(1:nrow(dist_dat$mesh)), 1, FUN = function(meshcol){
       apply(as.array(1:nrow(dist_dat$traps)), 1, FUN = function(trapid){
         dist <- traptomesh[traps$trapID == trapid & traps$time == timet,meshcol]
@@ -192,6 +211,14 @@ create_distdat <- function(traps, mesh){
       })
     })
   }, simplify = "array")
+  if (dummytrap){
+    distmat <- array(distmat[1,,], dim = c(1, dim(distmat)[2], dim(distmat)[3]))
+  }
+  if (dummymesh){
+    dist_dat$mesh <- dist_dat$mesh[1,]
+    distmat <- array(distmat[,1,], dim = c(dim(distmat)[1], 1, dim(distmat)[3]))
+  }
+  dist_dat$distmat <- distmat
   return(dist_dat)
 }#see about using this in sim_capthist
 
