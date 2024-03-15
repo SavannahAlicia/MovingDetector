@@ -70,6 +70,16 @@ double sumC(Rcpp::NumericVector x) {
 }
 
 // [[Rcpp::export]]
+Rcpp::NumericVector logvec(Rcpp::NumericVector x) {
+  int n = x.size();
+  Rcpp::NumericVector newvec(n);
+  for(int i = 0; i < n; i++){
+    newvec(i) = log(x(i));
+  }
+  return newvec;
+}
+
+// [[Rcpp::export]]
 double vec_min(Rcpp::NumericVector x) {
   // Rcpp supports STL-style iterators
   Rcpp::NumericVector::iterator it = std::min_element(x.begin(), x.end());
@@ -88,162 +98,165 @@ double vec_max(Rcpp::NumericVector x) {
 //----------------- Likelihood related functions -------------------------------
 // [[Rcpp::export]]
 double hazdist_cpp(double lambda0,
-            double sigma,
-            double d) {
+                   double sigma,
+                   double d) {
   double haz = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
   return haz;
 }
 
 // [[Rcpp::export]]
 double distkxt_cpp(int k,
-              int x,
-              Rcpp::Datetime t,
-              Rcpp::List dist_dat,
-              double timesnap = 600) {
-    //referencing a distance matrix object
-    arma::cube distmat = dist_dat["distmat"];
-    Rcpp::DatetimeVector times = dist_dat["times"];
-    Rcpp::NumericVector timediffs = Rcpp::na_omit(Rcpp::abs(times - Rcpp::rep(t, times.length())));
-    int closesttime = Rcpp::which_min(timediffs);
-    int tindex = NA_INTEGER;
-    if(timediffs(closesttime) <= timesnap){
-      tindex = closesttime;
-    } else {
-      Rcpp::stop("Error: Closest time in more than timesnap seconds away");
-    }
-    double distout = distmat(k, x, tindex); //remember 0 index
-    return distout;
+                   int x,
+                   Rcpp::Datetime t,
+                   Rcpp::List dist_dat,
+                   double timesnap = 600) {
+  //referencing a distance matrix object
+  arma::cube distmat = dist_dat["distmat"];
+  Rcpp::DatetimeVector times = dist_dat["times"];
+  Rcpp::NumericVector timediffs = Rcpp::na_omit(Rcpp::abs(times - Rcpp::rep(t, times.length())));
+  int closesttime = Rcpp::which_min(timediffs);
+  int tindex = NA_INTEGER;
+  if(timediffs(closesttime) <= timesnap){
+    tindex = closesttime;
+  } else {
+    Rcpp::stop("Error: Closest time in more than timesnap seconds away");
   }
+  double distout = distmat(k, x, tindex); //remember 0 index
+  return distout;
+}
 
 // [[Rcpp::export]]
 double haz_cpp(Rcpp::Datetime t,
-      int x, 
-      int k,
-      double lambda0,
-      double sigma,
-      Rcpp::List dist_dat,
-      double timesnap = 600) {
-    double distkxt_cpp_ = distkxt_cpp(k, x, t, dist_dat, timesnap);
-    double hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_);
-    return(hazout);
-  }
+               int x, 
+               int k,
+               double lambda0,
+               double sigma,
+               Rcpp::List dist_dat,
+               double timesnap = 600) {
+  double distkxt_cpp_ = distkxt_cpp(k, x, t, dist_dat, timesnap);
+  double hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_);
+  return(hazout);
+}
 
 // [[Rcpp::export]]
 double surv_cpp(Rcpp::Datetime timestart,
-           Rcpp::Datetime timeend,
-           int timeincr,
-           int x,
-           int k,
-           double lambda0,
-           double sigma, 
-           Rcpp::List dist_dat,
-           double timesnap = 600) {
-    double survout;
-    if(timeend < timestart) {
-      survout = NA_REAL;
-    } else {
-      //figure out how many steps of length timeincr between timestart and timeend
-      Rcpp::NumericVector steps = {0, ((timeend - timestart)/timeincr)};
-      //create sequence of 1:number of steps * timeincr
-      Rcpp::IntegerVector timesteps = (Rcpp::seq(Rcpp::min(steps), Rcpp::max(steps)) * timeincr);
-      //add that to timestart. These are timesopen
-      Rcpp::DatetimeVector timesopen(timesteps.length());
-      for(int i = 0; i < timesteps.length(); i++){
-        timesopen(i) = timestart + timesteps(i);
-      }
-      Rcpp::NumericVector hazs(timesopen.length());
-      for(int tt = 0; tt < timesopen.length(); tt++){
-        Rcpp::Datetime timet = timesopen(tt);
-        hazs(tt) = haz_cpp(timet, x, k, lambda0, sigma, dist_dat);
-      }
-      double integ = Rcpp::sum(hazs);
-      survout = std::exp(-1 * integ);
+                Rcpp::Datetime timeend,
+                int timeincr,
+                int x,
+                int k,
+                double lambda0,
+                double sigma, 
+                Rcpp::List dist_dat,
+                double timesnap = 600) {
+  double survout;
+  if(timeend < timestart) {
+    survout = NA_REAL;
+  } else {
+    //figure out how many steps of length timeincr between timestart and timeend
+    Rcpp::NumericVector steps = {0, ((timeend - timestart)/timeincr)};
+    //create sequence of 1:number of steps * timeincr
+    Rcpp::IntegerVector timesteps = (Rcpp::seq(Rcpp::min(steps), Rcpp::max(steps)) * timeincr);
+    //add that to timestart. These are timesopen
+    Rcpp::DatetimeVector timesopen(timesteps.length());
+    for(int i = 0; i < timesteps.length(); i++){
+      timesopen(i) = timestart + timesteps(i);
     }
-    return(survout);
+    Rcpp::NumericVector hazs(timesopen.length());
+    for(int tt = 0; tt < timesopen.length(); tt++){
+      Rcpp::Datetime timet = timesopen(tt);
+      hazs(tt) = haz_cpp(timet, x, k, lambda0, sigma, dist_dat);
+    }
+    double integ = Rcpp::sum(hazs) * timeincr;
+    survout = std::exp(-1 * integ);
   }
+  return(survout);
+}
 
 //-----------------Likelihood --------------------------------------------------
 // [[Rcpp::export]]
-Rcpp::NumericVector //double
-  negloglikelihood_cpp( //add log link 
-    double lambda0,
-    double sigma, 
-    Rcpp::NumericVector D_mesh,
-    int timeincr,
-    Rcpp::NumericMatrix capthist,
-    Rcpp::List dist_dat,
-    double timesnap = 600) {//specify objects
-    Rcpp::List trapspre = dist_dat["traps"];
-    Rcpp::List traps = trapspre[0];
-    arma::cube distmat = dist_dat["distmat"];
-    Rcpp::List meshpre = dist_dat["mesh"];
-    Rcpp::DatetimeVector times = dist_dat["times"];
-    times.attr("tzn") = "UTC";
-    //calculate mesh area
-    Rcpp::NumericVector meshx = meshpre["x"];
-    Rcpp::NumericVector meshy = meshpre["y"];
-    Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-    Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
-    double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
-    //begin for loops for lambdan calculation
-    Rcpp::NumericVector Dx_pdotxs(meshx.length());
-    for(int m = 0; m < meshx.length(); m++){
-      double Dx = D_mesh(m);
-      Rcpp::NumericVector surv_eachtrap((traps.length()));
-      for(int trapk = 0; trapk < traps.length(); trapk++){ 
+double
+negloglikelihood_cpp( //add log link 
+  double lambda0,
+  double sigma, 
+  Rcpp::NumericVector D_mesh,
+  int timeincr,
+  Rcpp::NumericMatrix capthist,
+  Rcpp::List dist_dat,
+  double timesnap = 600) {//specify objects
+  Rcpp::List trapspre = dist_dat["traps"];
+  Rcpp::List traps = trapspre[0];
+  arma::cube distmat = dist_dat["distmat"];
+  Rcpp::List meshpre = dist_dat["mesh"];
+  Rcpp::DatetimeVector times = dist_dat["times"];
+  times.attr("tzn") = "UTC";
+  //calculate mesh area
+  Rcpp::NumericVector meshx = meshpre["x"];
+  Rcpp::NumericVector meshy = meshpre["y"];
+  Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
+  Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
+  double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+  //begin for loops for lambdan calculation
+  Rcpp::NumericVector Dx_pdotxs(meshx.length());
+  for(int m = 0; m < meshx.length(); m++){
+    double Dx = D_mesh(m);
+    Rcpp::NumericVector surv_eachtrap((traps.length()));
+    for(int trapk = 0; trapk < traps.length(); trapk++){ 
+      Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
+      Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
+      double openidx = vec_min(opentimeindx);
+      double closeidx = vec_max(opentimeindx);
+      Rcpp::Datetime topentime = times[openidx];
+      Rcpp::Datetime tclosetime = times[closeidx];
+      surv_eachtrap(trapk) = surv_cpp(topentime, tclosetime, timeincr, m, trapk, lambda0, sigma, dist_dat); 
+    }
+    double survalltraps = product(surv_eachtrap);
+    double pdot = 1 - survalltraps;
+    double Dx_pdotx = Dx * pdot;
+    Dx_pdotxs(m) = Dx_pdotx;
+  }
+  double lambdan = sum(Dx_pdotxs) * mesharea;
+  //rest of likelihood
+  double n = capthist.nrow();
+  Rcpp::NumericVector integral_eachi(n);
+  for(int i = 0; i < n; i++){
+    Rcpp::NumericVector DKprod_eachx(meshx.length());
+    for(int x = 0; x < meshx.length(); x++){
+      Rcpp::NumericVector Sxhx_eachtrap(traps.length());
+      Rcpp::NumericVector captik(1);
+      for(int trapk = 0; trapk < traps.length(); trapk++){
         Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
         Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
         double openidx = vec_min(opentimeindx);
         double closeidx = vec_max(opentimeindx);
-        Rcpp::Datetime topentime = times[openidx];
-        Rcpp::Datetime tclosetime = times[closeidx];
-        surv_eachtrap(trapk) = surv_cpp(topentime, tclosetime, timeincr, m, trapk, lambda0, sigma, dist_dat); 
-     }
-      double survalltraps = product(surv_eachtrap);
-      double pdot = 1 - survalltraps;
-      double Dx_pdotx = Dx * pdot;
-      Dx_pdotxs(m) = Dx_pdotx;
+        Rcpp::Datetime starttime = times[openidx];
+        Rcpp::Datetime endtime = times[closeidx];
+        captik = capthist(i,trapk);
+        bool ikcaught = all(Rcpp::is_na(captik)).is_false();//isna returns false, so a capture time exists
+        if(ikcaught){
+          Rcpp::Datetime dettime = capthist(i,trapk);
+          double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+          double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat);
+          Sxhx_eachtrap(trapk) = Sx * hx;
+        }else{
+          double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+          Sxhx_eachtrap(trapk) = Sx;
+        }
+      }
+      double Sxhx_alltraps = product(Sxhx_eachtrap);
+      DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
     }
-    double lambdan = sum(Dx_pdotxs) * mesharea;
-    //rest of likelihood
-    double n = capthist.nrow();
-  //  Rcpp::NumericVector integral_eachi(capthist.nrow());
- //   for(int i = 0; i < n; i++){
-        int i = 0;
-       Rcpp::NumericVector DKprod_eachx(meshx.length());
-       for(int x = 0; x < meshx.length(); x++){
-         Rcpp::NumericVector Sxhx_eachtrap(traps.length());
-         for(int trapk = 0; trapk < traps.length(); trapk++){
-           int i = 36; //remove
-           Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
-           Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
-           double openidx = vec_min(opentimeindx);
-           double closeidx = vec_max(opentimeindx);
-           Rcpp::Datetime starttime = times[openidx];
-           Rcpp::Datetime endtime = times[closeidx];
-           Rcpp::NumericVector captik(1, capthist(i,trapk));
-           //turn this into time?
-           bool ikcaught = all(Rcpp::is_na(captik)).is_false();//isna returns false, so a capture time exists
-           if(ikcaught){
-             Rcpp::Datetime dettime = capthist(i,trapk);
-             double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
-             double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat);
-             Sxhx_eachtrap(trapk) = Sx * hx;
-           }else{
-             double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
-             Sxhx_eachtrap(trapk) = Sx;
-           }
-         }
-         double Sxhx_alltraps = product(Sxhx_eachtrap);
-         DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
-       }
-    //   double DKprod_sum = sumC(DKprod_eachx);
-    //   integral_eachi(i) = DKprod_sum * mesharea;
-    //}
-    //       ns <- 1:n
-    //       logns <- log(ns)
-    //         lognfact <- sum(logns)
-    //         out <- (-lambdan_ - lognfact + n * sum(log(integral_eachi)))
-    //         return(-out)
-    return(DKprod_eachx);
+    double DKprod_sum = sumC(DKprod_eachx);
+    integral_eachi(i) = DKprod_sum * mesharea;
   }
+  int n_int = std::round(n);
+  int one = 1;
+  Rcpp::NumericVector ns(n);
+  ns = seqC(one, n_int);
+  Rcpp::NumericVector logns(n);
+  logns = log(ns);
+  double lognfact = sum(logns);
+  Rcpp::NumericVector logint = logvec(integral_eachi);
+  double sumlogint = sumC(logint);
+  double out = -1 * (-lambdan - lognfact + sumlogint); //why did I multiply by n
+  return(out);
+}
