@@ -1,6 +1,6 @@
 #RTMB llk
-#replace all apply with for loops
-
+library(RTMB)
+source('movingdetectorlikelihood.R')
 
 
 #' Negative log likelihood
@@ -134,16 +134,18 @@ negloglikelihood_RTMB <- function(pars){
   return(-out)
 }
 
+
+######data setup
 lambda0 = .9
 sigma = 300
-timeincr = 6*60*10
+timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 meshgrid <- expand.grid(x = seq(000, 6000, 300), y = seq(000,6000, 300))
 mesh <- make.mask(meshgrid, buffer = 0, spacing = 500)
 D_mesh <- rep(.1, nrow(mesh))
 
 #traps
 #specify K moving traps
-#traps should be dataframe with column for trapid, x, y, and time
+#dataframe with column for trapid, x, y, and time
 trapsdf <- rbind(
   data.frame(trapID = 1, x = seq(1500, 4500, 50), y = 1500, 
              time = seq(ymd_hms("2024-01-01 8:00:00"), ymd_hms("2024-01-01 14:00:00"), 
@@ -159,24 +161,29 @@ trapsdf <- rbind(
                         by = 360))
 )
 
-dist_dat <- create_distdat(trapsdf, mesh)
+dist_dat <- create_distdat(trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
 pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", 
                 Ndist = "poisson", buffertype = "rect")
 rownames(pop) <- NULL
 
-capthist <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh)
-dist_dat$capthist <- capthist
-dist_dat$timeincr <- timeincr
+capthist <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
+dist_dat$capthist <- capthist #attach this to data object so getAll discovers it
+dist_dat$timeincr <- timeincr #see above
 
-pars <- list(loglambda0 = as.numeric(0), logsigma = as.numeric(0), logD = as.numeric(0))
+pars <- list(loglambda0 = 0, logsigma = 0, logD = 0) 
 myobj <- MakeADFun(func = negloglikelihood_RTMB, parameters = pars)  ## First call is 100% R while turning into C++ and AD
+#note no errors, but warning?
 fit <- nlminb(myobj$par, myobj$fn, myobj$gr, control=list(iter.max=1000,eval.max=1000))
 
-sdrep <- sdreport(myobj)  ## Builds again to do ADREPORT values.
-pl <- as.list(sdrep, "Est", report=TRUE)  ## Reported values.
+#RMTB recommended test that obj$fn() should give the same evaluation as f(pars)
+testf <- negloglikelihood_RTMB(list(loglambda0 = log(lambda0), logsigma = log(sigma), logD = log(D_mesh[1])))
+#nlltest <- negloglikelihood(lambda0, sigma, D_mesh, timeincr, capthist, dist_dat) confirmed this equals result from function in movingdetectorlikelihood.R
+myobj$fn()
+
+sdrep <- sdreport(myobj) 
+pl <- as.list(sdrep, "Est", report=TRUE) 
 plsd <- as.list(sdrep, "Std", report=TRUE)
 
-pl$N
 pl$sigma
-pl$lambda
+pl$lambda0
 
