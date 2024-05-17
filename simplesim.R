@@ -35,9 +35,9 @@ pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP",
                 Ndist = "poisson", buffertype = "rect")
 rownames(pop) <- NULL
 
-capthist <- sim_capthist(pop, traps, timeincrement, lambda0, sigma, D_mesh)
+capthist <- sim_capthist(pop, trapsdf, timeincrement, lambda0, sigma, D_mesh)
 gettrapwcap <- function(trapk){
-  trapwcap <- traps[traps$trapID == trapk & as.numeric(traps$time) %in% as.numeric(capthist[,trapk]),]
+  trapwcap <- trapsdf[trapsdf$trapID == trapk & as.numeric(trapsdf$time) %in% as.numeric(capthist[,trapk]),]
   timecapcounts <- as.data.frame(table(as.numeric(capthist[,trapk])))
   colnames(timecapcounts) <- c("timenum", "count")
   trapwcap$numdets <- timecapcounts[timecapcounts$time == as.numeric(trapwcap$time),"count"]
