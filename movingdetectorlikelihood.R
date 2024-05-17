@@ -245,8 +245,14 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
 
   capthist <- lapply(as.list(1:nrow(dist_dat_pop$mesh)), 
                      FUN = function(hrcx){
-                       lapply(as.list(1:nrow(dist_dat_pop$traps)),
+    #capiks <- data.frame(ymd_hms(capik), nrow(dist_dat_pop$mesh), nrow(dist_dat_pop$traps))
+    #for(hrcx in 1:nrow(dist_dat_pop$mesh)){
+      #print(paste("mesh", hrcx))
+      lapply(as.list(1:nrow(dist_dat_pop$traps)),
                               FUN = function(trapk){
+      #for (trapk in 1:nrow(dist_dat_pop$traps)){
+        #print(paste("trap", trapk))
+    
                                 #can do a dominating process of rate lambda0*T and thin
                                 opentimeindx <- which(!is.na(colSums(dist_dat_pop$distmat[trapk,,], na.rm = F)))
                                 topentime <- dist_dat_pop$times[min(opentimeindx)]
@@ -254,20 +260,43 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                 probseenxk <- 1 - surv(topentime, tclosetime, timeincrement, hrcx, trapk, lambda0, sigma, dist_dat_pop)
                                 seenxk_bool <- rbinom(1,1, probseenxk)
                                 if (seenxk_bool){
+                                  #this isn't quite right. instead,
+                                  #uniformly sample between 0 and probability of survival over whole survey
+                                  #then calculate the times associated with the probability
+                                  #and that time is the time of detection
+                                  #(uniformly sampling from CDF and back transforming)
+                                  #or just calculate 1-surv (prob of det) at discrete t's, then subtract
+                                  #from each the 1-surv at t-1, then divide by 1-surv for the whole survey
+                                  #and sample those
                                   timesopen <- seq(topentime, tclosetime, timeincrement)
-                                  detattime <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
-                                    notseenuntil <- surv(topentime, timesopen[t], timeincrement, hrcx, trapk, lambda0, sigma, dist_dat_pop)
-                                    seenat <- haz(timesopen[t], hrcx, trapk, lambda0, sigma, dist_dat_pop)
-                                    probdettime <- notseenuntil * seenat
-                                  })
-                                  capik <- timesopen[sample(length(detattime), 1, prob = detattime/sum(detattime))]
+                                  seenbyt <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
+                                    notseenuntil <- surv(topentime, timesopen[t], timeincrement, hrcx, trapk, lambda0, sigma, dist_dat_pop) + 1e-16
+                                    return(1-notseenuntil)
+                                    })
+                                  seenbytminus1 <- c(0, seenbyt[1:(length(seenbyt)-1)])
+                                  seenbetween_tminus1_and_t <- seenbyt - seenbytminus1
+                                  probseenbetween <- seenbetween_tminus1_and_t/ probseenxk
+                                  #detattime <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
+                                  #  #Note I need to log or something to deal with really small probs
+                                  #  notseenuntil <- surv(topentime, timesopen[t], timeincrement, hrcx, trapk, lambda0, sigma, dist_dat_pop) + 1e-16
+                                  #  seenat <- haz(timesopen[t], hrcx, trapk, lambda0, sigma, dist_dat_pop)
+                                  #  probdettime <- notseenuntil * seenat
+                                  #})
+                                  #capik <- timesopen[sample(length(detattime), 1, prob = detattime/sum(detattime))]
+                                  capik <- timesopen[sample(length(probseenbetween), 1, prob = probseenbetween)]
+                                  
                                 } else {
                                   capik <- ymd_hms(NA)
                                 }
+                                
                                 return(ymd_hms(capik))
+                                #capiks[hrcx, trapk] <- capik
+                                #print(capik)
                               })
                      }) 
   
-  capthist_array <- t(structure(array(unlist(capthist), dim = c(4,nrow(dist_dat_pop$mesh))), class = c("POSIXct", "POSIXt")))
+  capthist_array <- t(structure(array(unlist(capthist), 
+                                      dim = c(nrow(dist_dat_pop$traps),nrow(dist_dat_pop$mesh))), 
+                                class = c("POSIXct", "POSIXt")))
   return(capthist_array)
 }
