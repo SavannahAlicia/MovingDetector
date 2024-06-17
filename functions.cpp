@@ -14,6 +14,7 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
   return indices;
 }
 
+
 // [[Rcpp::export]]
 Rcpp::NumericVector seqC(int &first, int &last) {
   Rcpp::NumericVector y(abs(last - first) + 1);
@@ -166,11 +167,23 @@ double surv_cpp(Rcpp::Datetime timestart,
       Rcpp::Datetime timet = timesopen(tt);
       hazs(tt) = haz_cpp(timet, x, k, lambda0, sigma, dist_dat);
     }
-    double integ = Rcpp::sum(hazs) * timeincr;
+    //set intervals of time over which to approx integrate
+    Rcpp::NumericVector opentimediffs(timesteps.length());
+    for(int d = 1; d < opentimediffs.length(); d++){
+      //double timeincr_db = static_cast<double>(Rcpp::clone(timeincr));
+      opentimediffs(d) = timeincr;
+    }
+    //the gap between first time and itself is 0
+    opentimediffs(0) = 0;
+    
+     // hazard times the time interval from the previous t to current t (0 for first time point)
+    double integ = Rcpp::sum(hazs * opentimediffs);
     survout = std::exp(-1 * integ);
   }
   return(survout);
 }
+
+
 
 //-----------------Likelihood --------------------------------------------------
 // [[Rcpp::export]]
@@ -185,11 +198,12 @@ negloglikelihood_cpp( //add log link
   double timesnap = 600) {//specify objects
   Rcpp::List trapspre = dist_dat["traps"];
   Rcpp::List traps = trapspre[0];
-  arma::cube distmat = dist_dat["distmat"];
+  arma::cube distmat = dist_dat["distmat"]; //traps x mesh x times
   Rcpp::List meshpre = dist_dat["mesh"];
   Rcpp::DatetimeVector times = dist_dat["times"];
   times.attr("tzn") = "UTC";
-  //calculate mesh area
+  //calculate mesh area (note this is for a rectangular mesh grid, will need to
+  //be recalculated for irregular shaped mesh)
   Rcpp::NumericVector meshx = meshpre["x"];
   Rcpp::NumericVector meshy = meshpre["y"];
   Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
@@ -201,7 +215,7 @@ negloglikelihood_cpp( //add log link
     double Dx = D_mesh(m);
     Rcpp::NumericVector surv_eachtrap((traps.length()));
     for(int trapk = 0; trapk < traps.length(); trapk++){ 
-      Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
+      Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
       Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
       double openidx = vec_min(opentimeindx);
       double closeidx = vec_max(opentimeindx);
@@ -257,6 +271,6 @@ negloglikelihood_cpp( //add log link
   double lognfact = sum(logns);
   Rcpp::NumericVector logint = logvec(integral_eachi);
   double sumlogint = sumC(logint);
-  double out = -1 * (-lambdan - lognfact + sumlogint); //why did I multiply by n
+  double out = -1 * (-lambdan - lognfact + sumlogint); 
   return(out);
 }
