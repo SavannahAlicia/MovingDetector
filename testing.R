@@ -1,16 +1,19 @@
 library(secr)
 library(lubridate)
-
+library(ggplot2)
+setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
+set.seed(555)
+
 ######data setup
-lambda0 = .9
+lambda0 = .002
 sigma = 300
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
-mesh <- make.mask(meshgrid, buffer = 800, spacing = 500)
-D_mesh <- rep(.1, nrow(mesh))
+mesh <- make.mask(meshgrid, buffer = 800, spacing = 250)
+D_mesh <- rep(.4, nrow(mesh))
 
 #traps
 #specify K moving traps
@@ -28,9 +31,11 @@ dist_dat <- create_distdat(trapsdf, mesh) #calls function in movingdetectorlikel
 pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", 
                 Ndist = "poisson", buffertype = "rect")
 rownames(pop) <- NULL
-
-capthist <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
 dist_dat_pop <- create_distdat(trapsdf, pop)
+
+#capthist should be dim(inds, traps)
+capthist <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
+
 
 
 ########################################################################################################################################
@@ -39,6 +44,20 @@ dist_dat_pop <- create_distdat(trapsdf, pop)
 ######################################################################################################
 library(raster)
 library(ggplot2)
+
+#check distance matrix
+#trap by mesh by time
+trapx <- 2
+timex <- 6
+plotdatx <- data.frame(x = mesh$x, y = mesh$y, dist = dist_dat$distmat[trapx, ,timex])
+
+ggplot() +
+  geom_tile(data = plotdatx, aes(x = x, y = y, fill = dist)) +
+  geom_point(data = trapsdf[trapsdf$trapID == dist_dat$traps[trapx, ] &
+                            trapsdf$time == dist_dat$times[timex],], aes(x = x,y = y))
+
+
+
 #must choose a ind/trap that has a detection
 ex_j <- 1
 ex_i <- min(which(!is.na(capthist[,ex_j])))
@@ -90,6 +109,10 @@ ggplot()+
   geom_line(data = plotdat2, aes(x = times, y = haz)) +
   geom_vline(xintercept = capthist[ex_i,ex_j], col = "blue")
 ggplot()+
+  geom_line(data = plotdat2, aes(x = times, y = surv))+
+  geom_vline(xintercept = capthist[ex_i,ex_j], col = "blue")
+
+ggplot()+
   geom_line(data = plotdat2, aes(x = times, y = log(surv)))+
   geom_vline(xintercept = capthist[ex_i,ex_j], col = "blue")
 ggplot()+
@@ -101,19 +124,20 @@ ggplot()+
 
 
 #trying to minimize
-trylambda0s <- parallel::mclapply(as.list(seq(0,1,.1)),  FUN = function(lambda0_){
+trylambda0s <- parallel::mclapply(as.list(seq(0,.01,.001)),  FUN = function(lambda0_){
   negloglikelihood_cpp(lambda0_, sigma, D_mesh, timeincr, capthist, dist_dat)
 }, mc.cores = 4)
-trysigmas <- parallel::mclapply(as.list(seq(50,500,50)),  FUN = function(sigma_){
-  negloglikelihood_cpp(lambda0, sigma_, D_mesh, timeincr, capthist, dist_dat)
-}, mc.cores = 4)
-plotlambdas <- data.frame(lambda0 = seq(0,1,.1),
+plotlambdas <- data.frame(lambda0 = seq(0,.01,.001),
                           llk = unlist(trylambda0s))
-plotsigmas <- data.frame(sigma = seq(50,500,50),
-                         llk = unlist(trysigmas))
 ggplot() +
   geom_point(data = plotlambdas, aes(x = lambda0, y = llk)) +
   geom_vline(xintercept = lambda0)
+
+trysigmas <- parallel::mclapply(as.list(seq(50,500,50)),  FUN = function(sigma_){
+  negloglikelihood_cpp(lambda0, sigma_, D_mesh, timeincr, capthist, dist_dat)
+}, mc.cores = 4)
+plotsigmas <- data.frame(sigma = seq(50,500,50),
+                         llk = unlist(trysigmas))
 ggplot() +
   geom_point(data = plotsigmas, aes(x = sigma, y = llk))+
   geom_vline(xintercept = sigma)
