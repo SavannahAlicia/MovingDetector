@@ -235,7 +235,8 @@ create_distdat <- function(traps, mesh){
 #' @return capture history array of dimension individual by trap that 
 #' contains NA if not captured or time of first capture
 #' @export
-sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mesh){
+sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mesh,
+                         report_probseenxk = FALSE){
   if(is.null(pop)){
     pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", 
                     Ndist = "poisson", buffertype = "rect")
@@ -259,40 +260,49 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                 tclosetime <- dist_dat_pop$times[max(opentimeindx)]
                                 #prob individual is seen by this trap during the total time it's open
                                 probseenxk <- 1 - surv_cpp(topentime, tclosetime, timeincrement, (hrcx - 1), (trapk - 1), lambda0, sigma, dist_dat_pop) #any issue with indexing dist_dat_pop?
-                                seenxk_bool <- rbinom(1,1, probseenxk)
-                                if (seenxk_bool){
-                                  #OPTION 1
-                                  #uniformly sample between 0 and probability of survival over whole survey
-                                  #then calculate the times associated with the probability
-                                  #and that time is the time of detection
-                                  #(uniformly sampling from CDF and back transforming)
-                                  #OPTION 2 (selected)
-                                  # calculate 1-surv (prob of det) at discrete t's, then subtract
-                                  #from each the 1-surv at t-1, then divide by 1-surv for the whole survey
-                                  #and sample those
-                                  #OPTION 3
-                                  #can do a dominating process of rate lambda0*T and thin
-                                  timesopen <- seq(topentime, tclosetime, timeincrement)
-                                  seenbyt <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
-                                    notseenuntil <- surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16
-                                    return(1-notseenuntil)
-                                    })
-                                  seenbytminus1 <- c(0, seenbyt[1:(length(seenbyt)-1)])
-                                  seenbetween_tminus1_and_t <- seenbyt - seenbytminus1
-                                  probseenbetween <- seenbetween_tminus1_and_t/ probseenxk #given you were seen in there somewhere
-                                  capik <- timesopen[sample(x = c(1:length(probseenbetween)), size = 1, replace = T,  prob = probseenbetween)]
-                                  
+                                if (report_probseenxk) { 
+                                  return(probseenxk)
                                 } else {
-                                  capik <- ymd_hms(NA)
-                                }
-                                
-                                return(ymd_hms(capik))
+                                  seenxk_bool <- rbinom(1,1, probseenxk)
+                                  if (seenxk_bool){
+                                    #OPTION 1
+                                    #uniformly sample between 0 and probability of survival over whole survey
+                                    #then calculate the times associated with the probability
+                                    #and that time is the time of detection
+                                    #(uniformly sampling from CDF and back transforming)
+                                    #OPTION 2 (selected)
+                                    # calculate 1-surv (prob of det) at discrete t's, then subtract
+                                    #from each the 1-surv at t-1, then divide by 1-surv for the whole survey
+                                    #and sample those
+                                    #OPTION 3
+                                    #can do a dominating process of rate lambda0*T and thin
+                                    timesopen <- seq(topentime, tclosetime, timeincrement)
+                                    seenbyt <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
+                                      notseenuntil <- surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16
+                                      return(1-notseenuntil)
+                                    })
+                                    seenbytminus1 <- c(0, seenbyt[1:(length(seenbyt)-1)])
+                                    seenbetween_tminus1_and_t <- seenbyt - seenbytminus1
+                                    probseenbetween <- seenbetween_tminus1_and_t/ probseenxk #given you were seen in there somewhere
+                                    capik <- timesopen[sample(x = c(1:length(probseenbetween)), size = 1, replace = T,  prob = probseenbetween)]
+                                    
+                                  } else {
+                                    capik <- ymd_hms(NA)
+                                  }
+                                  
+                                  return(ymd_hms(capik)) 
+                                  }
                                 #return(probseenxk)
                                 #capiks[hrcx, trapk] <- capik
                                 #print(capik)
                               })
                      }) 
-  
+  if(report_probseenxk){
+    capthist_array <- t(
+        array(unlist(capthist), 
+              dim = c(nrow(dist_dat_pop$traps),nrow(dist_dat_pop$mesh)))
+      )
+  } else {
   capthist_array <- t(
     structure(
       array(unlist(capthist), 
@@ -300,7 +310,6 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                 class = c("POSIXct", "POSIXt")
                                 )
     )
-  
-  
+  }
   return(capthist_array)
 }
