@@ -254,7 +254,6 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
       #for (trapk in 1:nrow(dist_dat_pop$traps)){
         #print(paste("trap", trapk))
     
-                                #can do a dominating process of rate lambda0*T and thin
                                 opentimeindx <- which(!is.na(colSums(dist_dat_pop$distmat[trapk,,], na.rm = F)))
                                 topentime <- dist_dat_pop$times[min(opentimeindx)]
                                 tclosetime <- dist_dat_pop$times[max(opentimeindx)]
@@ -271,6 +270,8 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                   # calculate 1-surv (prob of det) at discrete t's, then subtract
                                   #from each the 1-surv at t-1, then divide by 1-surv for the whole survey
                                   #and sample those
+                                  #OPTION 3
+                                  #can do a dominating process of rate lambda0*T and thin
                                   timesopen <- seq(topentime, tclosetime, timeincrement)
                                   seenbyt <- apply(as.array(1:length(timesopen)), 1, FUN = function(t){
                                     notseenuntil <- surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16
@@ -286,13 +287,20 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                 }
                                 
                                 return(ymd_hms(capik))
+                                #return(probseenxk)
                                 #capiks[hrcx, trapk] <- capik
                                 #print(capik)
                               })
                      }) 
   
-  capthist_array <- t(structure(array(unlist(capthist), 
+  capthist_array <- t(
+    structure(
+      array(unlist(capthist), 
                                       dim = c(nrow(dist_dat_pop$traps),nrow(dist_dat_pop$mesh))), 
-                                class = c("POSIXct", "POSIXt")))
+                                class = c("POSIXct", "POSIXt")
+                                )
+    )
+  
+  
   return(capthist_array)
 }
