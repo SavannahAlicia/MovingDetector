@@ -101,14 +101,17 @@ double vec_max(Rcpp::NumericVector x) {
 double hazdist_cpp(double lambda0,
                    double sigma,
                    double d) {
-  double haz = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
+  double g0 = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
+  //experimenting, not sure what to do for 1/T, seems somewhat arbitrary
+  double haz  = (1/60*60*24*7)-log(1 - g0);
   return haz;
 }
 
 // [[Rcpp::export]]
-double distkxt_cpp(int k,
-                   int x,
+double disttxk_cpp(
                    Rcpp::Datetime t,
+                   int x,
+                   int k,
                    Rcpp::List dist_dat,
                    double timesnap = 600) {
   //referencing a distance matrix object
@@ -134,7 +137,7 @@ double haz_cpp(Rcpp::Datetime t,
                double sigma,
                Rcpp::List dist_dat,
                double timesnap = 600) {
-  double distkxt_cpp_ = distkxt_cpp(k, x, t, dist_dat, timesnap);
+  double distkxt_cpp_ = disttxk_cpp(t, x, k, dist_dat, timesnap);
   double hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_);
   return(hazout);
 }
