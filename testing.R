@@ -52,7 +52,9 @@ rownames(pop) <- NULL
 dist_dat_pop <- create_distdat(trapsdf, pop)
 
 #capthist should be dim(inds, traps)
-capthist_full <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
+capthist_full<- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
+
+probseenxks <- sim_capthist(pop, trapsdf, timeincr, lambda0, sigma, D_mesh, report_probseenxk = T) 
 capthist <- capthist_full[which(rowSums(capthist_full, na.rm = T) > 0),]
 
 
