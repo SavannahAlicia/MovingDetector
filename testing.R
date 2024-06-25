@@ -5,10 +5,10 @@ setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
-set.seed(555)
+set.seed(556)
 
 ######data setup
-lambda0 = .5
+lambda0 = .99
 sigma = 300
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
@@ -67,7 +67,7 @@ library(ggplot2)
 
 #check distance matrix
 #trap by mesh by time
-trapx <- 2
+trapx <- 1
 timex <- 9
 plotdatx <- data.frame(x = mesh$x, y = mesh$y, dist = dist_dat$distmat[trapx, ,timex])
 
@@ -76,16 +76,24 @@ ggplot() +
   geom_point(data = trapsdf[trapsdf$trapID == dist_dat$traps[trapx, ] &
                             trapsdf$time == dist_dat$times[timex],], aes(x = x,y = y))
 
-
+#check that captures happened for reasonable capture probabilties
+capandprob <- data.frame(probseen = probseenxks[,trapx], caps = capthist_full[,trapx])
+summary(capandprob[is.na(capandprob$caps),])
+summary(capandprob[!is.na(capandprob$caps),])
+ggplot() + 
+  #geom_histogram(data = capandprob, mapping = aes(x = probseen)) +
+  geom_histogram(data = capandprob[is.na(capandprob$caps),], mapping = aes(x = probseen), alpha = 0.5,fill = "red") +
+  geom_histogram(data = capandprob[!is.na(capandprob$caps),], mapping = aes(x = probseen), alpha = 0.5, fill = "darkgreen") +
+  theme_classic()
 
 #must choose a ind/trap that has a detection
-ex_j <- 1
+ex_j <- trapx
 #example individual (from pop and capthist_full) that was detected
 ex_i <- min(which(!is.na(capthist_full[,ex_j])))
 #calculate hazard of detection at and survival up to observed detection time for all mesh pts
 plotdat1 <- data.frame(x = mesh$x,
                        y = mesh$y,
-                       hazard = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(meshx){haz_cpp(capthist_full[ex_i,ex_j], meshx, (ex_j-1), lambda0, sigma, dist_dat)}),
+                       hazard = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(meshx){haz_cpp(capthist_full[ex_i,ex_j], meshx, (ex_j-1), lambda0, sigma, dist_dat, timeincrement)}),
                        survival = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(x){surv_cpp(dist_dat$times[min(which(!is.na(colSums(dist_dat$distmat[ex_j,,], na.rm = F))))],capthist_full[ex_i,ex_j], timeincr, x, (ex_j-1), lambda0, sigma, dist_dat)})
 )
 
@@ -113,7 +121,7 @@ plotdat2 <- data.frame(times = trapsdf[trapsdf$trapID == ex_j, "time"],
                        haz = sapply(1:length(trapsdf[trapsdf$trapID == ex_j, "time"]),
                                     FUN = function(timej){
                                       t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
-                                      haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop) }),
+                                      haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincrement) }),
                        surv = sapply(1:length(trapsdf[trapsdf$trapID == ex_j, "time"]),
                                      FUN = function(timej){
                                        t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
@@ -124,7 +132,7 @@ plotdat2 <- data.frame(times = trapsdf[trapsdf$trapID == ex_j, "time"],
                                             FUN = function(timej){
                                               t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
                                               tstart = dist_dat$times[min(which(!is.na(colSums(dist_dat$distmat[ex_j,,], na.rm = F))))]
-                                              haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop) *
+                                              haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincrement) *
                                               surv_cpp(tstart, t, timeincr, (ex_i - 1), (ex_j-1), lambda0, sigma, dist_dat_pop)
                                             }))
 ggplot()+
@@ -146,10 +154,10 @@ ggplot()+
 
 
 #trying to minimize
-trylambda0s <- parallel::mclapply(as.list(seq(0,.01,.001)),  FUN = function(lambda0_){
+trylambda0s <- parallel::mclapply(as.list(seq(0,1.1,.1)),  FUN = function(lambda0_){
   negloglikelihood_cpp(lambda0_, sigma, D_mesh, timeincr, capthist, dist_dat)
 }, mc.cores = 4)
-plotlambdas <- data.frame(lambda0 = seq(0,.01,.001),
+plotlambdas <- data.frame(lambda0 = seq(0,1.1,.1),
                           llk = unlist(trylambda0s))
 ggplot() +
   geom_point(data = plotlambdas, aes(x = lambda0, y = llk)) +
@@ -210,3 +218,5 @@ ggplot() +
   #but also sometimes it looks like a detection happens when the hazard is small
   #and survival is high. Which is problematic
   theme_classic()
+
+
