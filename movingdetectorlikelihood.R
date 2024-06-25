@@ -271,12 +271,14 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                      # notseenuntiltminus1 <- surv_cpp(topentime, timesopen[(t)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16
                                     #  hazatt <- haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement)
                                     #  seenfirstatt <- notseenuntiltminus1 * hazatt * timeincrement
-                                      seenfirstatt <- (surv_cpp(topentime, timesopen[(t-1)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
-                                        (1 - exp(-haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement))
-                                       return(seenfirstatt)
+                                      seenfirstatt <- #(surv_cpp(topentime, timesopen[(t-1)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
+                                        (surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
+                                        #(1 - exp(-haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement))
+                                        haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement
+                                      return(seenfirstatt)
                                       })
-                                    seenfirstatt_givenseen <- seenfirstat_t/probseenxk
-                                    capik <- timesopen[sample(x = c(1:length(probseenbetween)), size = 1, replace = T,  prob = seenfirstatt_givenseen)]
+                                    seenfirstatt_givenseen <- c(0, seenfirstat_t/probseenxk)
+                                    capik <- timesopen[sample(x = c(1:length(timesopen)), size = 1, replace = T,  prob = seenfirstatt_givenseen)]
                                     
                                   } else {
                                     capik <- ymd_hms(NA)
