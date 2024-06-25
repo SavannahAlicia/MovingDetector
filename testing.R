@@ -8,7 +8,7 @@ source("movingdetectorlikelihood.R")
 set.seed(556)
 
 ######data setup
-lambda0 = .99
+lambda0 = .3
 sigma = 300
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
@@ -68,7 +68,7 @@ library(ggplot2)
 #check distance matrix
 #trap by mesh by time
 trapx <- 1
-timex <- 9
+timex <- 4
 plotdatx <- data.frame(x = mesh$x, y = mesh$y, dist = dist_dat$distmat[trapx, ,timex])
 
 ggplot() +
@@ -93,7 +93,7 @@ ex_i <- min(which(!is.na(capthist_full[,ex_j])))
 #calculate hazard of detection at and survival up to observed detection time for all mesh pts
 plotdat1 <- data.frame(x = mesh$x,
                        y = mesh$y,
-                       hazard = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(meshx){haz_cpp(capthist_full[ex_i,ex_j], meshx, (ex_j-1), lambda0, sigma, dist_dat, timeincrement)}),
+                       hazard = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(meshx){haz_cpp(capthist_full[ex_i,ex_j], meshx, (ex_j-1), lambda0, sigma, dist_dat, timeincr)}),
                        survival = apply(as.array(0:(nrow(mesh)-1)), 1, FUN = function(x){surv_cpp(dist_dat$times[min(which(!is.na(colSums(dist_dat$distmat[ex_j,,], na.rm = F))))],capthist_full[ex_i,ex_j], timeincr, x, (ex_j-1), lambda0, sigma, dist_dat)})
 )
 
@@ -121,7 +121,7 @@ plotdat2 <- data.frame(times = trapsdf[trapsdf$trapID == ex_j, "time"],
                        haz = sapply(1:length(trapsdf[trapsdf$trapID == ex_j, "time"]),
                                     FUN = function(timej){
                                       t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
-                                      haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincrement) }),
+                                      haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincr) }),
                        surv = sapply(1:length(trapsdf[trapsdf$trapID == ex_j, "time"]),
                                      FUN = function(timej){
                                        t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
@@ -132,7 +132,7 @@ plotdat2 <- data.frame(times = trapsdf[trapsdf$trapID == ex_j, "time"],
                                             FUN = function(timej){
                                               t = trapsdf[trapsdf$trapID == ex_j, "time"][timej]
                                               tstart = dist_dat$times[min(which(!is.na(colSums(dist_dat$distmat[ex_j,,], na.rm = F))))]
-                                              haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincrement) *
+                                              haz_cpp(t, (ex_i - 1), (ex_j - 1), lambda0, sigma, dist_dat_pop, timeincr) *
                                               surv_cpp(tstart, t, timeincr, (ex_i - 1), (ex_j-1), lambda0, sigma, dist_dat_pop)
                                             }))
 ggplot()+
