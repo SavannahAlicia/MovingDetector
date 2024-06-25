@@ -96,14 +96,33 @@ double vec_max(Rcpp::NumericVector x) {
   return *it;
 }
 
+// [[Rcpp::export]]
+Rcpp::Datetime addSecondsToDatetime(Rcpp::Datetime dt, int secondsToAdd) {
+  // Extract the double value from the Rcpp::Datetime object
+  double dt_double = dt;
+  
+  // Convert secondsToAdd to double (in case there's any implicit conversion needed)
+  double seconds = static_cast<double>(secondsToAdd);
+  
+  // Add the integer seconds to the double value
+  double new_dt_double = dt_double + seconds;
+  
+  // Create a new Rcpp::Datetime object from the modified double value
+  Rcpp::Datetime new_dt(new_dt_double);
+  
+  return new_dt;
+}
+
+
 //----------------- Likelihood related functions -------------------------------
 // [[Rcpp::export]]
 double hazdist_cpp(double lambda0,
                    double sigma,
-                   double d) {
+                   double d,
+                   int timeincr) {
   double g0 = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
   //experimenting, not sure what to do for 1/T, seems somewhat arbitrary
-  double haz  = (1/60*60*24*7)-log(1 - g0);
+  double haz  = log(1 - g0) * -1 *  1/timeincr ; //
   return haz;
 }
 
@@ -136,9 +155,10 @@ double haz_cpp(Rcpp::Datetime t,
                double lambda0,
                double sigma,
                Rcpp::List dist_dat,
+               int timeincr,
                double timesnap = 600) {
   double distkxt_cpp_ = disttxk_cpp(t, x, k, dist_dat, timesnap);
-  double hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_);
+  double hazout = hazdist_cpp(lambda0, sigma, distkxt_cpp_, timeincr);
   return(hazout);
 }
 
@@ -168,19 +188,17 @@ double surv_cpp(Rcpp::Datetime timestart,
     Rcpp::NumericVector hazs(timesopen.length());
     for(int tt = 0; tt < timesopen.length(); tt++){
       Rcpp::Datetime timet = timesopen(tt);
-      hazs(tt) = haz_cpp(timet, x, k, lambda0, sigma, dist_dat);
+      hazs(tt) = haz_cpp(timet, x, k, lambda0, sigma, dist_dat, timeincr);
     }
     //set intervals of time over which to approx integrate
     Rcpp::NumericVector opentimediffs(timesteps.length());
-    for(int d = 1; d < opentimediffs.length(); d++){
-      //double timeincr_db = static_cast<double>(Rcpp::clone(timeincr));
-      opentimediffs(d) = timeincr;
-    }
     //the gap between first time and itself is 0
     opentimediffs(0) = 0;
-    
+    for(int d = 1; d < opentimediffs.length(); d++){
+      opentimediffs(d) = timeincr;
+    }
      // hazard times the time interval from the previous t to current t (0 for first time point)
-    double integ = Rcpp::sum(hazs * opentimediffs);
+    double integ = Rcpp::sum(hazs * opentimediffs);//will this preserve small numbers?
     survout = std::exp(-1 * integ);
   }
   return(survout);
@@ -251,9 +269,17 @@ negloglikelihood_cpp( //add log link
         bool ikcaught = all(Rcpp::is_na(captik)).is_false();//isna returns false, so a capture time exists
         if(ikcaught){
           Rcpp::Datetime dettime = capthist(i,trapk);
-          double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
-          double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat);
-          Sxhx_eachtrap(trapk) = Sx * hx;
+          // suvival up to time interval in which capture occurs, then hazard times time interval
+          //time of trap before dettime
+          //Rcpp::Datetime beforedettime = addSecondsToDatetime(dettime, -timeincr);
+          if (dettime == starttime){
+            //if no time has passed, multiply by time increment of 0
+            Sxhx_eachtrap(trapk) = 0;
+          } else {
+            double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+            double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat, timeincr);
+            Sxhx_eachtrap(trapk) = Sx * hx * timeincr; 
+          }
         }else{
           double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
           Sxhx_eachtrap(trapk) = Sx;
