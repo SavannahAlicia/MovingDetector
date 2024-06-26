@@ -268,13 +268,16 @@ sim_capthist <- function(pop = NULL, traps, timeincrement, lambda0, sigma, D_mes
                                     timesopen <- seq(topentime, tclosetime, timeincrement)
                                     numt <- length(timesopen)
                                     seenfirstat_t <- apply(as.array(2:(numt)), 1, FUN = function(t){
-                                     # notseenuntiltminus1 <- surv_cpp(topentime, timesopen[(t)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16
-                                    #  hazatt <- haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement)
-                                    #  seenfirstatt <- notseenuntiltminus1 * hazatt * timeincrement
-                                      seenfirstatt <- #(surv_cpp(topentime, timesopen[(t-1)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
-                                        (surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
-                                        #(1 - exp(-haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement))
-                                        haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement
+                                      seenfirstatt <- 
+                                        
+                                      #probability the first detection happens at t given at least one detection happens
+                                      #(surv_cpp(topentime, timesopen[t], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
+                                      #haz_cpp(timesopen[t], (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop, timeincrement) * timeincrement
+                                        
+                                      #probability that at least one detection happens in increment ending at t given at least one detection happens
+                                      (surv_cpp(topentime, timesopen[(t-1)], timeincrement, (hrcx-1), (trapk-1), lambda0, sigma, dist_dat_pop) + 1e-16) *
+                                      (1 - surv_cpp(timesopen[(t-1)], timesopen[(t)], timeincrement, (hrcx-1), (trapk - 1), lambda0, sigma, dist_dat_pop))
+                                      
                                       return(seenfirstatt)
                                       })
                                     seenfirstatt_givenseen <- c(0, seenfirstat_t/probseenxk)
