@@ -276,9 +276,16 @@ negloglikelihood_cpp( //add log link
             //if no time has passed, multiply by time increment of 0
             Sxhx_eachtrap(trapk) = 0 + 1e-16;
           } else {
-            double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
-            double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat, timeincr);
-            Sxhx_eachtrap(trapk) = Sx * hx * timeincr; 
+            //#probability the first detection happens at t given at least one detection happens
+            //double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
+            //double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat, timeincr);
+            //Sxhx_eachtrap(trapk) = Sx * hx * timeincr; 
+            
+            //#probability that at least one detection happens in increment ending at t given at least one detection happens
+            Rcpp::Datetime beforedettime = addSecondsToDatetime(dettime, -timeincr);
+            double Sx = surv_cpp(starttime, beforedettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
+            double atleastoneseen = 1 - surv_cpp(beforedettime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+            Sxhx_eachtrap(trapk) = Sx * atleastoneseen
           }
         }else{
           double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
