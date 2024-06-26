@@ -285,7 +285,7 @@ negloglikelihood_cpp( //add log link
             Rcpp::Datetime beforedettime = addSecondsToDatetime(dettime, -timeincr);
             double Sx = surv_cpp(starttime, beforedettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
             double atleastoneseen = 1 - surv_cpp(beforedettime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
-            Sxhx_eachtrap(trapk) = Sx * atleastoneseen
+            Sxhx_eachtrap(trapk) = Sx * atleastoneseen;
           }
         }else{
           double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
