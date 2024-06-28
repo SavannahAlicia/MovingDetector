@@ -8,7 +8,7 @@ source("movingdetectorlikelihood.R")
 set.seed(556)
 
 ######data setup
-lambda0 = .3
+lambda0 = .4
 sigma = 300
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
@@ -154,10 +154,10 @@ ggplot()+
 
 
 #trying to minimize
-trylambda0s <- parallel::mclapply(as.list(seq(0,1.1,.1)),  FUN = function(lambda0_){
+trylambda0s <- parallel::mclapply(as.list(seq(0,1,.1)),  FUN = function(lambda0_){
   negloglikelihood_cpp(lambda0_, sigma, D_mesh, timeincr, capthist, dist_dat)
 }, mc.cores = 4)
-plotlambdas <- data.frame(lambda0 = seq(0,1.1,.1),
+plotlambdas <- data.frame(lambda0 = seq(0,1,.1),
                           llk = unlist(trylambda0s))
 ggplot() +
   geom_point(data = plotlambdas, aes(x = lambda0, y = llk)) +
@@ -219,4 +219,24 @@ ggplot() +
   #and survival is high. Which is problematic
   theme_classic()
 
+########
+nll <- function(v){
+    lambda0_ <- v[1]
+    sigma_ <- v[2]
+    out <- negloglikelihood_cpp(lambda0_, sigma = sigma_, D_mesh, timeincr, capthist, dist_dat)
+    return(out)
+    }
+
+start <- c( .3, 200)
+fit <- optim(par = start,
+             fn = nll,
+             hessian = T)
+fisher_info <- solve(fit$hessian)
+prop_sigma <- sqrt(diag(fisher_info))
+prop_sigma <- diag(prop_sigma)
+upper <- fit$par+1.96*prop_sigma
+lower <- fit$par-1.96*prop_sigma
+interval <- data.frame(value = fit$par, 
+                       upper = diag(upper), 
+                       lower = diag(lower))
 
