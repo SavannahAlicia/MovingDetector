@@ -131,7 +131,7 @@ trapsdf <- rbind(
 # ltr_trapsdf <- rbind(ltr_trapsdf, add)
 
 
-dist_dat <- create_distdat(ltr_trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
+dist_dat <- create_distdat(trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
 ggplot() +
   geom_point(data = mesh, aes(x = x, y = y), col = "grey") +
   geom_point(data = trapsdf, aes(x = x, y = y, col = as.factor(trapID)), shape = "+", size = 5) +
@@ -139,7 +139,7 @@ ggplot() +
 
 ###-----------simulate data for moving and stationary detectors-----------------
 ###-------and fit model with stationary and moving detector---------------------
-sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr){
+sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   #capthist dim(inds, traps)
   capthist_full<- sim_capthist(pop = NULL, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
   capthist <- capthist_full[which(rowSums(capthist_full, na.rm = T) > 0),]
@@ -188,7 +188,35 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr){
       
     }
   }
-  make.capthist(secrcapdata, secrtraps, fmt = c("trapID"))
+  secrcapdata$trap <- paste("trap", secrcapdata$trap )
+  secrcapthist <- make.capthist(secrcapdata, secrtraps, fmt = c("trapID"))
+  
+  start.time.scr <- Sys.time()
+  #grid with stationary detector likelihood
+  secrfit <- secr.fit(secrcapthist, model = list(
+    D ~ 1,
+    g0 ~ 1,
+    sigma ~ 1
+  ),
+  mask = mesh,
+  detectfn = 0)
+  fit.time.scr <- Sys.time() - start.time.scr
+  
+  fisher_infoscr <- solve(secrfit$fit$hessian)
+  prop_sigmascr <- sqrt(diag(fisher_infoscr))
+  prop_sigmascr <- diag(prop_sigmascr)
+  upperscr <- secrfit$fit$par+1.96*prop_sigmascr
+  lowerscr <- secrfit$fit$par-1.96*prop_sigmascr
+  secrinterval <- data.frame(name = c("lambda0", "sigma", "D"),
+             value = c(invlogit(secrfit$fit$estimate[2]),
+                       exp(secrfit$fit$estimate[3]),
+                       exp(secrfit$fit$estimate[1])), 
+             upper = c(invlogit(diag(upperscr))[2],
+                       exp(diag(upperscr))[3],
+                       exp(diag(upperscr))[1]),
+             lower = c(invlogit(diag(lowerscr))[2],
+                       exp(diag(lowerscr))[3],
+                       exp(diag(lowerscr))[1]))
                 
   
   #moving detector likelihood
@@ -201,9 +229,12 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr){
   }
   
   start <- c( .3, 200, .3)
+  start.time.md <- Sys.time()
   fit <- optim(par = start,
                fn = nll,
                hessian = T)
+  fit.time.md <- Sys.time() - start.time.md
+  
   fisher_info <- solve(fit$hessian)
   prop_sigma <- sqrt(diag(fisher_info))
   prop_sigma <- diag(prop_sigma)
@@ -213,16 +244,15 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr){
                          value = fit$par, 
                          upper = diag(upper), 
                          lower = diag(lower))
-  return(interval)
+  out <- list(statdet_est = secrinterval, 
+              movdet_est = interval,
+              statdet_time = fit.time.scr,
+              movdet_time = fit.time.md)
+  return(out)
 }
 
-start.time <- Sys.time()
-stat_fit <- sim_fit(stat_trapsdf, stat_dist_dat, lambda0, sigma, D_mesh, timeincr)
-tot.time <- Sys.time()- start.time
-
-
 start.time2 <- Sys.time()
-ltr_fit <- sim_fit(ltr_trapsdf, ltr_dist_dat, lambda0, sigma, D_mesh, timeincr)
+ltr_fit <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
 tot.time2 <- Sys.time()- start.time2
 
 
