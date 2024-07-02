@@ -175,10 +175,10 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   for(ind in 1:nrow(capthist)){
     for(trapo in 1:ncol(capthist)){
       if(!is.na(capthist[ind,trapo])){
-        trapxy <- trapsdf[which(trapsdf$trapID == trapo &
+        trapxyid <- trapsdf[which(trapsdf$trapID == trapo &
                                   trapsdf$time == capthist[ind,trapo]), c("x","y","occ")]
-        secrtrap <- which(secrtraps$x == trapxy$x & 
-                            secrtraps$y == trapxy$y)
+        secrtrap <- which(secrtraps$x == trapxyid$x & 
+                            secrtraps$y == trapxyid$y)
         out <- data.frame(session = 1,
                           ID = ind,
                           occasion = trapo,
@@ -190,16 +190,36 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   }
   secrcapdata$trap <- paste("trap", secrcapdata$trap )
   secrcapthist <- make.capthist(secrcapdata, secrtraps, fmt = c("trapID"))
+  distmat <-   #distance data object (created from traps and mesh)
+    traptomesh <- apply(as.array(1:nrow(mesh)), 1, FUN = 
+                          function(meshrow){
+                            apply(as.array(1:nrow(trapxy)), 
+                                  1, FUN = 
+                                    function(traprow){
+                                      dist(rbind(traps[traprow, c("x", "y")],
+                                                 mesh[meshrow,c("x","y")]), method = "euclidean")
+                                    })})
   
   start.time.scr <- Sys.time()
   #grid with stationary detector likelihood
+  stat_nll <- function(v){
+    lambda0_ <- v[1]
+    sigma_ <- v[2]
+    D_mesh_ <- rep(v[3], nrow(mesh))
+    out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
+    return(out)
+  }
+  
+  
+  
   secrfit <- secr.fit(secrcapthist, model = list(
     D ~ 1,
     g0 ~ 1,
     sigma ~ 1
   ),
   mask = mesh,
-  detectfn = 0)
+  detectfn = 0,
+  details = list(userdist = distmat))
   fit.time.scr <- Sys.time() - start.time.scr
   
   fisher_infoscr <- solve(secrfit$fit$hessian)
@@ -257,7 +277,6 @@ tot.time2 <- Sys.time()- start.time2
 
 
 ###------------------------compare computation time-----------------------------
-
 
 
 ###--------------------------compare precision ---------------------------------
