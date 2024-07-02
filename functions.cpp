@@ -310,3 +310,119 @@ negloglikelihood_cpp( //add log link
   double out = -1 * (-lambdan - lognfact + sumlogint); 
   return(out);
 }
+
+
+//#---------------------Stationary Detector multi-catch LLK
+//-----------------Likelihood --------------------------------------------------
+
+// [[Rcpp::export]]
+double halfnormdet_cpp(double lambda0,
+                   double sigma,
+                   double d) {
+  double g0 = lambda0* std::exp(-((d * d)/(2 * (sigma * sigma))));
+  return g0;
+}
+
+// [[Rcpp::export]]
+double
+  negloglikelihood_stationary_cpp( //add log link 
+    double lambda0,
+    double sigma, 
+    Rcpp::NumericVector D_mesh,
+    arma::cube capthist,
+    Rcpp::NumericMatrix usage, //traps by occ
+    Rcpp::NumericMatrix distmat, //traps x mesh 
+    Rcpp::List dist_dat) {//specify objects
+    Rcpp::List traps = Rcpp::List::create(Rcpp::seq_len(capthist.n_slices)); //needs to still just be a list of trap ID number
+    Rcpp::List occs = Rcpp::List::create(Rcpp::seq_len(capthist.n_cols)); //seq(1:n_occasions) but 0 base
+    Rcpp::List meshpre = dist_dat["mesh"]; //still just an xy mesh
+    //calculate mesh area (note this is for a rectangular mesh grid, will need to
+    //be recalculated for irregular shaped mesh)
+    Rcpp::NumericVector meshx = meshpre["x"];
+    Rcpp::NumericVector meshy = meshpre["y"];
+    Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
+    Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
+    double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    //begin for loops for lambdan calculation
+    Rcpp::NumericVector Dx_pdotxs(meshx.length());
+    for(int m = 0; m < meshx.length(); m++){
+      double Dx = D_mesh(m);
+      Rcpp::NumericVector notseen_eachocc((occs.length()));
+      for(int occk = 0; occk < occs.length(); occk++){ 
+        Rcpp::NumericVector notseen_eachtrap((traps.length()));
+        for(int trapj = 0; trapj < traps.length(); trapj++){ 
+          if(usage(trapj, occk) == 0){
+            notseen_eachtrap(trapj) = 1;
+          } else {
+            double thisdist = distmat(trapj, m); 
+            notseen_eachtrap(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist);
+          }
+        }
+        double notseenalltraps = product(notseen_eachtrap);
+        notseen_eachocc(occk) = notseenalltraps;
+      }
+      double notseen_alloccs = product(notseen_eachocc);
+      double pdot = 1 - notseen_alloccs;
+      double Dx_pdotx = Dx * pdot;
+      Dx_pdotxs(m) = Dx_pdotx;
+    }
+    double lambdan = sum(Dx_pdotxs) * mesharea;
+    //rest of likelihood
+    double n = capthist.n_rows;
+    Rcpp::NumericVector integral_eachi(n);
+    for(int i = 0; i < n; i++){
+      Rcpp::NumericVector DKprod_eachx(meshx.length());
+      for(int x = 0; x < meshx.length(); x++){
+        Rcpp::NumericVector probcapthist_eachocc(occs.length());
+        for(int occk = 0; occk < occs.length(); occk++){
+          bool ikcaught = FALSE;
+          int trapijk;
+          Rcpp::NumericVector pj_xis(traps.length()); //need to calculate prod(1-pji) 
+          Rcpp::NumericVector oneminuspj_xis(traps.length());  //and sum(pjk)
+          //need to limit this to traps used in the occasion
+          Rcpp::NumericVector usedtraps = usage.column(occk);
+          for(int trapj = 0; trapj < traps.length(); trapj++){
+            double captik;
+            if(usedtraps(trapj) == 0){
+              pj_xis(trapj) = 0;
+              oneminuspj_xis(trapj) = 1;
+            } else{
+              captik = capthist(i, occk, trapj);
+              double thisdist2 = distmat(trapj, x); 
+              pj_xis(trapj) = halfnormdet_cpp(lambda0, sigma, thisdist2);
+              oneminuspj_xis(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist2);
+            }
+            //assign if i is caught and which trap caught it
+            if(captik == 1){
+              ikcaught = TRUE;
+              trapijk = trapj;
+            }
+          }
+          double prod_oneminuspj_xis = product(oneminuspj_xis);
+          if(ikcaught){
+            double sum_pj_xis = sum(pj_xis);
+            double probj = halfnormdet_cpp(lambda0, sigma, distmat(trapijk, x));
+            probcapthist_eachocc(occk) = (probj/sum_pj_xis) * (1 - prod_oneminuspj_xis);
+          }else{
+            probcapthist_eachocc(occk) = prod_oneminuspj_xis;
+          }
+        }
+        double probcapthist_alloccs = product(probcapthist_eachocc);
+        DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
+      }
+      double DKprod_sum = sumC(DKprod_eachx);
+      integral_eachi(i) = DKprod_sum * mesharea;
+    }
+    int n_int = std::round(n);
+    int one = 1;
+    Rcpp::NumericVector ns(n);
+    ns = seqC(one, n_int);
+    Rcpp::NumericVector logns(n);
+    logns = log(ns);
+    double lognfact = sum(logns);
+    Rcpp::NumericVector logint = logvec(integral_eachi);
+    double sumlogint = sumC(logint);
+    double out = -1 * (-lambdan - lognfact + sumlogint); 
+    return(out);
+  }
+
