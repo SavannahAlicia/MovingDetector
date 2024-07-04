@@ -333,8 +333,11 @@ double
     Rcpp::NumericMatrix usage, //traps by occ
     Rcpp::NumericMatrix distmat, //traps x mesh 
     Rcpp::List dist_dat) {//specify objects
-    Rcpp::List traps = Rcpp::List::create(Rcpp::seq_len(capthist.n_slices)); //needs to still just be a list of trap ID number
-    Rcpp::List occs = Rcpp::List::create(Rcpp::seq_len(capthist.n_cols)); //seq(1:n_occasions) but 0 base
+    int one = 1;
+    int captrap = capthist.n_slices;
+    Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
+    int capocc = capthist.n_cols;
+    Rcpp::NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
     Rcpp::List meshpre = dist_dat["mesh"]; //still just an xy mesh
     //calculate mesh area (note this is for a rectangular mesh grid, will need to
     //be recalculated for irregular shaped mesh)
@@ -345,17 +348,17 @@ double
     double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
     //begin for loops for lambdan calculation
     Rcpp::NumericVector Dx_pdotxs(meshx.length());
-    for(int m = 0; m < meshx.length(); m++){
+     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      Rcpp::NumericVector notseen_eachocc((occs.length()));
-      for(int occk = 0; occk < occs.length(); occk++){ 
-        Rcpp::NumericVector notseen_eachtrap((traps.length()));
-        for(int trapj = 0; trapj < traps.length(); trapj++){ 
+      Rcpp::NumericVector notseen_eachocc((occs.size()));
+      for(int occk = 0; occk < occs.size(); occk++){
+        Rcpp::NumericVector notseen_eachtrap((traps.size()));
+        for(int trapj = 0; trapj < traps.size(); trapj++){
           if(usage(trapj, occk) == 0){
-            notseen_eachtrap(trapj) = 1;
+            notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
           } else {
-            double thisdist = distmat(trapj, m); 
-            notseen_eachtrap(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist);
+            double thisdist = distmat(trapj, m);
+            notseen_eachtrap(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist); //1 minus prob seen
           }
         }
         double notseenalltraps = product(notseen_eachtrap);
@@ -365,7 +368,7 @@ double
       double pdot = 1 - notseen_alloccs;
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
-    }
+     }
     double lambdan = sum(Dx_pdotxs) * mesharea;
     //rest of likelihood
     double n = capthist.n_rows;
@@ -377,18 +380,16 @@ double
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = FALSE;
           int trapijk;
-          Rcpp::NumericVector pj_xis(traps.length()); //need to calculate prod(1-pji) 
+          Rcpp::NumericVector pj_xis(traps.length()); //need to calculate prod(1-pji)
           Rcpp::NumericVector oneminuspj_xis(traps.length());  //and sum(pjk)
           //need to limit this to traps used in the occasion
-          Rcpp::NumericVector usedtraps = usage.column(occk);
           for(int trapj = 0; trapj < traps.length(); trapj++){
-            double captik;
-            if(usedtraps(trapj) == 0){
+            double captik = capthist(i, occk, trapj);
+            if(usage(trapj, occk) == 0){
               pj_xis(trapj) = 0;
               oneminuspj_xis(trapj) = 1;
             } else{
-              captik = capthist(i, occk, trapj);
-              double thisdist2 = distmat(trapj, x); 
+              double thisdist2 = distmat(trapj, x);
               pj_xis(trapj) = halfnormdet_cpp(lambda0, sigma, thisdist2);
               oneminuspj_xis(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist2);
             }
@@ -414,7 +415,6 @@ double
       integral_eachi(i) = DKprod_sum * mesharea;
     }
     int n_int = std::round(n);
-    int one = 1;
     Rcpp::NumericVector ns(n);
     ns = seqC(one, n_int);
     Rcpp::NumericVector logns(n);
@@ -422,7 +422,7 @@ double
     double lognfact = sum(logns);
     Rcpp::NumericVector logint = logvec(integral_eachi);
     double sumlogint = sumC(logint);
-    double out = -1 * (-lambdan - lognfact + sumlogint); 
+    double out = -1 * (-lambdan - lognfact + sumlogint);
     return(out);
   }
 
