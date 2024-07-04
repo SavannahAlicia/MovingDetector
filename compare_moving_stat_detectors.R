@@ -215,34 +215,6 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
                fn = stat_nll,
                hessian = T)
   fit.time.sd <- Sys.time() - start.time.sd
-
-  # fit.time.scr <- Sys.time() - start.time.scr
-  # secrfit <- secr.fit(secrcapthist, model = list(
-  #   D ~ 1,
-  #   g0 ~ 1,
-  #   sigma ~ 1
-  # ),
-  # mask = mesh,
-  # detectfn = 0,
-  # details = list(userdist = distmat))
-  # fit.time.scr <- Sys.time() - start.time.scr
-  # 
-  # fisher_infoscr <- solve(secrfit$fit$hessian)
-  # prop_sigmascr <- sqrt(diag(fisher_infoscr))
-  # prop_sigmascr <- diag(prop_sigmascr)
-  # upperscr <- secrfit$fit$par+1.96*prop_sigmascr
-  # lowerscr <- secrfit$fit$par-1.96*prop_sigmascr
-  # secrinterval <- data.frame(name = c("lambda0", "sigma", "D"),
-  #            value = c(invlogit(secrfit$fit$estimate[2]),
-  #                      exp(secrfit$fit$estimate[3]),
-  #                      exp(secrfit$fit$estimate[1])), 
-  #            upper = c(invlogit(diag(upperscr))[2],
-  #                      exp(diag(upperscr))[3],
-  #                      exp(diag(upperscr))[1]),
-  #            lower = c(invlogit(diag(lowerscr))[2],
-  #                      exp(diag(lowerscr))[3],
-  #                      exp(diag(lowerscr))[1]))
-                
   
   #moving detector likelihood
   nll <- function(v){
