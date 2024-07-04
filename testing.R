@@ -5,6 +5,7 @@ setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
+
 set.seed(556)
 
 ######data setup
