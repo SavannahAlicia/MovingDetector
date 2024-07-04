@@ -1,13 +1,14 @@
 #compare moving and stationary detector fits
 library(secr)
 library(lubridate)
+library(parallel)
 library(ggplot2)
 setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
 set.seed(12345)
-nsims = 100
+nsims = 20
 
 #----------------------------------data setup-----------------------------------
 lambda0 = .4
@@ -179,10 +180,11 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
 }
 
 start.time.all <- Sys.time()
-all_sim_fits <- lapply(as.list(1:nsims),
+all_sim_fits <- mclapply(X = as.list(1:nsims),
                    FUN = function(sim){
                      return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh))
-                   }
+                   },
+                   mc.cores = 6
 )
 tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
 
