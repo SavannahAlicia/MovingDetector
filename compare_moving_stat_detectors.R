@@ -196,11 +196,11 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
                             apply(as.array(1:nrow(trapxy)), 
                                   1, FUN = 
                                     function(traprow){
-                                      dist(rbind(traps[traprow, c("x", "y")],
+                                      dist(rbind(trapxy[traprow, c("x", "y")],
                                                  mesh[meshrow,c("x","y")]), method = "euclidean")
                                     })})
   
-  start.time.scr <- Sys.time()
+
   #grid with stationary detector likelihood
   stat_nll <- function(v){
     lambda0_ <- v[1]
@@ -209,34 +209,39 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
     out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
     return(out)
   }
-  
-  
-  
-  secrfit <- secr.fit(secrcapthist, model = list(
-    D ~ 1,
-    g0 ~ 1,
-    sigma ~ 1
-  ),
-  mask = mesh,
-  detectfn = 0,
-  details = list(userdist = distmat))
-  fit.time.scr <- Sys.time() - start.time.scr
-  
-  fisher_infoscr <- solve(secrfit$fit$hessian)
-  prop_sigmascr <- sqrt(diag(fisher_infoscr))
-  prop_sigmascr <- diag(prop_sigmascr)
-  upperscr <- secrfit$fit$par+1.96*prop_sigmascr
-  lowerscr <- secrfit$fit$par-1.96*prop_sigmascr
-  secrinterval <- data.frame(name = c("lambda0", "sigma", "D"),
-             value = c(invlogit(secrfit$fit$estimate[2]),
-                       exp(secrfit$fit$estimate[3]),
-                       exp(secrfit$fit$estimate[1])), 
-             upper = c(invlogit(diag(upperscr))[2],
-                       exp(diag(upperscr))[3],
-                       exp(diag(upperscr))[1]),
-             lower = c(invlogit(diag(lowerscr))[2],
-                       exp(diag(lowerscr))[3],
-                       exp(diag(lowerscr))[1]))
+  start <- c( .3, 200, .3)
+  start.time.sd <- Sys.time()
+  fit_sd <- optim(par = start,
+               fn = stat_nll,
+               hessian = T)
+  fit.time.sd <- Sys.time() - start.time.sd
+
+  # fit.time.scr <- Sys.time() - start.time.scr
+  # secrfit <- secr.fit(secrcapthist, model = list(
+  #   D ~ 1,
+  #   g0 ~ 1,
+  #   sigma ~ 1
+  # ),
+  # mask = mesh,
+  # detectfn = 0,
+  # details = list(userdist = distmat))
+  # fit.time.scr <- Sys.time() - start.time.scr
+  # 
+  # fisher_infoscr <- solve(secrfit$fit$hessian)
+  # prop_sigmascr <- sqrt(diag(fisher_infoscr))
+  # prop_sigmascr <- diag(prop_sigmascr)
+  # upperscr <- secrfit$fit$par+1.96*prop_sigmascr
+  # lowerscr <- secrfit$fit$par-1.96*prop_sigmascr
+  # secrinterval <- data.frame(name = c("lambda0", "sigma", "D"),
+  #            value = c(invlogit(secrfit$fit$estimate[2]),
+  #                      exp(secrfit$fit$estimate[3]),
+  #                      exp(secrfit$fit$estimate[1])), 
+  #            upper = c(invlogit(diag(upperscr))[2],
+  #                      exp(diag(upperscr))[3],
+  #                      exp(diag(upperscr))[1]),
+  #            lower = c(invlogit(diag(lowerscr))[2],
+  #                      exp(diag(lowerscr))[3],
+  #                      exp(diag(lowerscr))[1]))
                 
   
   #moving detector likelihood
@@ -250,23 +255,28 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   
   start <- c( .3, 200, .3)
   start.time.md <- Sys.time()
-  fit <- optim(par = start,
+  fit_md <- optim(par = start,
                fn = nll,
                hessian = T)
   fit.time.md <- Sys.time() - start.time.md
   
-  fisher_info <- solve(fit$hessian)
-  prop_sigma <- sqrt(diag(fisher_info))
-  prop_sigma <- diag(prop_sigma)
-  upper <- fit$par+1.96*prop_sigma
-  lower <- fit$par-1.96*prop_sigma
-  interval <- data.frame(name = c("lambda0", "sigma", "D"),
-                         value = fit$par, 
-                         upper = diag(upper), 
-                         lower = diag(lower))
-  out <- list(statdet_est = secrinterval, 
-              movdet_est = interval,
-              statdet_time = fit.time.scr,
+  assemble_CIs <- function(fit){
+    fisher_info <- solve(fit$hessian)
+    prop_sigma <- sqrt(diag(fisher_info))
+    prop_sigma <- diag(prop_sigma)
+    upper <- fit$par+1.96*prop_sigma
+    lower <- fit$par-1.96*prop_sigma
+    interval <- data.frame(name = c("lambda0", "sigma", "D"),
+                           value = fit$par, 
+                           upper = diag(upper), 
+                           lower = diag(lower))
+    
+    return(interval)
+  } 
+  
+  out <- list(statdet_est = assemble_CIs(fit_sd), 
+              movdet_est = assemble_CIs(fit_md),
+              statdet_time = fit.time.sd,
               movdet_time = fit.time.md)
   return(out)
 }
@@ -280,3 +290,4 @@ tot.time2 <- Sys.time()- start.time2
 
 
 ###--------------------------compare precision ---------------------------------
+
