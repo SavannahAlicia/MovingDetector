@@ -7,7 +7,7 @@ Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
 set.seed(12345)
-numsims = 100
+nsims = 100
 
 #----------------------------------data setup-----------------------------------
 lambda0 = .4
@@ -19,71 +19,7 @@ D_mesh <- rep(.4, nrow(mesh))
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 
 tracksteps = 10
-#-------------------------stationary detectors-----------------------------
-# #dataframe with column for trapid, x, y, and time
-# stat_trapsdf <- rbind(
-#   data.frame(trapID = 1, 
-#              occ = 1,
-#              x = rep(750, tracksteps),
-#              y = 1000, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 2, 
-#              occ = 1,
-#              x = rep(750, tracksteps),
-#              y = 1250, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 3, 
-#              occ = 1,
-#              x = rep(750, tracksteps),
-#              y = 1500, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 4, 
-#              occ = 1,
-#              x = rep(1250, tracksteps),
-#              y = 1000, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 5, 
-#              occ = 1,
-#              x = rep(1250, tracksteps),
-#              y = 1250, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 6, 
-#              occ = 1,
-#              x = rep(1250, tracksteps),
-#              y = 1500, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 7, 
-#              occ = 1,
-#              x = rep(1750, tracksteps),
-#              y = 1000, 
-#              time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 8, 
-#              occ = 2,
-#              x = rep(1750, tracksteps),
-#              y = 1250, 
-#              time = seq(ymd_hms("2024-01-02 8:00:00"), (ymd_hms("2024-01-02 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360)),
-#   data.frame(trapID = 9, 
-#              occ = 2,
-#              x = rep(1750, tracksteps),
-#              y = 1500, 
-#              time = seq(ymd_hms("2024-01-02 8:00:00"), (ymd_hms("2024-01-02 8:00:00") + (tracksteps-1)*360), 
-#                         by = 360))
-# )
-# 
-# stat_dist_dat <- create_distdat(stat_trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
-# ggplot() +
-#   geom_point(data = mesh, aes(x = x, y = y), col = "grey") +
-#   geom_point(data = stat_trapsdf, aes(x = x, y = y, col = as.factor(trapID)), shape = "+", size = 5) +
-#   theme_classic()
-  
+
 #-----------------------------detectors moving left to right--------------------
 
 trapsdf <- rbind(
@@ -119,17 +55,6 @@ trapsdf <- rbind(
                         by = 360))
   
 )
-# #add 4 more occasions, each a day later
-# add <- data.frame(trapID = rep(5:20, each = 4*tracksteps),
-#                   occ = rep(2:5, each = nrow(ltr_trapsdf)),
-#                   x = rep(ltr_trapsdf$x, 4),
-#                   y = rep(ltr_trapsdf$y, 4),
-#                   time = c(ltr_trapsdf$time+ 60*60*24,
-#                            ltr_trapsdf$time+ 60*60*24*2,
-#                            ltr_trapsdf$time+ 60*60*24*3,
-#                            ltr_trapsdf$time+ 60*60*24*4))
-# ltr_trapsdf <- rbind(ltr_trapsdf, add)
-
 
 dist_dat <- create_distdat(trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
 ggplot() +
@@ -214,7 +139,7 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   fit_sd <- optim(par = start,
                fn = stat_nll,
                hessian = T)
-  fit.time.sd <- Sys.time() - start.time.sd
+  fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
   
   #moving detector likelihood
   nll <- function(v){
@@ -230,7 +155,7 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   fit_md <- optim(par = start,
                fn = nll,
                hessian = T)
-  fit.time.md <- Sys.time() - start.time.md
+  fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
   assemble_CIs <- function(fit){
     fisher_info <- solve(fit$hessian)
@@ -253,13 +178,46 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   return(out)
 }
 
-start.time2 <- Sys.time()
-ltr_fit <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
-tot.time2 <- Sys.time()- start.time2
+start.time.all <- Sys.time()
+all_sim_fits <- lapply(as.list(1:nsims),
+                   FUN = function(sim){
+                     return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh))
+                   }
+)
+tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
 
 
 ###------------------------compare computation time-----------------------------
 
 
+
 ###--------------------------compare precision ---------------------------------
+
+stat_outs <- do.call(rbind,lapply(as.list(1:length(all_sim_fits)), FUN = function(x){
+  df <- all_sim_fits[[x]]$statdet_est
+  df$sim = rep(x,3)
+  return(df)
+  }))
+move_outs <-  do.call(rbind,lapply(as.list(1:length(all_sim_fits)), FUN = function(x){
+  df <- all_sim_fits[[x]]$movdet_est
+  df$sim = rep(x,3)
+  return(df)
+}))
+
+ggplot() +
+  geom_density(stat_outs[stat_outs$name == "lambda0",], mapping = aes(x = value)) +
+  geom_vline(xintercept = mean(stat_outs[stat_outs$name == "lambda0","value"])) +
+  geom_vline(xintercept = quantile(stat_outs[stat_outs$name == "lambda0","value"], 
+                                   probs = c(0.025, .975)), linetype = "dashed") +
+  geom_density(move_outs[move_outs$name == "lambda0",], mapping = aes(x = value),
+               col = "blue") +
+  geom_vline(xintercept = mean(move_outs[move_outs$name == "lambda0","value"]),
+             col = "blue") +
+  geom_vline(xintercept = quantile(move_outs[move_outs$name == "lambda0","value"], 
+                                   probs = c(0.025, .975)), linetype = "dashed",
+             col = "blue") +
+  geom_vline(xintercept = lambda0, col = "red")
+  
+               
+
 
