@@ -216,6 +216,8 @@ negloglikelihood_cpp( //add log link
   int timeincr,
   Rcpp::NumericMatrix capthist,
   Rcpp::List dist_dat,
+  Rcpp::Nullable<Rcpp::NumericVector> haz_kmt_ = R_NilValue,//traps x mesh x times
+  Rcpp::Nullable<Rcpp::NumericVector> surv_kmt_ = R_NilValue,//traps x mesh x times
   double timesnap = 600) {//specify objects
   Rcpp::List trapspre = dist_dat["traps"];
   Rcpp::List traps = trapspre[0];
@@ -230,6 +232,61 @@ negloglikelihood_cpp( //add log link
   Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
   Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
   double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+  
+  //start with matrix of hazards
+  if(haz_kmt_.isNotNull()){
+    Rcpp::NumericVector haz_kmt(haz_kmt_);
+  } else{
+    Rcpp::NumericVector haz_kmt(traps.length() * meshx.length() * distmat.n_slices);
+      for(int trapk = 0; trapk < traps.length(); trapk++){
+        Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
+        Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
+        double openidx = vec_min(opentimeindx);
+        double closeidx = vec_max(opentimeindx);
+        Rcpp::Datetime topentime = times[openidx];
+        Rcpp::Datetime tclosetime = times[closeidx];
+        for (int m = 0; m < meshx.length(); m++){
+          for(int t = 0; t < distmat.n_slices; t++){
+            if(t >= openidx & t <= closeidx){ 
+              haz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = haz_cpp(times[t], m, trapk, lambda0, sigma, dist_dat, timeincr);
+            } else{//hazard when trap isn't open is 0
+              haz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 0;
+            }
+          }
+      }
+    }
+      haz_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
+  }
+  if (surv_kmt_.isNotNull()){
+    Rcpp::NumericVector surv_kmt(surv_kmt_);       // casting to underlying type NumericMatrix
+  } else {Rcpp::NumericVector surv_kmt(traps.length() * meshx.length() * distmat.n_slices);
+    for(int trapk = 0; trapk < traps.length(); trapk++){
+      Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
+      Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
+      double openidx = vec_min(opentimeindx);
+      double closeidx = vec_max(opentimeindx);
+      Rcpp::Datetime topentime = times[openidx];
+      Rcpp::Datetime tclosetime = times[closeidx];
+      for (int m = 0; m < meshx.length(); m++){
+        for(int t = 0; t < distmat.n_slices; t++){
+          if(t >= openidx & t <= closeidx){ //survival when trap isn't open is 1
+            if(t == openidx) {
+              surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
+            } else {
+              surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = exp(-1 * )
+            }
+          } else {
+            //survival when trap is closed is 1
+            surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
+          }
+        }
+      }
+    }
+    surv_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
+    //survival to each time is survival at previous time plus next step
+    //then need to add references to this matrix below instead of calling haz and surv
+  }
+  
   //begin for loops for lambdan calculation
   Rcpp::NumericVector Dx_pdotxs(meshx.length());
   for(int m = 0; m < meshx.length(); m++){
@@ -332,7 +389,8 @@ double
     arma::cube capthist,
     Rcpp::NumericMatrix usage, //traps by occ
     Rcpp::NumericMatrix distmat, //traps x mesh 
-    Rcpp::List dist_dat) {//specify objects
+    Rcpp::List dist_dat
+    ) {//specify objects
     int one = 1;
     int captrap = capthist.n_slices;
     Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
@@ -394,7 +452,7 @@ double
               oneminuspj_xis(trapj) = 1 - halfnormdet_cpp(lambda0, sigma, thisdist2);
             }
             //assign if i is caught and which trap caught it
-            if(captik == 1){
+            if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE;
               trapijk = trapj;
             }
