@@ -206,20 +206,31 @@ move_outs <-  do.call(rbind,lapply(as.list(1:length(all_sim_fits)), FUN = functi
   return(df)
 }))
 
-ggplot() +
-  geom_density(stat_outs[stat_outs$name == "lambda0",], mapping = aes(x = value)) +
-  geom_vline(xintercept = mean(stat_outs[stat_outs$name == "lambda0","value"])) +
-  geom_vline(xintercept = quantile(stat_outs[stat_outs$name == "lambda0","value"], 
-                                   probs = c(0.025, .975)), linetype = "dashed") +
-  geom_density(move_outs[move_outs$name == "lambda0",], mapping = aes(x = value),
-               col = "blue") +
-  geom_vline(xintercept = mean(move_outs[move_outs$name == "lambda0","value"]),
-             col = "blue") +
-  geom_vline(xintercept = quantile(move_outs[move_outs$name == "lambda0","value"], 
-                                   probs = c(0.025, .975)), linetype = "dashed",
-             col = "blue") +
-  geom_vline(xintercept = lambda0, col = "red")
-  
-               
+all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
+                                                          nrow(stat_outs)))),
+      cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
+library(dplyr)
+all_outs2 <- all_outs %>%
+  group_by(name, model) %>%
+  summarize(mean = mean(value), meanupper = mean(upper), meanlower = mean(lower))
 
+ggplot() +
+  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = value, col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(mean), col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
+  geom_vline(xintercept = lambda0)
+  
+ggplot() +
+  geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = value, col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(mean), col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
+  geom_vline(xintercept = sigma)           
+ggplot() +
+  geom_density(all_outs[all_outs$name == "D",], mapping = aes(x = value, col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(mean), col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
+  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
+  geom_vline(xintercept = D_mesh[1])
 
