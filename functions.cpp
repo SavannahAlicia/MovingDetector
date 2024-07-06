@@ -113,6 +113,26 @@ Rcpp::Datetime addSecondsToDatetime(Rcpp::Datetime dt, int secondsToAdd) {
   return new_dt;
 }
 
+// [[Rcpp::export]]
+double extract_index(Rcpp::DatetimeVector x, Rcpp::Datetime v) {
+  // Find the indices where (x - v) == 0
+  int index = -1;
+  // Find the indices where (x - v) == 0
+  for (int i = 0; i < x.size(); ++i) {
+    double vtimestamp = v.getFractionalTimestamp();
+    Rcpp::Datetime xi = x[i];
+    double xitimestamp = xi.getFractionalTimestamp();
+    if (xitimestamp  == vtimestamp) {
+      index = i;
+      break;
+    }
+  }
+  if (index != -1) {
+    return index;
+  } else {
+    return NA_REAL; // Use NA_REAL for NA_DATETIME
+  }
+}
 
 //----------------- Likelihood related functions -------------------------------
 // [[Rcpp::export]]
@@ -232,74 +252,80 @@ negloglikelihood_cpp( //add log link
   Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
   Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
   double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
-  
+
+  Rcpp::NumericVector haz_kmt(traps.length() * meshx.length() * distmat.n_slices);
+  Rcpp::NumericVector surv_kmt(traps.length() * meshx.length() * distmat.n_slices);
+  Rcpp::NumericVector sumhaz_kmt(traps.length() * meshx.length() * distmat.n_slices);
+  Rcpp::NumericVector incsurv_kmt(traps.length() * meshx.length() * distmat.n_slices);
   //start with matrix of hazards
   if(haz_kmt_.isNotNull()){
-    Rcpp::NumericVector haz_kmt(haz_kmt_);
+    haz_kmt = haz_kmt_;
   } else{
-    Rcpp::NumericVector haz_kmt(traps.length() * meshx.length() * distmat.n_slices);
       for(int trapk = 0; trapk < traps.length(); trapk++){
         Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
         Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
         double openidx = vec_min(opentimeindx);
         double closeidx = vec_max(opentimeindx);
-        Rcpp::Datetime topentime = times[openidx];
-        Rcpp::Datetime tclosetime = times[closeidx];
         for (int m = 0; m < meshx.length(); m++){
           for(int t = 0; t < distmat.n_slices; t++){
             if(t >= openidx & t <= closeidx){ 
               haz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = haz_cpp(times[t], m, trapk, lambda0, sigma, dist_dat, timeincr);
+              if(t == openidx){
+                //this is the sum of the hazard to approx the integral for survival.
+                sumhaz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 0;
+              } else {
+                sumhaz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = haz_kmt[trapk + traps.length() * (m + meshx.length() * (t))] + sumhaz_kmt[trapk + traps.length() * (m + meshx.length() * (t - 1))];
+              }
             } else{//hazard when trap isn't open is 0
               haz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 0;
+              sumhaz_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 0;
             }
           }
       }
     }
       haz_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
+    sumhaz_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
   }
   if (surv_kmt_.isNotNull()){
-    Rcpp::NumericVector surv_kmt(surv_kmt_);       // casting to underlying type NumericMatrix
-  } else {Rcpp::NumericVector surv_kmt(traps.length() * meshx.length() * distmat.n_slices);
+    surv_kmt = surv_kmt_;       // casting to underlying type NumericMatrix?
+  } else {
     for(int trapk = 0; trapk < traps.length(); trapk++){
       Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
       Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
       double openidx = vec_min(opentimeindx);
       double closeidx = vec_max(opentimeindx);
-      Rcpp::Datetime topentime = times[openidx];
-      Rcpp::Datetime tclosetime = times[closeidx];
       for (int m = 0; m < meshx.length(); m++){
         for(int t = 0; t < distmat.n_slices; t++){
           if(t >= openidx & t <= closeidx){ //survival when trap isn't open is 1
             if(t == openidx) {
               surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
+              incsurv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
             } else {
-              surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = exp(-1 * )
+              surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = exp(-1 * sumhaz_kmt[trapk + traps.length() * (m + meshx.length() * t)] * timeincr);
+              incsurv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = surv_cpp(times[(t-1)], times[t], timeincr, m, trapk, lambda0, sigma, dist_dat);
             }
           } else {
             //survival when trap is closed is 1
             surv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
+            incsurv_kmt[trapk + traps.length() * (m + meshx.length() * t)] = 1;
           }
         }
       }
     }
     surv_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
-    //survival to each time is survival at previous time plus next step
     //then need to add references to this matrix below instead of calling haz and surv
   }
-  
+
   //begin for loops for lambdan calculation
   Rcpp::NumericVector Dx_pdotxs(meshx.length());
   for(int m = 0; m < meshx.length(); m++){
     double Dx = D_mesh(m);
     Rcpp::NumericVector surv_eachtrap((traps.length()));
-    for(int trapk = 0; trapk < traps.length(); trapk++){ 
+    for(int trapk = 0; trapk < traps.length(); trapk++){
       Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
       Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
-      double openidx = vec_min(opentimeindx);
       double closeidx = vec_max(opentimeindx);
-      Rcpp::Datetime topentime = times[openidx];
-      Rcpp::Datetime tclosetime = times[closeidx];
-      surv_eachtrap(trapk) = surv_cpp(topentime, tclosetime, timeincr, m, trapk, lambda0, sigma, dist_dat); 
+      surv_eachtrap(trapk) = surv_kmt[trapk + traps.length() * (m + meshx.length() * closeidx)]; //trap x mesh x time
     }
     double survalltraps = product(surv_eachtrap);
     double pdot = 1 - survalltraps;
@@ -321,7 +347,6 @@ negloglikelihood_cpp( //add log link
         double openidx = vec_min(opentimeindx);
         double closeidx = vec_max(opentimeindx);
         Rcpp::Datetime starttime = times[openidx];
-        Rcpp::Datetime endtime = times[closeidx];
         captik = capthist(i,trapk);
         bool ikcaught = all(Rcpp::is_na(captik)).is_false();//isna returns false, so a capture time exists
         if(ikcaught){
@@ -336,16 +361,18 @@ negloglikelihood_cpp( //add log link
             //#probability the first detection happens at t given at least one detection happens
             //double Sx = surv_cpp(starttime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
             //double hx = haz_cpp(dettime, x, trapk, lambda0, sigma, dist_dat, timeincr);
-            //Sxhx_eachtrap(trapk) = Sx * hx * timeincr; 
-            
+            //Sxhx_eachtrap(trapk) = Sx * hx * timeincr;
+
             //#probability that at least one detection happens in increment ending at t given at least one detection happens
-            Rcpp::Datetime beforedettime = addSecondsToDatetime(dettime, -timeincr);
-            double Sx = surv_cpp(starttime, beforedettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
-            double atleastoneseen = 1 - surv_cpp(beforedettime, dettime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+            //need to find index of beforedettime (or of dettime and just subtract 1)
+            double dettimeindx = extract_index(times, dettime);
+            double Sx = surv_kmt(trapk + traps.length() * (x + meshx.length() * (dettimeindx - 1)));
+           // double Sx = surv_cpp(starttime, beforedettime, timeincr, x, trapk, lambda0, sigma, dist_dat) + 1e-16;
+            double atleastoneseen = 1 - incsurv_kmt(trapk + traps.length() * (x + meshx.length() * dettimeindx));
             Sxhx_eachtrap(trapk) = Sx * atleastoneseen;
           }
         }else{
-          double Sx = surv_cpp(starttime, endtime, timeincr, x, trapk, lambda0, sigma, dist_dat);
+          double Sx = surv_kmt(trapk + traps.length() * (x + meshx.length() * closeidx));
           Sxhx_eachtrap(trapk) = Sx;
         }
       }
@@ -364,7 +391,7 @@ negloglikelihood_cpp( //add log link
   double lognfact = sum(logns);
   Rcpp::NumericVector logint = logvec(integral_eachi);
   double sumlogint = sumC(logint);
-  double out = -1 * (-lambdan - lognfact + sumlogint); 
+  double out = -1 * (-lambdan - lognfact + sumlogint);
   return(out);
 }
 
