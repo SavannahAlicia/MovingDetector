@@ -1,6 +1,8 @@
 #include <RcppArmadillo.h>
 //[[Rcpp::depends(RcppArmadillo)]]
+//[[Rcpp::depends(RcppClock)]]
 //[[Rcpp::plugins(cpp11)]]
+#include <RcppClock.h>
 
 //----------------- Supporting functions ---------------------------------------
 // [[Rcpp::export]]
@@ -239,6 +241,9 @@ negloglikelihood_cpp( //add log link
   Rcpp::Nullable<Rcpp::NumericVector> haz_kmt_ = R_NilValue,//traps x mesh x times
   Rcpp::Nullable<Rcpp::NumericVector> surv_kmt_ = R_NilValue,//traps x mesh x times
   double timesnap = 600) {//specify objects
+  Rcpp::Clock clock;
+  clock.tick("whole_enchilada");
+  clock.tick("setup");
   Rcpp::List trapspre = dist_dat["traps"];
   Rcpp::List traps = trapspre[0];
   arma::cube distmat = dist_dat["distmat"]; //traps x mesh x times
@@ -257,7 +262,9 @@ negloglikelihood_cpp( //add log link
   Rcpp::NumericVector surv_kmt(traps.length() * meshx.length() * distmat.n_slices);
   Rcpp::NumericVector sumhaz_kmt(traps.length() * meshx.length() * distmat.n_slices);
   Rcpp::NumericVector incsurv_kmt(traps.length() * meshx.length() * distmat.n_slices);
+  clock.tock("setup");
   //start with matrix of hazards
+  clock.tick("matrices_creation");
   if(haz_kmt_.isNotNull()){
     haz_kmt = haz_kmt_;
   } else{
@@ -315,8 +322,9 @@ negloglikelihood_cpp( //add log link
     surv_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
     //then need to add references to this matrix below instead of calling haz and surv
   }
-
+  clock.tock("matrices_creation");
   //begin for loops for lambdan calculation
+  clock.tick("lambdan");
   Rcpp::NumericVector Dx_pdotxs(meshx.length());
   for(int m = 0; m < meshx.length(); m++){
     double Dx = D_mesh(m);
@@ -333,10 +341,14 @@ negloglikelihood_cpp( //add log link
     Dx_pdotxs(m) = Dx_pdotx;
   }
   double lambdan = sum(Dx_pdotxs) * mesharea;
+  clock.tock("lambdan");
+
   //rest of likelihood
+  clock.tick("loopllk");
   double n = capthist.nrow();
   Rcpp::NumericVector integral_eachi(n);
   for(int i = 0; i < n; i++){
+    clock.tick("inteachi" + std::to_string(i));
     Rcpp::NumericVector DKprod_eachx(meshx.length());
     for(int x = 0; x < meshx.length(); x++){
       Rcpp::NumericVector Sxhx_eachtrap(traps.length());
@@ -381,7 +393,9 @@ negloglikelihood_cpp( //add log link
     }
     double DKprod_sum = sumC(DKprod_eachx);
     integral_eachi(i) = DKprod_sum * mesharea;
+    clock.tock("inteachi" + std::to_string(i));
   }
+  clock.tock("loopllk");
   int n_int = std::round(n);
   int one = 1;
   Rcpp::NumericVector ns(n);
@@ -392,6 +406,7 @@ negloglikelihood_cpp( //add log link
   Rcpp::NumericVector logint = logvec(integral_eachi);
   double sumlogint = sumC(logint);
   double out = -1 * (-lambdan - lognfact + sumlogint);
+  clock.tock("whole_enchilada");
   return(out);
 }
 
