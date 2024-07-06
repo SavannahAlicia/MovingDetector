@@ -407,6 +407,7 @@ negloglikelihood_cpp( //add log link
   double sumlogint = sumC(logint);
   double out = -1 * (-lambdan - lognfact + sumlogint);
   clock.tock("whole_enchilada");
+  clock.stop("llktimes");
   return(out);
 }
 
