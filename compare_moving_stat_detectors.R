@@ -16,6 +16,14 @@ sigma = 300
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
 mesh <- make.mask(meshgrid, buffer = 800, spacing = 250)
 D_mesh <- rep(.4, nrow(mesh))
+beta1 <- -(1/2800000)
+beta2 <- 1.1
+D_mesh_q <- beta1*(mesh$x)^2 + beta2
+D_mesh_q[D_mesh_q < 0] <- 0
+ggplot() + 
+  geom_line(data = data.frame(x = mesh$x, y = D_mesh_q), mapping = aes(x = x, y = y)) + 
+  geom_line(data = data.frame(x = mesh$x, y = D_mesh_q), mapping = aes(x = x, y = y)) + 
+  geom_vline(xintercept = c(750, 1750))
 
 timeincr = 6*60 #specifies time increments for integration AND for distance matrix 
 
@@ -28,31 +36,31 @@ trapsdf <- rbind(
              occ = 1,
              x = seq(from = 750, to = 1750, length.out = tracksteps),
              y = 750, 
-             time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
+             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps-1)*360), 
                         by = 360)),
   data.frame(trapID = 2, 
              occ = 1,
              x = seq(from = 750, to = 1750, length.out = tracksteps),
              y = 1050, 
-             time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
+             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps-1)*360), 
                         by = 360)),
   data.frame(trapID = 3, 
              occ = 1,
              x = seq(from = 750, to = 1750, length.out = tracksteps),
              y = 1375, 
-             time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
+             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps-1)*360), 
                         by = 360)),
   data.frame(trapID = 4, 
              occ = 1,
              x = seq(from = 750, to = 1750, length.out = tracksteps),
              y = 1750, 
-             time = seq(ymd_hms("2024-01-01 8:00:00"), (ymd_hms("2024-01-01 8:00:00") + (tracksteps-1)*360), 
+             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps-1)*360), 
                         by = 360)),
   data.frame(trapID = 5, 
              occ = 1,
              x = seq(from = 750, to = 1750, length.out = tracksteps),
              y = 1750, 
-             time = seq(ymd_hms("2024-01-02 8:00:00"), (ymd_hms("2024-01-02 8:00:00") + (tracksteps-1)*360), 
+             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps-1)*360), 
                         by = 360))
   
 )
@@ -65,7 +73,7 @@ ggplot() +
 
 ###-----------simulate data for moving and stationary detectors-----------------
 ###-------and fit model with stationary and moving detector---------------------
-sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
+sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, Dmod = "~1"){
   #capthist dim(inds, traps)
   capthist_full<- sim_capthist(pop = NULL, trapsdf, timeincr, lambda0, sigma, D_mesh) #function in movingdetectorlikelihood.R
   capthist <- capthist_full[which(rowSums(capthist_full, na.rm = T) > 0),]
@@ -128,43 +136,70 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
   
 
   #grid with stationary detector likelihood
-  stat_nll <- function(v){
-    lambda0_ <- v[1]
-    sigma_ <- v[2]
-    D_mesh_ <- rep(v[3], nrow(mesh))
-    out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
-    return(out)
-  }
-  start <- c( .3, 200, .3)
+  if (Dmod == "~1"){
+    stat_nll <- function(v){
+      lambda0_ <- v[1]
+      sigma_ <- v[2]
+      D_mesh_ <- rep(v[3], nrow(mesh))
+      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
+      return(out)
+    }
+    #moving detector likelihood
+    nll <- function(v){
+      lambda0_ <- v[1]
+      sigma_ <- v[2]
+      D_mesh_ <- rep(v[3], nrow(mesh))
+      out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
+      return(out)
+    }
+    start <- c( .4, 300, .4)
+    
+  }else if(Dmod == "~x^2"){
+    #quadratic density function
+    stat_nll <- function(v){
+      lambda0_ <- v[1]
+      sigma_ <- v[2]
+      D_mesh_ <- v[3]*(mesh$x)^2 + v[4]
+      D_mesh[D_mesh < 0] <- 0
+      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
+      return(out)
+    }
+    #moving detector likelihood
+    nll <- function(v){
+      lambda0_ <- v[1]
+      sigma_ <- v[2]
+      D_mesh_ <- v[3]*(mesh$x)^2 + v[4]
+      D_mesh[D_mesh < 0] <- 0
+      out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
+      return(out)
+    }
+    start <- c(.4, 300, -(1/2800000), 1.1)
+  }  
+
   start.time.sd <- Sys.time()
   fit_sd <- optim(par = start,
-               fn = stat_nll,
-               hessian = T)
+                  fn = stat_nll,
+                  hessian = T)
   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
   
-  #moving detector likelihood
-  nll <- function(v){
-    lambda0_ <- v[1]
-    sigma_ <- v[2]
-    D_mesh_ <- rep(v[3], nrow(mesh))
-    out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
-    return(out)
-  }
-  
-  start <- c( .3, 200, .3)
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                fn = nll,
                hessian = T)
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
+  if (Dmod == "~1"){
+    outnames <- c("lambda0", "sigma", "D")
+  } else if(Dmod == "~x^2"){
+    outnames <- c("lambda0", "sigma", "beta1", "beta2")
+  }
   assemble_CIs <- function(fit){
     fisher_info <- solve(fit$hessian)
     prop_sigma <- sqrt(diag(fisher_info))
     prop_sigma <- diag(prop_sigma)
     upper <- fit$par+1.96*prop_sigma
     lower <- fit$par-1.96*prop_sigma
-    interval <- data.frame(name = c("lambda0", "sigma", "D"),
+    interval <- data.frame(name = outnames,
                            value = fit$par, 
                            upper = diag(upper), 
                            lower = diag(lower))
@@ -178,6 +213,11 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh){
               movdet_time = fit.time.md)
   return(out)
 }
+
+#test one of each
+fit1 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
+fit2 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, Dmod = "~x^2")
+
 
 start.time.all <- Sys.time()
 all_sim_fits <- mclapply(X = as.list(1:nsims),
@@ -212,7 +252,7 @@ all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary",
 library(dplyr)
 all_outs2 <- all_outs %>%
   group_by(name, model) %>%
-  summarize(mean = mean(value), meanupper = mean(upper), meanlower = mean(lower))
+  summarize(mean = mean(value), meanupper = quantile(upper, probs = .975), meanlower = quantile(lower, probs = .025))
 
 ggplot() +
   geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = value, col = model)) +
