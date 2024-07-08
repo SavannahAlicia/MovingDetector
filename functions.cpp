@@ -265,13 +265,15 @@ negloglikelihood_cpp( //add log link
   clock.tock("setup");
   //start with matrix of hazards
   clock.tick("matrices_creation");
+  //Note that all surveys start at the same time. So openidx will always be 0.
+  //Fill times after the survey concludes with hazard of 0
   if(haz_kmt_.isNotNull()){
     haz_kmt = haz_kmt_;
   } else{
       for(int trapk = 0; trapk < traps.length(); trapk++){
         Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
         Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
-        double openidx = vec_min(opentimeindx);
+        double openidx = 0;
         double closeidx = vec_max(opentimeindx);
         for (int m = 0; m < meshx.length(); m++){
           for(int t = 0; t < distmat.n_slices; t++){
