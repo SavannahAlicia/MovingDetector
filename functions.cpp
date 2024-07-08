@@ -348,12 +348,20 @@ negloglikelihood_cpp( //add log link
   double n = capthist.nrow();
   Rcpp::NumericVector integral_eachi(n);
   for(int i = 0; i < n; i++){
-    clock.tick("inteachi" + std::to_string(i));
+    if ( i == 0 ){
+      clock.tick("onei");
+    }
     Rcpp::NumericVector DKprod_eachx(meshx.length());
     for(int x = 0; x < meshx.length(); x++){
+      if ( x == 0 ){
+        clock.tick("onex");
+      }
       Rcpp::NumericVector Sxhx_eachtrap(traps.length());
       Rcpp::NumericVector captik(1);
       for(int trapk = 0; trapk < traps.length(); trapk++){
+        if ( trapk == 0 ){
+          clock.tick("onek");
+        }
         Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk);
         Rcpp::NumericVector opentimeindx = which_is_not_na(Sugar_colSums(distmatslicek));
         double openidx = vec_min(opentimeindx);
@@ -387,13 +395,21 @@ negloglikelihood_cpp( //add log link
           double Sx = surv_kmt(trapk + traps.length() * (x + meshx.length() * closeidx));
           Sxhx_eachtrap(trapk) = Sx;
         }
-      }
+        if (trapk == 0 ){
+          clock.tock("onek");
+        }
+        }
       double Sxhx_alltraps = product(Sxhx_eachtrap);
       DKprod_eachx(x) = D_mesh(x) * Sxhx_alltraps;
-    }
+      if ( x == 0 ){
+        clock.tock("onex");
+      }
+      }
     double DKprod_sum = sumC(DKprod_eachx);
     integral_eachi(i) = DKprod_sum * mesharea;
-    clock.tock("inteachi" + std::to_string(i));
+    if (i == 0){
+      clock.tock("onei");
+    }
   }
   clock.tock("loopllk");
   int n_int = std::round(n);
@@ -434,6 +450,9 @@ double
     Rcpp::NumericMatrix distmat, //traps x mesh 
     Rcpp::List dist_dat
     ) {//specify objects
+    Rcpp::Clock clock;
+    clock.tick("wholeenchilada");
+    clock.tick("setup");
     int one = 1;
     int captrap = capthist.n_slices;
     Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
@@ -447,7 +466,9 @@ double
     Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
     Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
     double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    clock.tock("setup");
     //begin for loops for lambdan calculation
+    clock.tick("lambdan");
     Rcpp::NumericVector Dx_pdotxs(meshx.length());
      for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
@@ -471,7 +492,9 @@ double
       Dx_pdotxs(m) = Dx_pdotx;
      }
     double lambdan = sum(Dx_pdotxs) * mesharea;
+    clock.tock("lambdan");
     //rest of likelihood
+    clock.tick("loopllk");
     double n = capthist.n_rows;
     Rcpp::NumericVector integral_eachi(n);
     for(int i = 0; i < n; i++){
@@ -515,6 +538,7 @@ double
       double DKprod_sum = sumC(DKprod_eachx);
       integral_eachi(i) = DKprod_sum * mesharea;
     }
+    clock.tock("loopllk");
     int n_int = std::round(n);
     Rcpp::NumericVector ns(n);
     ns = seqC(one, n_int);
@@ -524,6 +548,8 @@ double
     Rcpp::NumericVector logint = logvec(integral_eachi);
     double sumlogint = sumC(logint);
     double out = -1 * (-lambdan - lognfact + sumlogint);
+    clock.tock("wholeenchilada");
+    clock.stop("statllktimes");
     return(out);
   }
 
