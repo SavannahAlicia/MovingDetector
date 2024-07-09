@@ -99,7 +99,8 @@ snappedtracks <- do.call(rbind, apply(as.array(unique(tracks$ID)), 1, FUN = func
 })
 )
 #trapID, x, y, time
-trapsdf <- snappedtracks[,c("ID", "x", "y", "timestep")]
+trapsdf <- snappedtracks[,c("x", "y", "timestep")]
+trapsdf$trapID <- snappedtracks$ID
 dist_dat <- create_distdat(trapsdf, mesh)
 
 #and snap detection times to those times
