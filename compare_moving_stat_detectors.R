@@ -11,12 +11,12 @@ set.seed(12345)
 nsims = 20
 
 #----------------------------------data setup-----------------------------------
-lambda0 = .4
+lambda0 = .7
 sigma = 300
-meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
+meshgrid <- expand.grid(x = seq(0, 2600, 100), y = seq(0,2600, 100))
 mesh <- make.mask(meshgrid, buffer = 800, spacing = 250)
 D_mesh <- rep(.4, nrow(mesh))
-beta1 <- -(1/550000)
+beta1 <- -(1/40000)
 beta2 <- -1250
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
 truepar <- data.frame(name = c("lambda0", "sigma", "beta1", "beta2"),
@@ -72,6 +72,7 @@ trapsdf <- rbind(
 
 dist_dat <- create_distdat(trapsdf, mesh) #calls function in movingdetectorlikelihood.R to create data object
 ggplot() +
+  geom_tile(data = data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), aes(x= x, y = y, fill = D)) +
   geom_point(data = mesh, aes(x = x, y = y), col = "grey") +
   geom_point(data = trapsdf, aes(x = x, y = y, col = as.factor(trapID)), shape = "+", size = 5) +
   theme_classic()
@@ -176,7 +177,7 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
       out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
       return(out)
     }
-    start <- c(log(.4), log(300), -1/2800000, 1.1)
+    start <- c(log(.4), log(300), -(1/40000), -1250)
   }  
 
   start.time.sd <- Sys.time()
