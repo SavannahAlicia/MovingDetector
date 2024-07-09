@@ -16,10 +16,14 @@ sigma = 300
 meshgrid <- expand.grid(x = seq(0, 2600, 300), y = seq(0,2600, 300))
 mesh <- make.mask(meshgrid, buffer = 800, spacing = 250)
 D_mesh <- rep(.4, nrow(mesh))
-beta1 <- -(1/2800000)
-beta2 <- 1.1
-D_mesh_q <- beta1*(mesh$x)^2 + beta2
+beta1 <- -(1/550000)
+beta2 <- -1250
+D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
 D_mesh_q[D_mesh_q < 0] <- 0
+##REMOVE THIS AFTER DEBUG
+#D_mesh <- D_mesh_q
+#Dmod = "~x^2"
+##
 ggplot() + 
   geom_line(data = data.frame(x = mesh$x, y = D_mesh_q), mapping = aes(x = x, y = y)) + 
   geom_line(data = data.frame(x = mesh$x, y = D_mesh_q), mapping = aes(x = x, y = y)) + 
@@ -138,54 +142,52 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
     stat_nll <- function(v){
-      lambda0_ <- v[1]
-      sigma_ <- v[2]
-      D_mesh_ <- rep(v[3], nrow(mesh))
+      lambda0_ <- exp(v[1])
+      sigma_ <- exp(v[2])
+      D_mesh_ <- rep(exp(v[3]), nrow(mesh))
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
       return(out)
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- v[1]
-      sigma_ <- v[2]
-      D_mesh_ <- rep(v[3], nrow(mesh))
+      lambda0_ <- exp(v[1])
+      sigma_ <- exp(v[2])
+      D_mesh_ <- rep(exp(v[3]), nrow(mesh))
       out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
       return(out)
     }
-    start <- c( .4, 300, .4)
+    start <- c( log(.4), log(300), log(.4))
     
   }else if(Dmod == "~x^2"){
     #quadratic density function
     stat_nll <- function(v){
-      lambda0_ <- v[1]
-      sigma_ <- v[2]
-      D_mesh_ <- v[3]*(mesh$x)^2 + v[4]
-      D_mesh[D_mesh < 0] <- 0
+      lambda0_ <- exp(v[1])
+      sigma_ <- exp(v[2])
+      D_mesh_ <- exp(v[3]*(mesh$x + v[4])^2)
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
       return(out)
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- v[1]
-      sigma_ <- v[2]
-      D_mesh_ <- v[3]*(mesh$x)^2 + v[4]
-      D_mesh[D_mesh < 0] <- 0
+      lambda0_ <- exp(v[1])
+      sigma_ <- exp(v[2])
+      D_mesh_ <- exp(v[3]*(mesh$x + v[4])^2)
       out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
       return(out)
     }
-    start <- c(.4, 300, -(1/2800000), 1.1)
+    start <- c(log(.4), log(300), -1/2800000, 1.1)
   }  
 
   start.time.sd <- Sys.time()
   fit_sd <- optim(par = start,
                   fn = stat_nll,
-                  hessian = T)
+                  hessian = F, method = "Nelder-Mead")
   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
   
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                fn = nll,
-               hessian = T)
+               hessian = F, method = "Nelder-Mead")
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
   if (Dmod == "~1"){
@@ -194,15 +196,16 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
     outnames <- c("lambda0", "sigma", "beta1", "beta2")
   }
   assemble_CIs <- function(fit){
-    fisher_info <- solve(fit$hessian)
-    prop_sigma <- sqrt(diag(fisher_info))
-    prop_sigma <- diag(prop_sigma)
-    upper <- fit$par+1.96*prop_sigma
-    lower <- fit$par-1.96*prop_sigma
+    #fisher_info <- solve(fit$hessian)
+    #prop_sigma <- sqrt(diag(fisher_info))
+    #prop_sigma <- diag(prop_sigma)
+    #upper <- fit$par+1.96*prop_sigma
+    #lower <- fit$par-1.96*prop_sigma
     interval <- data.frame(name = outnames,
-                           value = fit$par, 
-                           upper = diag(upper), 
-                           lower = diag(lower))
+                           value = fit$par#, 
+                           #upper = diag(upper), 
+                           #lower = diag(lower)
+                           )
     
     return(interval)
   } 
@@ -216,7 +219,7 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
 
 #test one of each
 fit1 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
-fit2 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, Dmod = "~x^2")
+fit2 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh, Dmod = "~x^2")
 
 
 start.time.all <- Sys.time()
