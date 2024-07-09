@@ -19,7 +19,8 @@ D_mesh <- rep(.4, nrow(mesh))
 beta1 <- -(1/550000)
 beta2 <- -1250
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
-D_mesh_q[D_mesh_q < 0] <- 0
+truepar <- data.frame(name = c("lambda0", "sigma", "beta1", "beta2"),
+                      value = c(lambda0, sigma, beta1, beta2))
 ##REMOVE THIS AFTER DEBUG
 #D_mesh <- D_mesh_q
 #Dmod = "~x^2"
@@ -171,7 +172,7 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
     nll <- function(v){
       lambda0_ <- exp(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh$x + v[4])^2)
+      D_mesh_ <- exp(v[3]*(mesh$x + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
       out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
       return(out)
     }
@@ -276,4 +277,13 @@ ggplot() +
   geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
   geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
   geom_vline(xintercept = D_mesh[1])
+
+
+D_plotdat <- data.frame(x = mesh$x, 
+                        trueD = D_mesh_q, 
+                        stationarydets = exp(fit2$statdet_est$value[3]*(mesh$x + fit2$statdet_est$value[4])^2),
+                        movingdets = exp(fit2$movdet_est$value[3]*(mesh$x + fit2$movdet_est$value[4])^2))
+D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
+ggplot() + 
+  geom_line(data = D_plotdatlong, mapping = aes(x = x, y = value, col = name)) 
 
