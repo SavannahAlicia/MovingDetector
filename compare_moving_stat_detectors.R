@@ -8,7 +8,7 @@ Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
 set.seed(12345)
-nsims = 20
+nsims = 1000
 
 #----------------------------------data setup-----------------------------------
 lambda0 = .7
@@ -220,8 +220,18 @@ sim_fit <- function(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh, D
 }
 
 #test one of each
-fit1 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
-fit2 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh, Dmod = "~x^2")
+#fit1 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh)
+#fit2 <- sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh, Dmod = "~x^2")
+
+start.time.all_q <- Sys.time()
+all_sim_fits_q <- mclapply(X = as.list(1:nsims),
+                           FUN = function(sim){
+                             return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh,Dmod = "~x^2"))
+                           },
+                           mc.cores = 6
+)
+tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
+
 
 
 start.time.all <- Sys.time()
@@ -279,12 +289,18 @@ ggplot() +
   geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
   geom_vline(xintercept = D_mesh[1])
 
+D_plotdat <- data.frame(x = mesh$x, 
+                        trueD = D_mesh, 
+                        stationarydets = exp(fit1$statdet_est$value[3]),
+                        movingdets = exp(fit1$movdet_est$value[3]))
 
 D_plotdat <- data.frame(x = mesh$x, 
                         trueD = D_mesh_q, 
                         stationarydets = exp(fit2$statdet_est$value[3]*(mesh$x + fit2$statdet_est$value[4])^2),
                         movingdets = exp(fit2$movdet_est$value[3]*(mesh$x + fit2$movdet_est$value[4])^2))
+
 D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
+
 ggplot() + 
-  geom_line(data = D_plotdatlong, mapping = aes(x = x, y = value, col = name)) 
+  geom_line(data = D_plotdatlong, mapping = aes(x = x, y = value, col = name))
 
