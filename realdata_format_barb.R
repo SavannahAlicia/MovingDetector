@@ -1,3 +1,5 @@
+Rcpp::sourceCpp("~/Documents/UniStAndrews/MovingDetector/functions.cpp")
+source("~/Documents/UniStAndrews/MovingDetector/movingdetectorlikelihood.R")
 setwd("~/Documents/UniStAndrews/Dolphins/barb")
 scenario = "onison"
 # load secr objects
@@ -10,6 +12,7 @@ survsum <- read.csv("data/all_scenarios/survey_summary.csv")
 allsightings <- readRDS("data/onison/sightings.Rds")
 sightingwnum <- readRDS("data/all_scenarios/sightings_data.Rds")
 wpts <- readRDS("data/onison/wpt_summaries.Rds")
+meshscr <- readRDS("~/Documents/UniStAndrews/BarBay_OpenSCR/data/meshscr.Rds")
 
 #just subset last primary (11)
 relsurvsum <- survsum[survsum$Primary.Period == 11,]
@@ -103,6 +106,7 @@ trapsdf <- snappedtracks[,c("x", "y", "timestep")]
 trapsdf$trapID <- snappedtracks$ID
 dist_dat <- create_distdat(trapsdf, mesh)
 
+
 #and snap detection times to those times
 #merge wpts datetime and sightings 
 capthist <- matrix(nrow = length(unique(sightings$ID)),
@@ -128,12 +132,29 @@ for(c in 1:length(unique(sightings$ID))){
   capthist[c,] <- as_datetime(out)
 }
 
+##save as RDS for use on server
+#exportobj <- list(
+#  timeincr = timeincr,
+#  capthist = capthist,
+#  dist_dat = dist_dat,
+  covmeshscr = covariates(meshscr)
+#)
+saveRDS(exportobj, "/Users/sr244/Documents/UniStAndrews/MovingDetector/sendtoserver/exportobj.Rds")
+  
+  
 negloglikelihood_cpp(-12, 8, rep(2.5, nrow(mesh)), timeincr, capthist, dist_dat)
+start <- c(-12, 8, 2.5, .05)
 
 nll <- function(v){
   lambda0_ <- exp(v[1])
   sigma_ <- exp(v[2])
-  D_mesh_ <- exp(v[3]*(mesh$x + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
+  D_mesh_ <- exp(v[3] + v[4]*covmeshscr$sal)
   out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
   return(out)
 }
+
+start.time.sd <- Sys.time()
+fit_sd <- optim(par = start,
+                fn = nll,
+                hessian = T, method = "Nelder-Mead")
+fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
