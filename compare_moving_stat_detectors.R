@@ -8,7 +8,7 @@ Rcpp::sourceCpp("functions.cpp")
 source("movingdetectorlikelihood.R")
 
 set.seed(12345)
-nsims = 1000
+nsims = 100
 
 #----------------------------------data setup-----------------------------------
 lambda0 = .7
@@ -228,7 +228,7 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
                              return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh,Dmod = "~x^2"))
                            },
-                           mc.cores = 6
+                           mc.cores = 7
 )
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 
@@ -239,7 +239,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
                    FUN = function(sim){
                      return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh))
                    },
-                   mc.cores = 6
+                   mc.cores = 3
 )
 tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
 
@@ -249,58 +249,183 @@ tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
 
 
 ###--------------------------compare precision ---------------------------------
-
+make_plot_dat<- function(all_sim_fits){
+  
 stat_outs <- do.call(rbind,lapply(as.list(1:length(all_sim_fits)), FUN = function(x){
   df <- all_sim_fits[[x]]$statdet_est
-  df$sim = rep(x,3)
+  df$sim = rep(x,nrow(all_sim_fits[[1]]$statdet_est))
   return(df)
   }))
 move_outs <-  do.call(rbind,lapply(as.list(1:length(all_sim_fits)), FUN = function(x){
   df <- all_sim_fits[[x]]$movdet_est
-  df$sim = rep(x,3)
+  df$sim = rep(x,nrow(all_sim_fits[[1]]$statdet_est))
   return(df)
 }))
 
 all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
                                                           nrow(stat_outs)))),
       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
+
 library(dplyr)
 all_outs2 <- all_outs %>%
   group_by(name, model) %>%
-  summarize(mean = mean(value), meanupper = quantile(upper, probs = .975), meanlower = quantile(lower, probs = .025))
+  summarize(mean = mean(value), meanupper = quantile(value, probs = .975), meanlower = quantile(value, probs = .025))
+
+
+out <- list(all_outs= all_outs, all_outs2 =all_outs2)
+
+}
+
+plotdat <- make_plot_dat(all_sim_fits_q)
+plotdat <- make_plot_dat(all_sim_fits)
+all_outs <- plotdat$all_outs
+all_outs2 <- plotdat$all_outs2
+plotcols <- c("#178A28", "#D81B60")
 
 ggplot() +
-  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = value, col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(mean), col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
-  geom_vline(xintercept = lambda0)
+  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = exp(value), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(mean)), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(meanlower)), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(meanupper)), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(xintercept = lambda0, size = 1.3, col = "black") +
+  xlab("lambda0") +
+  scale_color_manual(values = plotcols) +
+  theme_classic() +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 20))
+
   
 ggplot() +
-  geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = value, col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(mean), col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
-  geom_vline(xintercept = sigma)           
+  geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = exp(value), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(mean), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanlower), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanupper), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(xintercept = sigma, size = 1.3, col = "black")+
+  scale_color_manual(values = plotcols) +
+  xlab("sigma") +
+  theme_classic() +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 20))
 ggplot() +
-  geom_density(all_outs[all_outs$name == "D",], mapping = aes(x = value, col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(mean), col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
-  geom_vline(data = all_outs2[all_outs2$name == "D",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
-  geom_vline(xintercept = D_mesh[1])
+  geom_density(all_outs[all_outs$name == "beta1",], mapping = aes(x = value, col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(mean), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(xintercept = beta1) +
+  scale_color_manual(values = plotcols) +
+  xlab("beta1") +
+  theme_classic() +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 20))
+ggplot() +
+  geom_density(all_outs[all_outs$name == "beta2",], mapping = aes(x = value, col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(mean), col = model)) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
+  geom_vline(xintercept = beta2) +
+  scale_color_manual(values = plotcols) +
+  xlab("beta2") +
+  theme_classic() +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 20))
 
-D_plotdat <- data.frame(x = mesh$x, 
-                        trueD = D_mesh, 
-                        stationarydets = exp(fit1$statdet_est$value[3]),
-                        movingdets = exp(fit1$movdet_est$value[3]))
+D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), 50),3),
+                        y = rep(rep(mesh$y[1], 81),3),
+                        trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), 50) + beta2)^2), 3),
+                        stationarydets = c(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                         all_outs2$name == "beta1", "mean"]) * 
+                                               (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                  as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                     all_outs2$name == "beta2", "mean"]))^2),
+                                           exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                      all_outs2$name == "beta1", "meanupper"]) * 
+                                                 (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                    as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                           all_outs2$name == "beta2", "meanupper"]))^2),
+                                           exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                      all_outs2$name == "beta1", "meanlower"]) * 
+                                                 (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                    as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                           all_outs2$name == "beta2", "meanlower"]))^2)),
+                        movingdets = c(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                     all_outs2$name == "beta1", "mean"]) * 
+                                           (seq(min(mesh$x), max(mesh$x), 50) + 
+                                              as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                 all_outs2$name == "beta2", "mean"]))^2),
+                                       exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                  all_outs2$name == "beta1", "meanupper"]) * 
+                                             (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                       all_outs2$name == "beta2", "meanupper"]))^2),
+                                       exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                  all_outs2$name == "beta1", "meanlower"]) * 
+                                             (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                       all_outs2$name == "beta2", "meanlower"]))^2)),
+                        quantile = c(rep("mean", 81), rep("2.5%",81), rep("97.5%",81))
+                        )
 
-D_plotdat <- data.frame(x = mesh$x, 
-                        trueD = D_mesh_q, 
-                        stationarydets = exp(fit2$statdet_est$value[3]*(mesh$x + fit2$statdet_est$value[4])^2),
-                        movingdets = exp(fit2$movdet_est$value[3]*(mesh$x + fit2$movdet_est$value[4])^2))
+D_plotdat <- data.frame(x = rep(mesh$x, 3),
+                        y = rep(mesh$y, 3),
+                        trueD = rep(D_mesh, 3),
+                        stationarydets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                           all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                           rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                      all_outs2$name == "D", "meanupper"])), nrow(mesh)),
+                                           rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                      all_outs2$name == "D", "meanlower"])), nrow(mesh))),
+                        movingdets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                       all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                       rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                  all_outs2$name == "D", "meanupper"])), nrow(mesh)),
+                                       rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                  all_outs2$name == "D", "meanlower"])), nrow(mesh)) 
+                                       ),
+                        quantile = c(rep("mean", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
+)
+
+ggplot() + 
+  geom_tile(data = D_plotdat[,c(1,2,3)], aes(x = x, y= y, fill = trueD)) +
+  scale_color_manual(values = "black",  name = "D") +
+  theme_classic() +
+  labs(title = "True density") +
+  theme(axis.text.y = element_blank()
+        ,
+        legend.position = "none") 
+ggplot() + 
+  geom_tile(data = D_plotdat[,c(1,2,4)], aes(x = x, y= y, fill = stationarydets)) +
+  scale_fill_viridis_c(name = "D") +
+  theme_classic() +
+  labs(title = "Stationary detectors") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "none") 
+ggplot() + 
+  geom_tile(data = D_plotdat[,c(1,2,5)], aes(x = x, y= y, fill = movingdets)) +
+  scale_fill_viridis_c(name = "D") +
+  theme_classic() +
+  labs(title = "Moving detectors") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "none") 
+
 
 D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
 
 ggplot() + 
-  geom_line(data = D_plotdatlong, mapping = aes(x = x, y = value, col = name))
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = 1.3) +
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = 1.3) +
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = 1.3) +
+  scale_color_manual(values = c(plotcols, "black"), labels = c("moving", "stationary", "true D")) +
+  guides(col=guide_legend(title="model")) +
+  #ylim(0,.5) +
+  xlim(500,1750)+
+  ylab("Density") +
+  theme_classic() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 20))
 
