@@ -14,8 +14,8 @@ sightingwnum <- readRDS("data/all_scenarios/sightings_data.Rds")
 wpts <- readRDS("data/onison/wpt_summaries.Rds")
 meshscr <- readRDS("~/Documents/UniStAndrews/BarBay_OpenSCR/data/meshscr.Rds")
 
-#just subset last primary (11)
-relsurvsum <- survsum[survsum$Primary.Period == 11,]
+#just subset
+relsurvsum <- survsum[survsum$SurveyNum %in% c(393, 405),]
 tracks <- alltracks[alltracks$ID %in% relsurvsum$SurveyNum,]
 sightings <- allsightings[allsightings$survey %in% relsurvsum$SurveyNum,]
 sightings$SightingNumber <- apply(as.array(1:nrow(sightings)),1, FUN = function(row){
@@ -139,10 +139,12 @@ for(c in 1:length(unique(sightings$ID))){
 #  dist_dat = dist_dat,
   covmeshscr = covariates(meshscr)
 #)
-saveRDS(exportobj, "/Users/sr244/Documents/UniStAndrews/MovingDetector/sendtoserver/exportobj.Rds")
+#saveRDS(exportobj, "/Users/sr244/Documents/UniStAndrews/MovingDetector/sendtoserver/exportobj.Rds")
   
-  
-negloglikelihood_cpp(-12, 8, rep(2.5, nrow(mesh)), timeincr, capthist, dist_dat)
+nll.time.start <- Sys.time()  
+negloglikelihood_cpp(exp(-12), exp(8), rep(2.5, nrow(mesh)), timeincr, capthist, dist_dat)
+nll.time.tot <- Sys.time() - nll.time.start
+
 start <- c(-12, 8, 2.5, .05)
 
 nll <- function(v){
