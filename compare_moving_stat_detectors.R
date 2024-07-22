@@ -228,7 +228,7 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
                              return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh_q, timeincr, mesh,Dmod = "~x^2"))
                            },
-                           mc.cores = 7
+                           mc.cores = 6
 )
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 
@@ -239,7 +239,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
                    FUN = function(sim){
                      return(sim_fit(trapsdf, dist_dat, lambda0, sigma, D_mesh, timeincr, mesh))
                    },
-                   mc.cores = 3
+                   mc.cores = 6
 )
 tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
 
