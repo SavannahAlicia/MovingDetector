@@ -109,9 +109,10 @@ dist_dat <- create_distdat(trapsdf, mesh)
 
 #and snap detection times to those times
 #merge wpts datetime and sightings 
-capthist <- matrix(nrow = length(unique(sightings$ID)),
-                   ncol = length(unique(tracks$ID)),
-                   dimnames = list(unique(sightings$ID), 1:length(unique(tracks$ID))))
+capthist <- structure(array(dim = c(length(unique(sightings$ID)),
+                   ncol = length(unique(tracks$ID))),
+                   dimnames = c(list(unique(sightings$ID), unique(tracks$ID)))),
+                   class = c("POSIXct", "POSIXt"))
 
 
 for(c in 1:length(unique(sightings$ID))){
@@ -132,6 +133,67 @@ for(c in 1:length(unique(sightings$ID))){
   capthist[c,] <- as_datetime(out)
 }
 
+
+####create data formatted for stationary detector likelihood
+#occasions will be each detector (so for stationary, single trap per occasion)
+occn <- nrow(dist_dat$traps)
+
+#traps are every location
+trapxy <- trapsdf[!duplicated(trapsdf[,c("x","y")]), c("x","y")]
+rownames(trapxy) <- NULL
+rownames(trapxy) <-  paste("trap", rownames(trapxy))
+secrtraps <- read.traps(data = trapxy, detector = "multi")
+usage(secrtraps) <- t(apply(as.array(1:nrow(trapxy)), 1,
+                            FUN = function(traprow){
+                              #usage for traps is 1 for occasions that have a time
+                              occT <- unique(trapsdf[which(trapsdf$x == secrtraps[traprow,"x"] & 
+                                                             trapsdf$y == secrtraps[traprow,"y"]) ,
+                                                     "trapID"]) 
+                              occTm <- match(occT, unique(trapsdf$trapID))
+                              userow <- rep(0, occn)
+                              userow[occTm] <- 1
+                              return(userow)
+                            }))
+
+#secr capthist must be session, ID, occasion, trap
+#each time in capthist corresponds to an individual and occasion
+#and the time/occasion can be used to find the xy in trapsdf
+
+secrcapdata <- data.frame(session = numeric(),
+                          ID = numeric(),
+                          occasion = numeric(),
+                          trap = numeric())
+for(ind in 1:nrow(capthist)){
+  for(trapo in 1:ncol(capthist)){
+    if(!is.na(capthist[ind,trapo])){
+      trapname <- colnames(capthist)[trapo]
+      trapxyid <- trapsdf[which(trapsdf$trapID == as.numeric(trapname) &
+                                  trapsdf$time == capthist[ind,trapo]), c("x","y","trapID")]
+      secrtrap <- which(secrtraps$x == trapxyid$x & 
+                          secrtraps$y == trapxyid$y)
+      out <- data.frame(session = 1,
+                        ID = ind,
+                        occasion = trapo,
+                        trap = secrtrap)
+      secrcapdata <- rbind(secrcapdata, out)
+    }
+    
+  }
+}
+secrcapdata$trap <- paste("trap", secrcapdata$trap )
+secrcapthist <- make.capthist(secrcapdata, secrtraps, fmt = c("trapID"))
+distmat <-   #distance data object (created from traps and mesh)
+  traptomesh <- apply(as.array(1:nrow(mesh)), 1, FUN = 
+                        function(meshrow){
+                          apply(as.array(1:nrow(trapxy)), 
+                                1, FUN = 
+                                  function(traprow){
+                                    dist(rbind(trapxy[traprow, c("x", "y")],
+                                               mesh[meshrow,c("x","y")]), method = "euclidean")
+                                  })})
+
+
+
 ##save as RDS for use on server
 #exportobj <- list(
 #  timeincr = timeincr,
@@ -141,9 +203,13 @@ for(c in 1:length(unique(sightings$ID))){
 #)
 #saveRDS(exportobj, "/Users/sr244/Documents/UniStAndrews/MovingDetector/sendtoserver/exportobj.Rds")
   
-nll.time.start <- Sys.time()  
+nllm.time.start <- Sys.time()  
 negloglikelihood_cpp(exp(-12), exp(8), rep(2.5, nrow(mesh)), timeincr, capthist, dist_dat)
-nll.time.tot <- Sys.time() - nll.time.start
+nllm.time.tot <- Sys.time() - nllm.time.start
+
+nlls.time.start <- Sys.time()  
+negloglikelihood_stationary_cpp(exp(-12), exp(8), rep(2.5, nrow(mesh)), secrcapthist, usage(secrtraps), distmat, dist_dat)
+nlls.time.tot <- Sys.time() - nlls.time.start
 
 start <- c(-12, 8, 2.5, .05)
 
