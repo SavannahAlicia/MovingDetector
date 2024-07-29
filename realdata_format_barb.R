@@ -203,26 +203,40 @@ distmat <-   #distance data object (created from traps and mesh)
 #)
 #saveRDS(exportobj, "/Users/sr244/Documents/UniStAndrews/MovingDetector/sendtoserver/exportobj.Rds")
   
-nllm.time.start <- Sys.time()  
-negloglikelihood_cpp(exp(-12), exp(8), rep(2.5, nrow(mesh)), timeincr, capthist, dist_dat)
-nllm.time.tot <- Sys.time() - nllm.time.start
-
 nlls.time.start <- Sys.time()  
 negloglikelihood_stationary_cpp(exp(-12), exp(8), rep(2.5, nrow(mesh)), secrcapthist, usage(secrtraps), distmat, dist_dat)
 nlls.time.tot <- Sys.time() - nlls.time.start
 
-start <- c(-12, 8, 2.5, .05)
+start <- c(-12, 8, 2.5)
 
-nll <- function(v){
+nllstat <- function(v){
   lambda0_ <- exp(v[1])
   sigma_ <- exp(v[2])
-  D_mesh_ <- exp(v[3] + v[4]*covmeshscr$sal)
-  out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
+  D_mesh_ <- rep(exp(v[3]), nrow(mesh))
+  out <- negloglikelihood_stationary_cpp(lambda0_, sigma_, D_mesh_, secrcapthist, usage(secrtraps), distmat, dist_dat)
   return(out)
 }
 
 start.time.sd <- Sys.time()
 fit_sd <- optim(par = start,
+                fn = nllstat,
+                hessian = F, method = "Nelder-Mead")
+fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
+
+nllm.time.start <- Sys.time()  
+negloglikelihood_cpp(exp(-3.287), exp(7.618), rep(exp(-4.268), nrow(mesh)), timeincr, capthist, dist_dat)
+nllm.time.tot <- Sys.time() - nllm.time.start
+
+nll <- function(v){
+  lambda0_ <- exp(v[1])
+  sigma_ <- exp(v[2])
+  D_mesh_ <-  rep(exp(v[3]), nrow(mesh))
+  out <- negloglikelihood_cpp(lambda0_, sigma_, D_mesh_, timeincr, capthist, dist_dat)
+  return(out)
+}
+
+start.time.md <- Sys.time()
+fit_md <- optim(par = fit_sd$par,
                 fn = nll,
                 hessian = T, method = "Nelder-Mead")
-fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
+fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
