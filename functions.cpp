@@ -257,7 +257,6 @@ negloglikelihood_cpp( //add log link
   Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
   Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
   double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
-
   Rcpp::NumericVector haz_kmt(traps.length() * meshx.length() * distmat.n_slices);
   Rcpp::NumericVector surv_kmt(traps.length() * meshx.length() * distmat.n_slices);
   Rcpp::NumericVector sumhaz_kmt(traps.length() * meshx.length() * distmat.n_slices);
@@ -296,7 +295,7 @@ negloglikelihood_cpp( //add log link
     sumhaz_kmt.attr("dim") = Rcpp::Dimension(traps.length(), meshx.length(), distmat.n_slices);
   }
   if (surv_kmt_.isNotNull()){
-    surv_kmt = surv_kmt_;       // casting to underlying type NumericMatrix?
+    surv_kmt = surv_kmt_;
   } else {
     for(int trapk = 0; trapk < traps.length(); trapk++){
       Rcpp::NumericMatrix distmatslicek = cubeRowToNumericMatrix(distmat, trapk); //mesh x times
