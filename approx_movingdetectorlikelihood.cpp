@@ -108,120 +108,120 @@ double halfnormdet_cpp(double lambda0,
 
 
 // [[Rcpp::export]]
-  double hazdist_cpp(double lambda0,
-    double sigma,
-    double d,
-    int timeincr) {
-double g0 = halfnormdet_cpp(lambda0, sigma, d);
-//timeincr is the unit for hazard rate (could be time or distance (eg meters))
-double haz  = log(1 - g0) * -1 *  1/timeincr ; //
-return haz;
+double hazdist_cpp(double lambda0,
+                   double sigma,
+                   double d,
+                   int timeincr) {
+  double g0 = halfnormdet_cpp(lambda0, sigma, d);
+  //timeincr is the unit for hazard rate (could be time or distance (eg meters))
+  double haz  = log(1 - g0) * -1 *  1/timeincr ; //
+  return haz;
 }
 //#---------------------Moving Detector multi-catch LLK (approximated with traps)
 //-----------------Likelihood --------------------------------------------------
 
 // [[Rcpp::export]]
 double
-negloglikelihood_moving_cpp( //add log link 
-                  double lambda0,
-                  double sigma, 
-                  int timeincr,
-                  Rcpp::NumericVector D_mesh,
-                  arma::cube capthist,
-                  Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
-                  arma::cube indusage, // ind by traps by occ
-                  Rcpp::NumericMatrix distmat, //traps x mesh 
-                  Rcpp::NumericMatrix mesh, //first column x, second y
-                  double upsilon
-) {//specify objects
-Rcpp::Clock clock;
-clock.tick("wholeenchilada");
-clock.tick("setup");
-int one = 1;
-int captrap = capthist.n_slices;
-Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
-int capocc = capthist.n_cols;
-Rcpp::NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
-//calculate mesh area (note this is for a rectangular mesh grid, will need to
-          //be recalculated for irregular shaped mesh)
-Rcpp::NumericVector meshx = mesh.column(0);
-Rcpp::NumericVector meshy = mesh.column(1);
-Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
-double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
-clock.tock("setup");
-//begin for loops for lambdan calculation
-clock.tick("lambdan");
-Rcpp::NumericVector Dx_pdotxs(meshx.length());
-for(int m = 0; m < meshx.length(); m++){
-double Dx = D_mesh(m);
-Rcpp::NumericVector notseen_eachocc((occs.size()));
-for(int occk = 0; occk < occs.size(); occk++){
-Rcpp::NumericVector notseen_eachtrap((traps.size()));
-for(int trapj = 0; trapj < traps.size(); trapj++){
-if(usage(trapj, occk) == 0){
-notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
-} else {
-double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr)) +  1e-16; //survival
-}
-}
-double notseenalltraps = product(notseen_eachtrap);
-notseen_eachocc(occk) = notseenalltraps;
-}
-double notseen_alloccs = product(notseen_eachocc);
-double pdot = 1 - notseen_alloccs;
-double Dx_pdotx = Dx * pdot;
-Dx_pdotxs(m) = Dx_pdotx;
-}
-double lambdan = sum(Dx_pdotxs) * mesharea;
-clock.tock("lambdan");
-//rest of likelihood
-clock.tick("loopllk");
-double n = capthist.n_rows;
-Rcpp::NumericVector integral_eachi(n);
-for(int i = 0; i < n; i++){
-Rcpp::NumericVector DKprod_eachx(meshx.length());
-for(int x = 0; x < meshx.length(); x++){
-Rcpp::NumericVector probcapthist_eachocc(occs.length());
-for(int occk = 0; occk < occs.length(); occk++){
-bool ikcaught = FALSE;
-int trapijk;
-Rcpp::NumericVector hu_js(traps.length()); // hazard times use for m, j, k 
-for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
-double captik = capthist(i, occk, trapj);
-  hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
-if(captik == 1){ // this could be within the above else (only captures if used)?
-ikcaught = TRUE; //assign if i is caught and which trap caught it
-trapijk = trapj;
-}
-}
-if(ikcaught){
-probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * (1 - exp(-hu_js(trapijk) * upsilon))) / (1 - exp(-sum(hu_js) + (-hu_js(trapijk) * upsilon))) ; //survived to time of detection (usage) and detected in short period after this | detection happens
-}else{
-probcapthist_eachocc(occk) = exp(-sum(hu_js)) ; //survived all traps
-}
-}
-double probcapthist_alloccs = product(probcapthist_eachocc);
-DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
-}
-double DKprod_sum = sumC(DKprod_eachx) + 1e-16;
-integral_eachi(i) = DKprod_sum * mesharea;
-}
-clock.tock("loopllk");
-int n_int = std::round(n);
-Rcpp::NumericVector ns(n);
-ns = seqC(one, n_int);
-Rcpp::NumericVector logns(n);
-logns = log(ns);
-double lognfact = sum(logns);
-Rcpp::NumericVector logint = logvec(integral_eachi);
-double sumlogint = sumC(logint);
-double out = -1 * (-lambdan - lognfact + sumlogint);
-clock.tock("wholeenchilada");
-clock.stop("approxllktimes");
-return(out);
-}
+  negloglikelihood_moving_cpp( //add log link 
+    double lambda0,
+    double sigma, 
+    int timeincr,
+    Rcpp::NumericVector D_mesh,
+    arma::cube capthist,
+    Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
+    arma::cube indusage, // ind by traps by occ
+    Rcpp::NumericMatrix distmat, //traps x mesh 
+    Rcpp::NumericMatrix mesh //first column x, second y
+  ) {//specify objects
+    Rcpp::Clock clock;
+    clock.tick("wholeenchilada");
+    clock.tick("setup");
+    int one = 1;
+    int captrap = capthist.n_slices;
+    Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
+    int capocc = capthist.n_cols;
+    Rcpp::NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
+    //calculate mesh area (note this is for a rectangular mesh grid, will need to
+    //be recalculated for irregular shaped mesh)
+    Rcpp::NumericVector meshx = mesh.column(0);
+    Rcpp::NumericVector meshy = mesh.column(1);
+    Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
+    Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
+    double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    clock.tock("setup");
+    //begin for loops for lambdan calculation
+    clock.tick("lambdan");
+    Rcpp::NumericVector Dx_pdotxs(meshx.length());
+    for(int m = 0; m < meshx.length(); m++){
+      double Dx = D_mesh(m);
+      Rcpp::NumericVector notseen_eachocc((occs.size()));
+      for(int occk = 0; occk < occs.size(); occk++){
+        Rcpp::NumericVector notseen_eachtrap((traps.size()));
+        for(int trapj = 0; trapj < traps.size(); trapj++){
+          if(usage(trapj, occk) == 0){
+            notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
+          } else {
+            double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
+            notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr)) +  1e-16; //survival
+          }
+        }
+        double notseenalltraps = product(notseen_eachtrap);
+        notseen_eachocc(occk) = notseenalltraps;
+      }
+      double notseen_alloccs = product(notseen_eachocc);
+      double pdot = 1 - notseen_alloccs;
+      double Dx_pdotx = Dx * pdot;
+      Dx_pdotxs(m) = Dx_pdotx;
+    }
+    double lambdan = sum(Dx_pdotxs) * mesharea;
+    clock.tock("lambdan");
+    //rest of likelihood
+    clock.tick("loopllk");
+    double n = capthist.n_rows;
+    Rcpp::NumericVector integral_eachi(n);
+    for(int i = 0; i < n; i++){
+      Rcpp::NumericVector DKprod_eachx(meshx.length());
+      for(int x = 0; x < meshx.length(); x++){
+        Rcpp::NumericVector probcapthist_eachocc(occs.length());
+        for(int occk = 0; occk < occs.length(); occk++){
+          bool ikcaught = FALSE;
+          int trapijk;
+          Rcpp::NumericVector hu_js(traps.length()); // hazard times use for m, j, k 
+          for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
+            double captik = capthist(i, occk, trapj);
+            hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
+            if(captik == 1){ // this could be within the above else (only captures if used)?
+              ikcaught = TRUE; //assign if i is caught and which trap caught it
+              trapijk = trapj;
+            }
+          }
+          if(ikcaught){
+            double hu_jextra = hazdist_cpp(lambda0, sigma, distmat(trapijk, x), timeincr) * usage(trapijk, occk) - hu_js(trapijk) ; //hazard x use for survey after detection in trap ijk
+            probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * (1 - exp(-hu_jextra))) / (1 - exp(-(sum(hu_js) + hu_jextra))) ; //survived to time of detection (usage) and detected in short period after this | detection happens
+          }else{
+            probcapthist_eachocc(occk) = exp(-sum(hu_js)) ; //survived all traps
+          }
+        }
+        double probcapthist_alloccs = product(probcapthist_eachocc);
+        DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
+      }
+      double DKprod_sum = sumC(DKprod_eachx) + 1e-16;
+      integral_eachi(i) = DKprod_sum * mesharea;
+    }
+    clock.tock("loopllk");
+    int n_int = std::round(n);
+    Rcpp::NumericVector ns(n);
+    ns = seqC(one, n_int);
+    Rcpp::NumericVector logns(n);
+    logns = log(ns);
+    double lognfact = sum(logns);
+    Rcpp::NumericVector logint = logvec(integral_eachi);
+    double sumlogint = sumC(logint);
+    double out = -1 * (-lambdan - lognfact + sumlogint);
+    clock.tock("wholeenchilada");
+    clock.stop("approxllktimes");
+    return(out);
+  }
 
 //---------------Stationary
 

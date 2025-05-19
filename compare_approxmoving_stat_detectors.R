@@ -379,10 +379,9 @@ sim_fit <- function(tracksdf,
                     trapcells,
                     dist_trapmesh,
                     useall,
-                    lambda0, sigma, D_mesh,
+                    lambda0, sigma, D_mesh, beta1, beta2,
                     hazdenom, 
                     mesh, 
-                    upsilon = 10,
                     Dmod = "~1"){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
@@ -432,10 +431,10 @@ sim_fit <- function(tracksdf,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh, upsilon)
+                                         induse, dist_trapmesh, mesh)
       return(out)
     }
-    start <- c( log(.4), log(300), log(.4))
+    start <- c( log(lambda0), log(sigma), log(D_mesh[1]))
     
   }else if(Dmod == "~x^2"){
     #quadratic density function
@@ -457,10 +456,10 @@ sim_fit <- function(tracksdf,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh, upsilon)
+                                         induse, dist_trapmesh, mesh)
       return(out)
     }
-    start <- c(log(.4), log(300), -(1/40000), -1250)
+    start <- c(log(lambda0), log(sigma), beta1, beta2)
   }  
 
   start.time.sd <- Sys.time()
@@ -509,7 +508,7 @@ fit1 <- sim_fit(tracksdf,
                 trapcells,
                 dist_trapmesh,
                 useall,
-                lambda0, sigma, D_mesh,
+                lambda0, sigma, D_mesh, beta1, beta2,
                 hazdenom, 
                 mesh, 
                 Dmod = "~1")
