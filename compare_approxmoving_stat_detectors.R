@@ -3,6 +3,8 @@ library(secr)
 library(lubridate)
 library(parallel)
 library(ggplot2)
+library(sp)
+library(sf)
 setwd("~/Documents/UniStAndrews/MovingDetector")
 #source("movingdetectorlikelihood.R")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
@@ -75,6 +77,7 @@ create_line_spatlines <- function(tracksdf, scenario = "everything",
   #for each track ID, create a Lines object by scenario
   #append that Lines object to a list of them
   big_Lines_list <- list()
+  nocc <- length(unique(tracksdf$occ))
   for (trackindex in 1:nocc){
     #print(trackindex)
     trackIDi <- unique(tracksdf$occ)[trackindex]
@@ -246,28 +249,23 @@ tracksteps = 55 #intervals
 trackint = 360 #seconds
 tracksdf <- rbind(
   data.frame(occ = 1,
-             x = seq(from = 250, to = 2000, length.out = tracksteps+1),
-             y = 750, 
+             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
+             y = 1250, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 2,
-             x = seq(from = 250, to = 2000, length.out = tracksteps+1),
-             y = 950, 
+             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
+             y = 1450, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
-             x = seq(from = 250, to = 2000, length.out = tracksteps+1),
-             y = 1150, 
+             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
+             y = 1650, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 4,
-             x = seq(from = 250, to = 2000, length.out = tracksteps+1),
-             y = 1350, 
-             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-  data.frame(occ = 5,
-             x = seq(from = 250, to = 2000, length.out = tracksteps+1),
-             y = 1550, 
+             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
+             y = 1850, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
   
@@ -276,11 +274,11 @@ nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
 meshspacing = 250
-mesh <- make.mask(tracksdf[,c("x","y")], buffer = 4*sigma, spacing = meshspacing)
+mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 
 D_mesh <- rep(.4, nrow(mesh))
 beta1 <- -(1/40000)
-beta2 <- -1250
+beta2 <- -2250
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
@@ -360,7 +358,7 @@ create_ind_use <- function(ch, trapcells, tracksdf){
 induse_ls <- create_ind_use(exch, trapcells, tracksdf) #takes about 30 seconds
 induse <- aperm(
   array(unlist(induse_ls), 
-        dim =c(nrow(traps), nocc, nrow(pop))), 
+        dim =c(nrow(traps), nocc, nrow(expop))), 
   c(3, 1, 2))
 
 #calculate distance matrix for all trap cells and mesh cells
@@ -536,7 +534,7 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                                             mesh, 
                                             Dmod = "~x^2"))
                            },
-                           mc.cores = 5
+                           mc.cores = 6
 )
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 
@@ -650,7 +648,7 @@ ggplot() +
         legend.text = element_text(size = 20))
 
 D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), 50),3),
-                        y = rep(rep(mesh$y[1], 81),3),
+                        y = rep(rep(mesh$y[1], 61),3),
                         trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), 50) + beta2)^2), 3),
                         stationarydets = c(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                          all_outs2$name == "beta1", "mean"]) * 
@@ -682,7 +680,7 @@ D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), 50),3),
                                              (seq(min(mesh$x), max(mesh$x), 50) + 
                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                        all_outs2$name == "beta2", "meanlower"]))^2)),
-                        quantile = c(rep("mean", 81), rep("2.5%",81), rep("97.5%",81))
+                        quantile = c(rep("mean", 61), rep("2.5%",61), rep("97.5%",61))
                         )
 
 D_plotdat <- data.frame(x = rep(mesh$x, 3),
