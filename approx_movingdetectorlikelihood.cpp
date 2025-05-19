@@ -131,7 +131,8 @@ negloglikelihood_moving_cpp( //add log link
                   Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
                   arma::cube indusage, // ind by traps by occ
                   Rcpp::NumericMatrix distmat, //traps x mesh 
-                  Rcpp::NumericMatrix mesh //first column x, second y
+                  Rcpp::NumericMatrix mesh, //first column x, second y
+                  double upsilon
 ) {//specify objects
 Rcpp::Clock clock;
 clock.tick("wholeenchilada");
@@ -196,7 +197,7 @@ trapijk = trapj;
 }
 }
 if(ikcaught){
-probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * hu_js(trapijk)) / (1 - exp(-sum(hu_js))) ; //survived to time of detection (usage) and detected | detection happens
+probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * (1 - exp(-hu_js(trapijk) * upsilon))) / (1 - exp(-sum(hu_js) + (-hu_js(trapijk) * upsilon))) ; //survived to time of detection (usage) and detected in short period after this | detection happens
 }else{
 probcapthist_eachocc(occk) = exp(-sum(hu_js)) ; //survived all traps
 }
