@@ -239,14 +239,14 @@ sim_capthist <- function(pop = NULL,
 }
 
 #----------------------------------data setup-----------------------------------
-lambda0 = .4
+lambda0 = .04
 sigma = 300
 #multiple tracklines, keep seperate occasions since we only take first detection
 #per occasion
 
 #each trackline is a series of points with x, y, and time
 tracksteps = 55 #intervals 
-trackint = 360 #seconds
+trackint = 360 #seconds 
 tracksdf <- rbind(
   data.frame(occ = 1,
              x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
@@ -382,6 +382,7 @@ sim_fit <- function(tracksdf,
                     lambda0, sigma, D_mesh,
                     hazdenom, 
                     mesh, 
+                    upsilon = 10,
                     Dmod = "~1"){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
@@ -431,7 +432,7 @@ sim_fit <- function(tracksdf,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh)
+                                         induse, dist_trapmesh, mesh, upsilon)
       return(out)
     }
     start <- c( log(.4), log(300), log(.4))
@@ -456,7 +457,7 @@ sim_fit <- function(tracksdf,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh)
+                                         induse, dist_trapmesh, mesh, upsilon)
       return(out)
     }
     start <- c(log(.4), log(300), -(1/40000), -1250)
