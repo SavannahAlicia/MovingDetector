@@ -196,7 +196,7 @@ trapijk = trapj;
 }
 }
 if(ikcaught){
-probcapthist_eachocc(occk) = exp(-sum(hu_js)) * hu_js(trapijk) ; //survived to time of detection (usage) and detected
+probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * hu_js(trapijk)) / (1 - exp(-sum(hu_js))) ; //survived to time of detection (usage) and detected | detection happens
 }else{
 probcapthist_eachocc(occk) = exp(-sum(hu_js)) ; //survived all traps
 }
