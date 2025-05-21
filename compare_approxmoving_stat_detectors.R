@@ -439,7 +439,7 @@ sim_fit <- function(tracksdf,
   }else if(Dmod == "~x^2"){
     #quadratic density function
     stat_nll <- function(v){
-      lambda0_ <- exp(v[1])
+      lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- exp(v[3]*(mesh[,1] + v[4])^2)
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -450,7 +450,7 @@ sim_fit <- function(tracksdf,
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- exp(v[1])
+      lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- exp(v[3]*(mesh[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
@@ -459,7 +459,7 @@ sim_fit <- function(tracksdf,
                                          induse, dist_trapmesh, mesh)
       return(out)
     }
-    start <- c(log(lambda0), log(sigma), beta1, beta2)
+    start <- c(logit(lambda0), log(sigma), beta1, beta2)
   }  
 
   start.time.sd <- Sys.time()
@@ -736,7 +736,7 @@ ggplot() +
   scale_color_manual(values = c(plotcols, "black"), labels = c("moving", "stationary", "true D")) +
   guides(col=guide_legend(title="model")) +
   #ylim(0,.5) +
-  xlim(500,1750)+
+ # xlim(500,1750)+
   ylab("Density") +
   theme_classic() +
   theme(axis.title = element_text(size = 20),
