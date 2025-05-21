@@ -358,7 +358,7 @@ create_ind_use <- function(ch, trapcells, tracksdf){
 induse_ls <- create_ind_use(exch, trapcells, tracksdf) #takes about 30 seconds
 induse <- aperm(
   array(unlist(induse_ls), 
-        dim =c(nrow(traps), nocc, nrow(expop))), 
+        dim =c(nrow(traps), nocc, length(induse_ls))), 
   c(3, 1, 2))
 
 #calculate distance matrix for all trap cells and mesh cells
@@ -385,9 +385,9 @@ sim_fit <- function(tracksdf,
                     Dmod = "~1"){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
-  capthist_full<- sim_capthist(pop = NULL, traps,
+  capthist_full <- sim_capthist(pop = NULL, traps,
                                tracksdf, lambda0, sigma, D_mesh,
-                               hazdenom) #function in movingdetectorlikelihood.R
+                               hazdenom) 
   capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
   
   #in case mesh is df
@@ -517,7 +517,7 @@ fit2 <- sim_fit(tracksdf,
                 trapcells,
                 dist_trapmesh,
                 useall,
-                lambda0, sigma, D_mesh_q,
+                lambda0, sigma, D_mesh_q, beta1, beta2,
                 hazdenom, 
                 mesh, Dmod = "~x^2")
 
@@ -530,6 +530,7 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                                             dist_trapmesh,
                                             useall,
                                             lambda0, sigma, D_mesh_q,
+                                            beta1, beta2,
                                             hazdenom, 
                                             mesh, 
                                             Dmod = "~x^2"))
