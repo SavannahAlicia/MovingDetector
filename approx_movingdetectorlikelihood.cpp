@@ -151,10 +151,11 @@ double
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
+    Rcpp::NumericMatrix notseen_mk(meshx.length(), occs.size());
     Rcpp::NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      Rcpp::NumericVector notseen_eachocc((occs.size()));
+      //Rcpp::NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < occs.size(); occk++){
         Rcpp::NumericVector notseen_eachtrap((traps.size()));
         for(int trapj = 0; trapj < traps.size(); trapj++){
@@ -166,9 +167,10 @@ double
           }
         }
         double notseenalltraps = product(notseen_eachtrap);
-        notseen_eachocc(occk) = notseenalltraps;
+       // notseen_eachocc(occk) = notseenalltraps;
+        notseen_mk(m,occk) = notseenalltraps;
       }
-      double notseen_alloccs = product(notseen_eachocc);
+      double notseen_alloccs = product(notseen_mk.row(m));
       double pdot = 1 - notseen_alloccs;
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
@@ -185,21 +187,37 @@ double
         Rcpp::NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = FALSE;
-          int trapijk;
-          Rcpp::NumericVector hu_js(traps.length()); // hazard times use for m, j, k 
+          double sumtoj_ind_ijk;
+          double hu_ind_ijk;
+          Rcpp::NumericVector hu_ind_js(traps.length()); // hazard times use for m, j, k 
+         // Rcpp::NumericVector hu_all_js(traps.length());
+          Rcpp::NumericVector sum_toj_ind(traps.length());
+        //  Rcpp::NumericVector sum_toj_all(traps.length());
+          //set up sums over traps
+          double sum_Sjhj = 0;
+          double sumtoj_all = 0;
+          double sumtoj_ind = 0;
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
-            hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
+            //hazard, cumulative hazard, and cumulative density for all
+            double hu_all_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);
+            sumtoj_all = sumtoj_all + hu_all_j;
+            sum_Sjhj = sum_Sjhj + (exp(-sumtoj_all) * hu_all_j);
+            //hazard and cumulative hazard for ind
+            double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
+            sumtoj_ind = sumtoj_ind + hu_ind_j;
+
             if(captik == 1){ // this could be within the above else (only captures if used)?
-              ikcaught = TRUE; //assign if i is caught and which trap caught it
-              trapijk = trapj;
+              ikcaught = TRUE; //assign if i is caught
+              hu_ind_ijk = hu_ind_j; //hazard at time of capture
+              sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to time of capture
             }
           }
+          double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
-            double hu_jextra = hazdist_cpp(lambda0, sigma, distmat(trapijk, x), timeincr) * usage(trapijk, occk) - hu_js(trapijk) ; //hazard x use for survey after detection in trap ijk
-            probcapthist_eachocc(occk) = (exp(-sum(hu_js)) * (1 - exp(-hu_jextra))) / (1 - exp(-(sum(hu_js) + hu_jextra))) ; //survived to time of detection (usage) and detected in short period after this | detection happens
+            probcapthist_eachocc(occk) = (exp(-sumtoj_ind_ijk) * hu_ind_ijk)/sum_Sjhj * (1-prob_notseenk);
           }else{
-            probcapthist_eachocc(occk) = exp(-sum(hu_js)) ; //survived all traps
+            probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
           }
         }
         double probcapthist_alloccs = product(probcapthist_eachocc);
