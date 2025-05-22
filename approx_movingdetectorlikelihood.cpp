@@ -157,18 +157,16 @@ double
       double Dx = D_mesh(m);
       //Rcpp::NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < occs.size(); occk++){
-        Rcpp::NumericVector notseen_eachtrap((traps.size()));
+        Rcpp::NumericVector hu_eachtrap((traps.size()));
         for(int trapj = 0; trapj < traps.size(); trapj++){
           if(usage(trapj, occk) == 0){
-            notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
+            hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
           } else {
             double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-            notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr)) +  1e-16; //survival
+            hu_eachtrap(trapj) = hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr); //survival
           }
         }
-        double notseenalltraps = product(notseen_eachtrap);
-       // notseen_eachocc(occk) = notseenalltraps;
-        notseen_mk(m,occk) = notseenalltraps;
+        notseen_mk(m,occk) = exp(-sum(hu_eachtrap));
       }
       double notseen_alloccs = product(notseen_mk.row(m));
       double pdot = 1 - notseen_alloccs;
@@ -199,16 +197,12 @@ double
           double sumtoj_ind = 0;
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
-            //hazard, cumulative hazard, and cumulative density for all
-            //double hu_all_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);
-            //sumtoj_all = sumtoj_all + hu_all_j;
-            //sum_Sjhj = sum_Sjhj + (exp(-sumtoj_all) * hu_all_j);
             //hazard and cumulative hazard for ind
             double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught
-              hu_ind_ijk = hu_ind_j; //hazard at time of capture
+              hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
               sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
             }
             sumtoj_ind = sumtoj_ind + hu_ind_j;
