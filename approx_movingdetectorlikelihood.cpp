@@ -166,7 +166,7 @@ double
             hu_eachtrap(trapj) = hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr); //survival
           }
         }
-        notseen_mk(m,occk) = exp(-sum(hu_eachtrap));
+        notseen_mk(m,occk) = exp(-sum(hu_eachtrap)); 
       }
       double notseen_alloccs = product(notseen_mk.row(m));
       double pdot = 1 - notseen_alloccs;
@@ -187,17 +187,10 @@ double
           bool ikcaught = FALSE;
           double sumtoj_ind_ijk;
           double hu_ind_ijk;
-         // Rcpp::NumericVector hu_ind_js(traps.length()); // hazard times use for m, j, k 
-         // Rcpp::NumericVector hu_all_js(traps.length());
-        //  Rcpp::NumericVector sum_toj_ind(traps.length());
-        //  Rcpp::NumericVector sum_toj_all(traps.length());
-          //set up sums over traps
-         // double sum_Sjhj = 0;
-          //double sumtoj_all = 0;
           double sumtoj_ind = 0;
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
-            //hazard and cumulative hazard for ind
+            //hazard for ind at trap
             double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
@@ -205,11 +198,12 @@ double
               hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
               sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
             }
+            //and cumulative hazard for ind at trap
             sumtoj_ind = sumtoj_ind + hu_ind_j;
           }
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
-            probcapthist_eachocc(occk) = (exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk)));
+            probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));
           }else{
             probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
           }
