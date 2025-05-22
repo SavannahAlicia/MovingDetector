@@ -11,7 +11,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
 set.seed(12345)
-nsims = 100
+nsims = 300
 
 #-------------------------------functions---------------------------------------
 #' Create polygons for each box centered at grid pt
@@ -196,28 +196,26 @@ sim_capthist <- function(pop = NULL,
                                                 hazdist_cpp(lambda0, sigma, d, hazdenom)
                                                 })
                                 integ <- sum(hazs * (increments/hazdenom)) #hazard is per time incr, need how many increments (or if dist, per dist incr)
-                                survk <- exp(-1 * integ)
+                                survk <- exp(-integ)
                                 probseenxk <- 1 - survk 
                                 if (report_probseenxk) { 
                                   return(probseenxk)
                                 } else {
-                                  seenxk_bool <- rbinom(1,1, probseenxk)
-                                  if (seenxk_bool){
+                                  #seenxk_bool <- rbinom(1,1, probseenxk)
+                                  #if (seenxk_bool){
                                     survive_until_t <- exp(-1 * (cumsum(hazs * (increments/hazdenom))))
                                     survive_t_inc <- exp(-1 * hazs * (increments/hazdenom))
                                     seenfirstat_t <- survive_until_t[-length(survive_until_t)] * (1 - survive_t_inc[-1])
-                                    seenfirstatt_givenseen <- c(0, seenfirstat_t/probseenxk)
+                                    seenfirstatt <- c(0, seenfirstat_t)
                                     #need to record time of detection at traps as defined in grid
-                                    det <- sample(x = c(1:nrow(trackoccdf)), size = 1, replace = T,  prob = seenfirstatt_givenseen)
-                                    trapdet <- trackoccdf[det,"trapno"]
-                                    timedet <- difftime(trackoccdf[det, "time"], begintimek, units = "secs")
+                                    det <- sample(x = c(1:(nrow(trackoccdf)+1)), size = 1, replace = T,  
+                                                  prob = c(seenfirstatt, survk))
                                     capik <- rep((NA), nrow(traps))
-                                    capik[trapdet] <- timedet
-                                    
-                                  } else {
-                                    capik <- rep((NA), nrow(traps))
-                                  }
-                                  
+                                    if(det != (length(seenfirstatt) + 1)){
+                                      trapdet <- trackoccdf[det,"trapno"]
+                                      timedet <- difftime(trackoccdf[det, "time"], begintimek, units = "secs")
+                                      capik[trapdet] <- timedet
+                                    }
                                   return(capik) 
                                 }
                         
@@ -241,7 +239,7 @@ sim_capthist <- function(pop = NULL,
 #----------------------------------data setup-----------------------------------
 lambda0 = .04
 sigma = 300
-#multiple tracklines, keep seperate occasions since we only take first detection
+#multiple tracklines, keep separate occasions since we only take first detection
 #per occasion
 
 #each trackline is a series of points with x, y, and time
@@ -255,20 +253,19 @@ tracksdf <- rbind(
                         by = trackint)),
   data.frame(occ = 2,
              x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1450, 
+             y = 1650, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
              x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1650, 
+             y = 1850, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 4,
              x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1850, 
+             y = 2050, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
-  
 )
 nocc <- length(unique(tracksdf$occ))
 
@@ -317,6 +314,10 @@ ggplot() +
   geom_point(data.frame(x = traps$x, y = traps$y, dets = as.factor(apply((!is.na(excapthist)), 3, sum))),
              mapping = aes(x = x, y = y), shape = 19)
 
+ggplot() +
+  geom_histogram(data = data.frame(dets_per_ind = apply(exch, 1, function(i){sum(!is.na(i))})),
+                 mapping = aes(x = dets_per_ind)) +
+  theme_bw()
 
 #create trapgrid (will break tracklines into trap grid, keeping times)
 trap_cells <- create_grid_polygons(traps, spacing = trapspacing)
@@ -414,7 +415,7 @@ sim_fit <- function(tracksdf,
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
     stat_nll <- function(v){
-      lambda0_ <- exp(v[1])
+      lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- rep(exp(v[3]), nrow(mesh))
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -425,7 +426,7 @@ sim_fit <- function(tracksdf,
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- exp(v[1])
+      lambda0_ <- invlogit(v[1]) #logit link?
       sigma_ <- exp(v[2])
       D_mesh_ <- rep(exp(v[3]), nrow(mesh))
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
@@ -434,7 +435,7 @@ sim_fit <- function(tracksdf,
                                          induse, dist_trapmesh, mesh)
       return(out)
     }
-    start <- c( log(lambda0), log(sigma), log(D_mesh[1]))
+    start <- c( logit(lambda0), log(sigma), log(D_mesh[1]))
     
   }else if(Dmod == "~x^2"){
     #quadratic density function
@@ -550,6 +551,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
                                     dist_trapmesh,
                                     useall,
                                     lambda0, sigma, D_mesh,
+                                    beta1, beta2,
                                     hazdenom, 
                                     mesh, 
                                     Dmod = "~1"))
@@ -584,7 +586,10 @@ all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary",
 library(dplyr)
 all_outs2 <- all_outs %>%
   group_by(name, model) %>%
-  summarize(mean = mean(value), meanupper = quantile(value, probs = .975), meanlower = quantile(value, probs = .025))
+  summarize(mean = mean(value), 
+            median = median(value),
+            meanupper = quantile(value, probs = .975), 
+            meanlower = quantile(value, probs = .025))
 
 
 out <- list(all_outs= all_outs, all_outs2 =all_outs2)
@@ -598,12 +603,13 @@ all_outs2 <- plotdat$all_outs2
 plotcols <- c("#178A28", "#D81B60")
 
 ggplot() +
-  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = exp(value), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(mean)), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(meanlower)), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = exp(c(meanupper)), col = model), linetype = "dashed", size = 1.3) +
+  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = invlogit(value), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(mean)), col = model), size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanlower)), col = model), linetype = "dashed", size = 1.3) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanupper)), col = model), linetype = "dashed", size = 1.3) +
   geom_vline(xintercept = lambda0, size = 1.3, col = "black") +
   xlab("lambda0") +
+  xlim(0,1) +
   scale_color_manual(values = plotcols) +
   theme_classic() +
   theme(axis.title = element_text(size = 20),
