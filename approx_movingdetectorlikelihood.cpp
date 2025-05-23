@@ -195,7 +195,7 @@ double
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught
-              if(indusage(n,trapj,occk) <= timeincr){
+              if(indusage(i,trapj,occk) <= timeincr){
                ; //do what i've been doing
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                 sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
