@@ -253,7 +253,7 @@ tracksdf <- rbind(
                         by = trackint)),
   data.frame(occ = 2,
              x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1650, 
+             y = 1550, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
@@ -392,7 +392,7 @@ sim_fit <- function(tracksdf,
   capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
   
   #in case mesh is df
-  mesh <- as.matrix(mesh)
+  mesh_mat <- as.matrix(mesh)
   
   #standard scr likelihood
   #occasions will be each survey (so for stationary, single trap per occasion)
@@ -417,11 +417,11 @@ sim_fit <- function(tracksdf,
     stat_nll <- function(v){
       lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- rep(exp(v[3]), nrow(mesh))
+      D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
-                                             dist_trapmesh, mesh)
+                                             dist_trapmesh, mesh_mat)
       return(out)
     }
     #moving detector likelihood
@@ -432,7 +432,7 @@ sim_fit <- function(tracksdf,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh)
+                                         induse, dist_trapmesh, mesh_mat)
       return(out)
     }
     start <- c( logit(lambda0), log(sigma), log(D_mesh[1]))
@@ -442,22 +442,22 @@ sim_fit <- function(tracksdf,
     stat_nll <- function(v){
       lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh[,1] + v[4])^2)
+      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
-                                             dist_trapmesh, mesh)
+                                             dist_trapmesh, mesh_mat)
       return(out)
     }
     #moving detector likelihood
     nll <- function(v){
       lambda0_ <- invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
+      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh)
+                                         induse, dist_trapmesh, mesh_mat)
       return(out)
     }
     start <- c(logit(lambda0), log(sigma), beta1, beta2)
