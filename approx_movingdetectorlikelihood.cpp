@@ -195,10 +195,17 @@ double
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught
-              hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
-              sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
+              if(indusage(n,trapj,occk) <= timeincr){
+               ; //do what i've been doing
+                hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
+                sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
+              } else { //else survive up to current trap - hazdenom and don't survive an interval of hazdenom
+                hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * timeincr; //hu for the last timeincr in this trap
+                sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * ((indusage(i, trapj, occk) - timeincr)/timeincr)); //survive up to last time increment in this trap
+              }
+              break; //don't need to keep summing hazard after detection
             }
-            //and cumulative hazard for ind at trap
+            //add cumulative hazard for ind at trap if not detected
             sumtoj_ind = sumtoj_ind + hu_ind_j;
           }
           double prob_notseenk = notseen_mk(x,occk);
