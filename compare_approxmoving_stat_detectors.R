@@ -5,13 +5,14 @@ library(parallel)
 library(ggplot2)
 library(sp)
 library(sf)
+library(gridExtra)
 setwd("~/Documents/UniStAndrews/MovingDetector")
 #source("movingdetectorlikelihood.R")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
 set.seed(12345)
-nsims = 300
+nsims = 500
 
 #-------------------------------functions---------------------------------------
 #' Create polygons for each box centered at grid pt
@@ -205,13 +206,13 @@ sim_capthist <- function(pop = NULL,
                                   #if (seenxk_bool){
                                     survive_until_t <- exp(-1 * (cumsum(hazs * (increments/hazdenom))))
                                     survive_t_inc <- exp(-1 * hazs * (increments/hazdenom))
-                                    seenfirstat_t <- survive_until_t[-length(survive_until_t)] * (1 - survive_t_inc[-1])
+                                    seenfirstat_t <- survive_until_t[-length(survive_until_t)] * (1 - survive_t_inc[-1]) #really seen first in time increment that ends in t and begins at t-1
                                     seenfirstatt <- c(0, seenfirstat_t)
                                     #need to record time of detection at traps as defined in grid
                                     det <- sample(x = c(1:(nrow(trackoccdf)+1)), size = 1, replace = T,  
                                                   prob = c(seenfirstatt, survk))
                                     capik <- rep((NA), nrow(traps))
-                                    if(det != (length(seenfirstatt) + 1)){
+                                    if(det != (length(seenfirstatt) + 1)){ #if didn't survive detection
                                       trapdet <- trackoccdf[det,"trapno"]
                                       timedet <- difftime(trackoccdf[det, "time"], begintimek, units = "secs")
                                       capik[trapdet] <- timedet
@@ -271,11 +272,11 @@ nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
 meshspacing = 250
-mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
+mesh <- make.mask(tracksdf[,c("x","y")], buffer = 5*sigma, spacing = meshspacing)
 
 D_mesh <- rep(.4, nrow(mesh))
 beta1 <- -(1/40000)
-beta2 <- -2250
+beta2 <- -2500
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
@@ -309,6 +310,7 @@ ggplot() +
   geom_point(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) + 
   geom_point(data.frame(x = expop$x, y = expop$y, dets = apply((!is.na(excapthist)), 1, sum)),
              mapping = aes(x = x, y = y, color = as.factor(dets)), size = 2) +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
   scale_color_viridis_d() +
   geom_line(tracksdf, mapping = aes(x = x, y = y, group = occ)) +
   geom_point(data.frame(x = traps$x, y = traps$y, dets = as.factor(apply((!is.na(excapthist)), 3, sum))),
@@ -522,8 +524,8 @@ fit2 <- sim_fit(tracksdf,
                 hazdenom, 
                 mesh, Dmod = "~x^2")
 
-start.time.all_q <- Sys.time()
-all_sim_fits_q <- mclapply(X = as.list(1:nsims),
+start.time.all_q1 <- Sys.time()
+all_sim_fits_q1 <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
                              return(sim_fit(tracksdf, 
                                             traps,
@@ -538,12 +540,12 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            },
                            mc.cores = 6
 )
-tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
+tot.time.all_q1 <- difftime(Sys.time(), start.time.all_q1, units = "secs")
 
 
 
-start.time.all <- Sys.time()
-all_sim_fits <- mclapply(X = as.list(1:nsims),
+start.time.all1 <- Sys.time()
+all_sim_fits1 <- mclapply(X = as.list(1:nsims),
                    FUN = function(sim){
                      return(sim_fit(tracksdf, 
                                     traps,
@@ -558,7 +560,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
                    },
                    mc.cores = 6
 )
-tot.time.all <- difftime(Sys.time(), start.time.all, units = "secs")
+tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 
 
 ###------------------------compare computation time-----------------------------
@@ -596,39 +598,53 @@ out <- list(all_outs= all_outs, all_outs2 =all_outs2)
 
 }
 
-plotdat <- make_plot_dat(all_sim_fits_q)
-plotdat <- make_plot_dat(all_sim_fits)
+plotdat <- make_plot_dat(all_sim_fits_q1)
+plotdat <- make_plot_dat(all_sim_fits1)
 all_outs <- plotdat$all_outs
 all_outs2 <- plotdat$all_outs2
-plotcols <- c("#178A28", "#D81B60")
+plotcols <- c("cornflowerblue", "goldenrod", "black")
+linesize = .3
 
-ggplot() +
-  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = invlogit(value), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(mean)), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanlower)), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanupper)), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(xintercept = lambda0, size = 1.3, col = "black") +
-  xlab("lambda0") +
-  xlim(0,1) +
-  scale_color_manual(values = plotcols) +
+lambda0plot <- ggplot() +
+  geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = invlogit(value), col = model), size = linesize) +
+  geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
+                           data.frame(name = "lambda0", model = "true", mean = logit(lambda0))), 
+             aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanlower)), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "lambda0",], aes(xintercept = invlogit(c(meanupper)), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(xintercept = lambda0, size = linesize, col = "black") +
+  xlab(expression("\u03bb"[0])) +
+  ylab("Frequency") + 
+  xlim(0,.25) +
+  scale_color_manual(name = "",
+                     values = plotcols, 
+                     labels = c("Moving", "Stationary", expression("True \u03bb"[0]))) +
   theme_classic() +
-  theme(axis.title = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20))
+  theme(axis.title = element_text(size = 10),
+        legend.position = "none")
+        #legend.title = element_text(size = 20),
+        #legend.text = element_text(size = 20))
 
   
-ggplot() +
-  geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = exp(value), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(mean), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanlower), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanupper), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(xintercept = sigma, size = 1.3, col = "black")+
-  scale_color_manual(values = plotcols) +
-  xlab("sigma") +
+sigmaplot <- ggplot() +
+  geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = exp(value), col = model), size = linesize) +
+  geom_vline(data = rbind(all_outs2[all_outs2$name == "sigma",],
+                          data.frame(name = "sigma", model = "true", mean = log(sigma))),
+             aes(xintercept = exp(mean), col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanlower), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "sigma",], aes(xintercept = exp(meanupper), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(xintercept = sigma, size = linesize, col = "black")+
+  scale_color_manual(name = "",
+                     labels = c("Moving", "Stationary", "True \u03C3"),
+                     values = plotcols) +
+  xlab("\u03C3") +
+  ylab("Frequency") +
   theme_classic() +
-  theme(axis.title = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20))
+  theme(axis.title = element_text(size = 10),
+        legend.position = "none",
+        axis.title.y = element_blank())
+        #legend.title = element_text(size = 20),
+        #legend.text = element_text(size = 20))
 ggplot() +
   geom_density(all_outs[all_outs$name == "beta1",], mapping = aes(x = value, col = model), size = 1.3) +
   geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(mean), col = model), size = 1.3) +
@@ -735,18 +751,31 @@ ggplot() +
 
 D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
 
-ggplot() + 
-  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = 1.3) +
-  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = 1.3) +
-  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = 1.3) +
-  scale_color_manual(values = c(plotcols, "black"), labels = c("moving", "stationary", "true D")) +
-  guides(col=guide_legend(title="model")) +
+Dplot <- ggplot() + 
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = linesize) +
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
+  geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
+  scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
+                     name = "") +
   #ylim(0,.5) +
  # xlim(500,1750)+
-  ylab("Density") +
+  ylab("AC density") +
   theme_classic() +
-  theme(axis.title = element_text(size = 20),
-        axis.text = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20))
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10))
 
+ggsave(file = paste("writing_up/flatdens.png", sep = ""),
+       plot = grid.arrange(
+         grobs = list(lambda0plot, sigmaplot, Dplot),
+         widths = c(1,1),
+         heights = c(1,1),
+         layout_matrix = rbind(c(1,2), 3)
+       ),
+       width = 169,
+       height = 169*(1/2),
+       units = c("mm"),
+       dpi = 300)
+saveRDS(all_sim_fits_q1, "writing_up/all_sim_fits_q_1000.RDS")
+saveRDS(all_sim_fits1, "writing_up/all_sim_fits_1000.RDS")
