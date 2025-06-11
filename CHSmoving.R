@@ -1,0 +1,436 @@
+library(ggplot2)
+library(sf)
+library(parallel)
+library(sp)
+library(openpopscr)
+library(secr)
+
+#-------------------------------functions---------------------------------------
+#' Create polygons for each box centered at grid pt
+#' 
+#' @param grid dataframe with x and y columns specifying grid pts
+#' @param spacing the spacing between grid pts, if not specified will calculate
+#' @return SpatialPolygons object in list form 
+#' @export
+create_grid_polygons <- function(grid, spacing = NULL){
+  #so we only have to create gridbboxes and lines list once
+  if(is.null(spacing)){
+    spacing <- min(dist(grid)[dist(grid$x)!=0])
+  }
+  #specify corners of box centered on grid pt
+  grid_spacing <- spacing
+  grid_bboxes <- data.frame(
+    left_bound = grid$x - (grid_spacing/2),
+    right_bound = grid$x + (grid_spacing/2), 
+    lower_bound = grid$y - (grid_spacing/2),
+    upper_bound = grid$y + (grid_spacing/2)
+  )
+  #create a polygon for box centered on grid pt
+  create_polygon_for_grid_row <- function(grid_bboxes_row){
+    upperleft <- as.numeric(c(grid_bboxes_row[1], grid_bboxes_row[4]))
+    lowerleft <- as.numeric(c(grid_bboxes_row[1], grid_bboxes_row[3]))
+    upperright <- as.numeric(c(grid_bboxes_row[2], grid_bboxes_row[4]))
+    lowerright <- as.numeric(c(grid_bboxes_row[2], grid_bboxes_row[3]))
+    boxpts <- rbind(upperleft, upperright, lowerright, lowerleft)
+    colnames(boxpts) <- c("x", "y")
+    rownames(boxpts) <- NULL
+    p = sp::Polygon(boxpts)
+    ps = sp::Polygons(list(p),1)
+    sps = sp::SpatialPolygons(list(ps))
+    proj4string(sps) <- sp::CRS(sf::st_crs(26916)$input)
+    return(sps)
+  }
+  #create polygon box for all grid pts
+  grid_bboxes$polygons  <- apply(X = grid_bboxes, MARGIN = 1, 
+                                 FUN = create_polygon_for_grid_row)
+  return(grid_bboxes)
+}
+
+#' Create named list of SpatialLines where name is track ID (occ)
+#' @param tracksdf dataframe with xy, occ, trapno, and time
+#' @return named list of SpatialLines objects
+#' @export
+create_line_spatlines <- function(tracksdf, scenario = "onison",
+                                  projto = sp::CRS(sf::st_crs(26916)$input)){
+  #create a line for between each pt of track, put into named list by ID
+  #check that it's not the last point in a track
+  #(we don't want a line between tracks)
+  check_pt <- function(row, tracksdf. = tracksdf){
+    if (tracksdf.$ID[row] == tracksdf.$ID[row+1]){
+      newline <- Line(tracksdf.[c(row, row+1),c("x", "y")])
+    } else {
+      newline <- NULL
+    }
+    return(newline)
+  }
+  linelist <- lapply(X = as.list(1:(nrow(tracksdf)-1)), FUN = check_pt)
+  names(linelist) <- tracksdf$ID[1:(length(tracksdf$ID)-1)]
+  linelist <- linelist[which(!lapply(linelist, is.null) == TRUE)]
+  big_Lines_list <- list()
+  nocc <- length(unique(tracksdf$ID))
+  for (trackindex in 1:nocc){
+    trackIDi <- unique(tracksdf$ID)[trackindex]
+    thetrack <- tracksdf[which(tracksdf$ID == trackIDi),]
+    thelines <- linelist[which(names(linelist) == paste(trackIDi))]
+    
+    #check scenario
+    if (scenario == "onison"){ #on effort is on effort
+      newlines <- list(Lines(thelines[which(
+        thetrack[1:(nrow(thetrack)-1),]$effort == "OnEffort")], 
+        ID = paste(trackIDi)))
+    } else if (scenario == "everything"){ #everything is on effort
+      newlines <- list(Lines(thelines, ID = paste(trackIDi)))
+    }
+    #just creating desired class of object
+    newlines_spat <- SpatialLines(newlines)
+    #specify projection
+    proj4string(newlines_spat) <- projto
+    #adding new objects to list
+    big_Lines_list <- append(big_Lines_list, newlines_spat)
+    #naming list for track ID
+    names(big_Lines_list)[trackindex] <- paste(trackIDi)
+  }
+  return(big_Lines_list)
+}
+
+#' Get length line that cross polygon
+#' @param polygon a spatial polygon object
+#' @param sp_line a Spatial Lines object
+#' @return returns the length of the line within polygon
+#' @export
+get_length <- function(polygon, sp_line){
+  boxlength = 0
+  #attempts to chop line to just the bit within the polygon
+  theintersection <- st_intersection(st_as_sf(polygon), st_as_sf(sp_line))
+  #only calculate length of the line if there is a line that exists
+  if(length(theintersection$geometry) > 0){
+    boxlength <- as.numeric(st_length(theintersection))
+  } #otherwise the length remains 0
+  return(boxlength)
+}
+
+#'Calculate track lengths in grid boxes
+#' function to find intersection between lines and grid box 
+#' @param tracks_sp_lines list of lines labelled by track ID in name field
+#' @param grid_polygons dataframe with a polygon in each row corresponding to 
+#'                      that grid pt
+#' @return column of summed intersections, each row is grid pt (trap)
+#'         and sum is for all tracks specified in function
+lengths_in_grid <- function(tracks_sp_lines, tracksinoc, grid_polygons){
+  trackspl_to_use <- tracks_sp_lines[which(names(tracks_sp_lines) %in%
+                                             as.character(tracksinoc))]
+  
+  if (length(trackspl_to_use) == 1){#just one track per occ now 
+    inters <-  sapply(X = grid_polygons$polygons, 
+                      FUN = function(x){get_length(x, trackspl_to_use[[1]])})
+  } else {
+    warning(paste("track length", paste0(tracksinoc, collapse = " "), "not equal to 1"))
+    inters = rep(NA, length(grid_polygons$polygons))
+  }
+  return(inters)
+}
+#for each individual, create a use matrix
+create_ind_use <- function(ch, trapcells, tracksdf){
+  use <- mclapply(as.list(1:dim(ch)[1]), FUN = function(i){
+    apply(as.array(1:dim(ch)[2]), 1, function(k){
+      trackoccdf <- tracksdf[tracksdf$occ == k,]
+      if(!all(is.na(ch[i,k,]))){
+        #if i detected k, discard survey pts after detection in occasion k
+        dettime <- min(trackoccdf$time) + ch[i,k,which(!is.na(ch[i,k,]))]
+        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
+        #add up length of trackline in each grid cell
+        useik <- lengths_in_grid(create_line_spatlines(trackoccdf), k, trap_cells)
+      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
+        useik <- useall[,k]
+      }
+      #(if there are covariates, perhaps could create matrix for them here, but for now ignore)
+    })
+  }, mc.cores = 3)
+  return(use)
+}
+#
+#-------------Read files -------------------------------------------------------
+
+lpoly <- readRDS("data/all_scenarios/larger_poly.Rds")
+tracks <- readRDS("data/all_scenarios/lbl_trackdat.Rds")
+olddat <- readRDS("data/onison/all_occasions/model_objs/chs_noneuclidean_extraprims2000.Rds")
+sight <- readRDS("data/onison/all_occasions/sight_for_capthist_noopen_2000.Rds")
+sightwn <-  readRDS("data/all_scenarios/sightings_data.Rds")
+wpt_summaries <- readRDS("data/all_scenarios/wpt_summaries.Rds")
+capthist <- readRDS("data/onison/all_occasions/capthistscr_noopen_2000.Rds")
+prim <- readRDS("data/all_scenarios/all_occasions/primary.Rds")
+traps <- readRDS("data/onison/all_occasions/trapscr_noopen_2000.Rds")
+mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
+distmat <- readRDS("data/onison/all_occasions/user_ne_dist_mat_2000.Rds")
+
+
+#-------------Tracks dataframe -------------------------------------------------
+#format one primary of data 
+olddat$time()[11]+2004
+surveys <-  unique(sight[which(sight$occ_key %in% which(prim$primary == 11)),"survey"])
+oldoccs <- unique(sight[which(sight$occ_key %in% which(prim$primary == 11)),"occ_key"])
+tracks <- tracks[tracks$ID %in% surveys,]
+tracks <- tracks[order(tracks$ID),]
+
+#sort by track ID, then t
+tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1, 
+                                   function(x){which(unique(tracks$ID) == tracks$ID[x])}),
+                       x = tracks$x,
+                       y = tracks$y,
+                       time = tracks$t) #time right now only determines order, not relative time
+nocc <- length(unique(tracksdf$occ))
+dx = 2000
+
+#-------------Subset capthist -------------------------------------------------
+capthist <- subset(capthist, occasions = oldoccs)
+sight <- sight[sight$survey %in% surveys,]
+sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x)})
+traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
+trapscr <- traps
+usage(trapscr) <- usage(traps)[which(rowSums(usage(traps)[,c(oldoccs)])>0),c(oldoccs)]
+distmatscr <- distmat[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
+#-------------Times of detections ----------------------------------------------
+#need to identify time from survey start that each individual is detected in each survey for induse
+sightwn <- sightwn[which(sightwn$SurveyNumber %in% surveys &
+                           sightwn$CatalogID %in% unique(sight$ID) &
+                           sightwn$OnEffort == "Yes"),]
+sight <- left_join(sight, sightwn[,c("CatalogID", "SurveyNumber", "Sighting", "lat")], 
+          by=c("ID"="CatalogID","survey" = "SurveyNumber", "lat" = "lat"))
+
+sight$t <- NA
+
+wpt_summaries <- wpt_summaries[which(as.numeric(wpt_summaries$ID) %in% surveys),]
+for (i in 1:nrow(sight)){
+  survi <- sight[i, "survey"]
+  sightnumi <- sight[i, "Sighting"]
+  wpt <- wpt_summaries[which(
+    wpt_summaries$ID == survi & 
+      wpt_summaries$SightingNum == sightnumi), 
+    ]
+  sight[i, "t"] <- wpt$t
+}
+#discard any second detections
+pcomboIDsurv <- do.call(paste, sight[,c("ID", "survey")])
+sight$freq <- apply(as.array(pcomboIDsurv), 1, function(x){length(which(pcomboIDsurv == x))})
+repeaters <- unique(sight[sight$freq>1, c("ID", "survey")])
+sight_single <- sight
+for(row in 1:nrow(repeaters)){
+  rID = repeaters[row, "ID"]
+  rsurvey = repeaters[row, "survey"]
+  sightrows = which(sight_single$ID == rID & sight_single$survey == rsurvey)
+  print(length(sightrows))
+  mults <- sight_single[sightrows,]
+  sight_single <- sight_single[-sightrows,]
+  sight_single <- rbind(sight_single, mults[order(mults$t),][1,])
+}
+
+sight_single$trap <- NA
+
+#closest trap
+for (tr in 1:nrow(sight_single)) {
+  d <- sqrt((sight_single[tr, ]$x - traps[, 1])^2 + (sight_single[tr, ]$y - traps[, 2])^2)
+  dmin <- min(d)
+  if (dmin > 5000) {
+    sight_single[tr, "trap"] <- NA
+    next
+  }
+  sight_single[tr, "trap"] <- which.min(d)
+}
+
+#format this into a ch of times
+cht <- apply(as.array(unique(sight_single$ID)), 1, 
+      function(i){
+        apply(as.array(surveys), 1, function(k){
+            chik <- rep(NA, nrow(traps))
+            s <- sight_single[which(sight_single$ID == i & 
+                                      sight_single$survey ==k),]
+            if(nrow(s) > 0){
+              chik[s$trap] <- s$t
+            }
+            return(chik)
+        })
+      })
+
+ch_t <- aperm(array(cht, dim = c(nrow(traps), nocc, length(unique(sight_single$ID)))),
+               c(3,2,1))
+
+#-------------------------fit normal secr model to data ------------------------
+scrmesh <- make.mask(trapscr,
+                     spacing = dx,
+                     buffer = 0,
+                     poly = meshpoly,
+                     type = "polygon")
+rawcap <- data.frame(session = 1,
+                     ID = sight_single$ID,
+                     occasion = sight_single$occ_key,
+                     x = sight_single$x,
+                     y = sight_single$y)
+
+capthist <- make.capthist(captures = rawcap,
+                          traps = trapscr,
+                          fmt = "XY",
+                          noccasions = length(unique(sight$survey)),
+                          snapXY = TRUE,
+                          tol = 5000)
+args <- list(capthist = capthist, mask = scrmesh, detectfn = "HHN", 
+             details = list(userdist = distmatscr), trace = FALSE)
+models <- list(D ~ 1, 
+               D ~ s(x, y, k = 5),
+               D ~ s(x, y, k = 6),
+               D ~ s(x, y, k = 7),
+               D ~ s(x, y, k = 8),
+               D ~ s(x, y, k = 9),
+               D ~ s(x, y, k = 10),
+               D ~ s(x, y, k = 11),
+               D ~ s(x, y, k = 12),
+               D ~ s(x, y, k = 13))
+names <- c('null', #1
+           'Dsmooth5', #2
+           'Dsmooth6', #3
+           'Dsmooth7', #4
+           'Dsmooth8', #5
+           'Dsmooth9', #6
+           'Dsmooth10', #7
+           'Dsmooth11', #8
+           'Dsmooth12', #9
+           'Dsmooth13') #10
+fits <- list.secr.fit(model = models, constant = args, names = names)
+AIC(fits)
+m0 <- fits[[6]]
+lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
+upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
+Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
+denssurf <- exp(DdesignX %*% log(Dpar))*100
+DdesignX <- m0$designD
+lambda0 <- exp(m0$fit$par[m0$parindx$lambda0])
+sigma <- exp(m0$fit$par[m0$parindx$sigma])
+
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[(upperD-lowerD)<20,], 
+            mapping = aes(x = x, y =y, fill = D)) +
+  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(name = "magma") +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  theme_bw()
+sum(denssurf[(upperD-lowerD)<20])*4
+sum(denssurf)*4
+
+spreadD <- function(mesh_dist_mat, lambda0, sigma, D, area){
+  rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
+    #this is the probability of detection at x 
+    probdet = apply(as.array(1:nrow(mesh_dist_mat)), 1, function(x){
+      lambda0 * exp(-(mesh_dist_mat[meshx,x]^2)/(2*sigma^2)) 
+    })
+    probdet = probdet/sum(probdet)
+    D[meshx] * probdet #* area #keep density per square km, not per mesh
+  }))
+}
+
+#------------------------------Moving detector --------------------------------
+startpar <- list(D = log(Dpar), 
+                 lambda0 = log(lambda0), 
+                 sigma = log(sigma))
+
+
+move_fit <- function(tracksdf, 
+                     traps,
+                     trapcells,
+                     dist_trapmesh,
+                     useall,
+                     DdesignX, 
+                     hazdenom, 
+                     mesh, 
+                     startpar){
+  nocc <- length(unique(tracksdf$occ))
+  
+  #use
+  induse_ls <- create_ind_use(capthist, trapcells, tracksdf)
+  induse <- aperm(
+    array(unlist(induse_ls), 
+          dim =c(nrow(traps), nocc, dim(capthist)[1])), 
+    c(3, 1, 2))
+  
+  #convert capthist to 1s and 0s
+  capthist[is.na(capthist)] <- 0
+  capthist[capthist!=0] <- 1
+  
+  # #stationary detector likelihood
+  # stat_nll <- function(v){
+  #   lambda0_ <- exp(startpar$lambda0)
+  #   sigma_ <- exp(startpar$sigma)
+  #   D_mesh_ <- exp(DdesignX %*% startpar$D)*100 #per square km?
+  #   out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+  #                                          hazdenom, D_mesh_, 
+  #                                          capthist, useall,
+  #                                          dist_trapmesh, mesh_mat)
+  #   return(out)
+  # }
+  #moving detector likelihood
+  nll <- function(v){
+    lambda0_ <- exp(startpar$lambda0)
+    sigma_ <- exp(startpar$sigma)
+    D_mesh_ <- exp(DdesignX %*% startpar$D)*100 #per square km?
+    out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
+                                       hazdenom, D_mesh_,
+                                       capthist, useall,
+                                       induse, dist_trapmesh, mesh_mat)
+    return(out)
+  }
+  
+  # start.time.sd <- Sys.time()
+  # fit_sd <- optim(par = startpar,
+  #                 fn = stat_nll,
+  #                 hessian = F, method = "Nelder-Mead")
+  # fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
+  
+  start.time.md <- Sys.time()
+  fit_md <- optim(par = startpar,
+                  fn = nll,
+                  hessian = F, method = "Nelder-Mead")
+  fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
+  
+  parnames <- unlist(apply(as.array(1:length(startpar)), 1,
+                    function(p){rep(names(startpar)[p], length(startpar[[p]]))}))
+  
+  assemble_CIs <- function(fit){
+    #fisher_info <- solve(fit$hessian)
+    #prop_sigma <- sqrt(diag(fisher_info))
+    #prop_sigma <- diag(prop_sigma)
+    #upper <- fit$par+1.96*prop_sigma
+    #lower <- fit$par-1.96*prop_sigma
+    interval <- data.frame(name = names(startpar),
+                           value = fit$par#, 
+                           #upper = diag(upper), 
+                           #lower = diag(lower)
+    )
+    
+    return(interval)
+  } 
+  
+  out <- list(#statdet_est = assemble_CIs(fit_sd), 
+              movdet_est = assemble_CIs(fit_md),
+              #statdet_time = fit.time.sd,
+              movdet_time = fit.time.md)
+  return(out)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
