@@ -114,7 +114,7 @@ double hazdist_cpp(double lambda0,
                    int timeincr) {
   double g0 = halfnormdet_cpp(lambda0, sigma, d);
   //timeincr is the unit for hazard rate (could be time or distance (eg meters))
-  double haz  = log(1 - g0) * -1 *  1/timeincr ; //
+  double haz  = g0; //log(1 - g0) * -1 *  1/timeincr ; //
   return haz;
 }
 //#---------------------Moving Detector multi-catch LLK (approximated with traps)
@@ -195,14 +195,14 @@ double
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught
-              if(indusage(i,trapj,occk) <= timeincr){
-               ; //do what i've been doing
+              //if(indusage(i,trapj,occk) <= timeincr){
+                //do what i've been doing
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                 sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
-              } else { //else survive up to current trap - hazdenom and don't survive an interval of hazdenom
-                hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * timeincr; //hu for the last timeincr in this trap
-                sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * ((indusage(i, trapj, occk) - timeincr)/timeincr)); //survive up to last time increment in this trap
-              }
+              //} else { //else survive up to current trap - hazdenom and don't survive an interval of hazdenom
+              //  hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * timeincr; //hu for the last timeincr in this trap
+              //  sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * ((indusage(i, trapj, occk) - timeincr)/timeincr)); //survive up to last time increment in this trap
+            //  }
               break; //don't need to keep summing hazard after detection
             }
             //add cumulative hazard for ind at trap if not detected
@@ -303,10 +303,10 @@ double
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = FALSE;
           int trapijk;
-          Rcpp::NumericVector hu_js(traps.length()); // hazard times use for m, j, k 
+          Rcpp::NumericVector hu_js(traps.length());
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
-            hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);//hazard times usage for each trap. 
+              hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);//hazard times usage for each trap. 
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught and which trap caught it
               trapijk = trapj;
@@ -314,8 +314,12 @@ double
           }
           double sum_hujs = sum(hu_js);
           if(ikcaught){
-            //prob that trap j made the detection given i was detected in k
-            probcapthist_eachocc(occk) = hu_js(trapijk)/(sum_hujs) * (1 - exp(-sum_hujs)); 
+           if(sum_hujs < 1e-16){//would be odd if individual detected if sumhujs was almost 0...
+             probcapthist_eachocc(occk) = (1/traps.length())   * (1 - exp(-sum_hujs)); 
+           } else {
+             //prob that trap j made the detection given i was detected in k
+             probcapthist_eachocc(occk) = exp(log(hu_js(trapijk))-log(sum_hujs))   * (1 - exp(-sum_hujs)); 
+           }
           }else{
             //prob i wasn't detected in k
             probcapthist_eachocc(occk) = exp(-sum_hujs) ; //survived all traps
