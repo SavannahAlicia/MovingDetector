@@ -12,7 +12,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
 set.seed(12345)
-nsims = 500
+nsims = 50
 
 #-------------------------------functions---------------------------------------
 #' Create polygons for each box centered at grid pt
@@ -238,40 +238,44 @@ sim_capthist <- function(pop = NULL,
 }
 
 #----------------------------------data setup-----------------------------------
-lambda0 = .04
+lambda0 = .005
 sigma = 300
 #multiple tracklines, keep separate occasions since we only take first detection
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-tracksteps = 55 #intervals 
-trackint = 360 #seconds 
+trackxmin = 1500
+trackxmax = 3500
+tracksteplength = 125/5
+tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
+trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
 tracksdf <- rbind(
   data.frame(occ = 1,
-             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
              y = 1250, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 2,
-             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1550, 
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+             y = 1500, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
-             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 1850, 
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+             y = 1750, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 4,
-             x = seq(from = 1500, to = 3000, length.out = tracksteps+1),
-             y = 2050, 
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+             y = 2000, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
 )
+tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = 250
+meshspacing = tracksteplength * 5
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 5*sigma, spacing = meshspacing)
 
 D_mesh <- rep(.4, nrow(mesh))
@@ -282,7 +286,7 @@ hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 #trap grid
 trapspacing = meshspacing
-xgr <- seq(min(tracksdf$x), max(tracksdf$x), by = trapspacing)
+xgr <- seq(min(tracksdf$x)-(.5*trapspacing), max(tracksdf$x)+(.5*trapspacing), by = trapspacing)
 ygr <- seq(min(tracksdf$y), max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
 # allocate track records to grid
@@ -301,20 +305,22 @@ traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
 
 #example population
-expop <- sim.popn(D = D_mesh_q, core = mesh, model2D = "IHP", 
+expop <- sim.popn(D = D_mesh_q, core = mesh, model2D = "IHP",
                 Ndist = "poisson", buffertype = "rect")
 excapthist <- sim_capthist(pop = expop, traps, tracksdf, lambda0, sigma, D_mesh, hazdenom, report_probseenxk = F)
 exch <- excapthist[which(apply((!is.na(excapthist)), 1, sum)>0),,]
 
 ggplot() +
-  geom_point(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) + 
+  geom_point(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) +
   geom_point(data.frame(x = expop$x, y = expop$y, dets = apply((!is.na(excapthist)), 1, sum)),
              mapping = aes(x = x, y = y, color = as.factor(dets)), size = 2) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
   scale_color_viridis_d() +
   geom_line(tracksdf, mapping = aes(x = x, y = y, group = occ)) +
-  geom_point(data.frame(x = traps$x, y = traps$y, dets = as.factor(apply((!is.na(excapthist)), 3, sum))),
-             mapping = aes(x = x, y = y), shape = 19)
+  geom_point(data.frame(x = traps$x,
+                        y = traps$y, 
+                        dets = as.factor(apply((!is.na(excapthist)), 3, sum))),
+             mapping = aes(x = x, y = y), shape = 21, fill = "transparent")
 
 ggplot() +
   geom_histogram(data = data.frame(dets_per_ind = apply(exch, 1, function(i){sum(!is.na(i))})),
@@ -357,12 +363,12 @@ create_ind_use <- function(ch, trapcells, tracksdf){
   return(use)
 }
 
-#assemble into a i,j,k use matrix
-induse_ls <- create_ind_use(exch, trapcells, tracksdf) #takes about 30 seconds
-induse <- aperm(
-  array(unlist(induse_ls), 
-        dim =c(nrow(traps), nocc, length(induse_ls))), 
-  c(3, 1, 2))
+# #assemble into a i,j,k use matrix
+# induse_ls <- create_ind_use(exch, trapcells, tracksdf) #takes about 30 seconds
+# induse <- aperm(
+#   array(unlist(induse_ls), 
+#         dim =c(nrow(traps), nocc, length(induse_ls))), 
+#   c(3, 1, 2))
 
 #calculate distance matrix for all trap cells and mesh cells
 dist_trapmesh <- apply(as.matrix(mesh), 1, function(meshm){
@@ -417,7 +423,7 @@ sim_fit <- function(tracksdf,
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
     stat_nll <- function(v){
-      lambda0_ <- invlogit(v[1])
+      lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -428,7 +434,7 @@ sim_fit <- function(tracksdf,
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- invlogit(v[1]) #logit link?
+      lambda0_ <- exp(v[1])#invlogit(v[1]) #logit link?
       sigma_ <- exp(v[2])
       D_mesh_ <- rep(exp(v[3]), nrow(mesh))
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
@@ -437,12 +443,14 @@ sim_fit <- function(tracksdf,
                                          induse, dist_trapmesh, mesh_mat)
       return(out)
     }
-    start <- c( logit(lambda0), log(sigma), log(D_mesh[1]))
+    start <- c( #logit(lambda0), 
+      log(lambda0),
+      log(sigma), log(D_mesh[1]))
     
   }else if(Dmod == "~x^2"){
     #quadratic density function
     stat_nll <- function(v){
-      lambda0_ <- invlogit(v[1])
+      lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -453,7 +461,7 @@ sim_fit <- function(tracksdf,
     }
     #moving detector likelihood
     nll <- function(v){
-      lambda0_ <- invlogit(v[1])
+      lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
@@ -462,7 +470,9 @@ sim_fit <- function(tracksdf,
                                          induse, dist_trapmesh, mesh_mat)
       return(out)
     }
-    start <- c(logit(lambda0), log(sigma), beta1, beta2)
+    start <- c(#logit(lambda0),
+      log(lambda0),
+      log(sigma), beta1, beta2)
   }  
 
   start.time.sd <- Sys.time()
@@ -524,8 +534,8 @@ fit2 <- sim_fit(tracksdf,
                 hazdenom, 
                 mesh, Dmod = "~x^2")
 
-start.time.all_q1 <- Sys.time()
-all_sim_fits_q1 <- mclapply(X = as.list(1:nsims),
+start.time.all_q <- Sys.time()
+all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
                              return(sim_fit(tracksdf, 
                                             traps,
@@ -540,7 +550,7 @@ all_sim_fits_q1 <- mclapply(X = as.list(1:nsims),
                            },
                            mc.cores = 6
 )
-tot.time.all_q1 <- difftime(Sys.time(), start.time.all_q1, units = "secs")
+tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 
 
 
@@ -598,14 +608,15 @@ out <- list(all_outs= all_outs, all_outs2 =all_outs2)
 
 }
 
-plotdat <- make_plot_dat(all_sim_fits_q1)
+plotdat <- make_plot_dat(all_sim_fits_q)
 plotdat <- make_plot_dat(all_sim_fits1)
 all_outs <- plotdat$all_outs
 all_outs2 <- plotdat$all_outs2
 plotcols <- c("cornflowerblue", "goldenrod", "black")
 linesize = .3
 
-lambda0plot <- ggplot() +
+lambda0plot <- 
+ggplot() +
   geom_density(all_outs[all_outs$name == "lambda0",], mapping = aes(x = invlogit(value), col = model), size = linesize) +
   geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
                            data.frame(name = "lambda0", model = "true", mean = logit(lambda0))), 
@@ -615,7 +626,7 @@ lambda0plot <- ggplot() +
   geom_vline(xintercept = lambda0, size = linesize, col = "black") +
   xlab(expression("\u03bb"[0])) +
   ylab("Frequency") + 
-  xlim(0,.25) +
+  #xlim(.004,.006) +
   scale_color_manual(name = "",
                      values = plotcols, 
                      labels = c("Moving", "Stationary", expression("True \u03bb"[0]))) +
@@ -626,7 +637,8 @@ lambda0plot <- ggplot() +
         #legend.text = element_text(size = 20))
 
   
-sigmaplot <- ggplot() +
+sigmaplot <- 
+  ggplot() +
   geom_density(all_outs[all_outs$name == "sigma",], mapping = aes(x = exp(value), col = model), size = linesize) +
   geom_vline(data = rbind(all_outs2[all_outs2$name == "sigma",],
                           data.frame(name = "sigma", model = "true", mean = log(sigma))),
@@ -645,65 +657,72 @@ sigmaplot <- ggplot() +
         axis.title.y = element_blank())
         #legend.title = element_text(size = 20),
         #legend.text = element_text(size = 20))
-ggplot() +
-  geom_density(all_outs[all_outs$name == "beta1",], mapping = aes(x = value, col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(mean), col = model), size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = 1.3) +
-  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = 1.3) +
+beta1plot <- ggplot() +
+  geom_density(all_outs[all_outs$name == "beta1",], mapping = aes(x = value, col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(mean), col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta1",], aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
   geom_vline(xintercept = beta1) +
+  ylab("Frequency") +
   scale_color_manual(values = plotcols) +
   xlab("beta1") +
   theme_classic() +
-  theme(axis.title = element_text(size = 20),
+  theme(axis.title = element_text(size = 10),
+        legend.position = "none",
         legend.title = element_text(size = 20),
         legend.text = element_text(size = 20))
-ggplot() +
-  geom_density(all_outs[all_outs$name == "beta2",], mapping = aes(x = value, col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(mean), col = model)) +
-  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanlower), col = model), linetype = "dashed") +
-  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanupper), col = model), linetype = "dashed") +
+beta2plot <- ggplot() +
+  geom_density(all_outs[all_outs$name == "beta2",], mapping = aes(x = value, col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(mean), col = model), size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+  geom_vline(data = all_outs2[all_outs2$name == "beta2",], aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
   geom_vline(xintercept = beta2) +
   scale_color_manual(values = plotcols) +
   xlab("beta2") +
+  ylab("Frequency") +
   theme_classic() +
-  theme(axis.title = element_text(size = 20),
+  theme(axis.title = element_text(size = 10),
+        legend.position = "none",
         legend.title = element_text(size = 20),
         legend.text = element_text(size = 20))
 
-D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), 50),3),
-                        y = rep(rep(mesh$y[1], 61),3),
-                        trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), 50) + beta2)^2), 3),
+meshstep <- meshspacing
+D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), meshstep),3),
+                        y = rep(rep(mesh$y[1], length(seq(min(mesh$x), max(mesh$x), meshstep))),3),
+                        trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), meshstep) + beta2)^2), 3),
                         stationarydets = c(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                          all_outs2$name == "beta1", "mean"]) * 
-                                               (seq(min(mesh$x), max(mesh$x), 50) + 
+                                               (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                   as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                      all_outs2$name == "beta2", "mean"]))^2),
                                            exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                       all_outs2$name == "beta1", "meanupper"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                            all_outs2$name == "beta2", "meanupper"]))^2),
                                            exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                       all_outs2$name == "beta1", "meanlower"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), 50) + 
+                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                            all_outs2$name == "beta2", "meanlower"]))^2)),
                         movingdets = c(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                      all_outs2$name == "beta1", "mean"]) * 
-                                           (seq(min(mesh$x), max(mesh$x), 50) + 
+                                           (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                               as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                  all_outs2$name == "beta2", "mean"]))^2),
                                        exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                   all_outs2$name == "beta1", "meanupper"]) * 
-                                             (seq(min(mesh$x), max(mesh$x), 50) + 
+                                             (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                        all_outs2$name == "beta2", "meanupper"]))^2),
                                        exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                   all_outs2$name == "beta1", "meanlower"]) * 
-                                             (seq(min(mesh$x), max(mesh$x), 50) + 
+                                             (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                        all_outs2$name == "beta2", "meanlower"]))^2)),
-                        quantile = c(rep("mean", 61), rep("2.5%",61), rep("97.5%",61))
+                        quantile = c(rep("mean", length(seq(min(mesh$x), max(mesh$x), meshstep))),
+                                     rep("2.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))),
+                                     rep("97.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))))
                         )
 
 D_plotdat <- data.frame(x = rep(mesh$x, 3),
@@ -751,14 +770,15 @@ ggplot() +
 
 D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
 
-Dplot <- ggplot() + 
+Dplot <- 
+ggplot() + 
   geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = linesize) +
   geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
   geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
   scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
                      name = "") +
   #ylim(0,.5) +
- # xlim(500,1750)+
+  xlim(1500,3000)+
   ylab("AC density") +
   theme_classic() +
   theme(axis.title = element_text(size = 10),
@@ -777,5 +797,13 @@ ggsave(file = paste("writing_up/flatdens.png", sep = ""),
        height = 169*(1/2),
        units = c("mm"),
        dpi = 300)
-saveRDS(all_sim_fits_q1, "writing_up/all_sim_fits_q_1000.RDS")
-saveRDS(all_sim_fits1, "writing_up/all_sim_fits_1000.RDS")
+
+grid.arrange(
+  grobs = list(lambda0plot, sigmaplot, beta1plot, beta2plot,Dplot),
+  widths = c(1,1),
+  heights = c(1,1,1),
+  layout_matrix = rbind(c(1,2),c(3,4),5)
+)
+
+saveRDS(all_sim_fits_q, "writing_up/all_sim_fits_q_100_fitspacing50xsimspacing.RDS")
+saveRDS(all_sim_fits1, "writing_up/all_sim_fits_100.RDS")
