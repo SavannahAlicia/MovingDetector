@@ -144,6 +144,7 @@ traps <- readRDS("data/onison/all_occasions/trapscr_noopen_2000.Rds")
 mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
 meshpoly <- readRDS("data/onison/all_occasions/meshpoly_2000.Rds")
 distmat <- readRDS("data/onison/all_occasions/user_ne_dist_mat_2000.Rds")
+meshdistmat <- readRDS("data/onison/all_occasions/mesh_dist_mat_2000.Rds")
 
 
 #-------------Tracks dataframe -------------------------------------------------
@@ -222,6 +223,7 @@ for (tr in 1:nrow(sight_single)) {
   sight_single[tr, "trap"] <- which.min(d)
 }
 
+
 #format this into a ch of times
 cht <- apply(as.array(unique(sight_single$ID)), 1, 
       function(i){
@@ -238,6 +240,41 @@ cht <- apply(as.array(unique(sight_single$ID)), 1,
 
 ch_t <- aperm(array(cht, dim = c(nrow(traps), nocc, length(unique(sight_single$ID)))),
                c(3,2,1))
+
+trapcells <- create_grid_polygons(trapscr, spacing = 2000)
+#use
+#for each individual, create a use matrix
+create_ind_use <- function(ch_t, trapcells, tracksdf){
+  use <-mclapply(as.list(1:dim(ch_t)[1]), FUN = function(i){
+    apply(as.array(1:dim(ch_t)[2]), 1, function(k){
+      trackoccdf <- tracksdf[tracksdf$occ == k,]
+      if(!all(is.na(ch_t[i,k,]))){
+        #if i detected k, discard survey pts after detection in occasion k
+        dettime <- ch_t[i,k,which(!is.na(ch_t[i,k,]))]
+        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
+        #add up length of trackline in each grid cell
+        useik <- lengths_in_grid(create_line_spatlines(trackoccdf, tracksdfcolname = "occ"), k, trapcells)
+      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
+        useik <- usage(trapscr)[,k]
+      }
+      #(if there are covariates, perhaps could create matrix for them here, but for now ignore)
+    })
+    
+  }, mc.cores = 3)
+  return(use)
+}
+
+trapcells <- create_grid_polygons(trapscr, spacing = 2000)
+
+induse_ls <- create_ind_use(ch_t, trapcells, tracksdf)
+induse <- aperm(
+  array(unlist(induse_ls), 
+        dim =c(nrow(traps), nocc, dim(capthist)[1])), 
+  c(3, 1, 2))
+#convert capthist back to 1s and 0s
+ch_10 <- ch_t
+ch_10[is.na(ch_10)] <- 0
+ch_10[ch_10!=0] <- 1
 
 #-------------------------fit normal secr model to data ------------------------
 scrmesh <- make.mask(trapscr,
@@ -281,7 +318,7 @@ names <- c('null', #1
            'Dsmooth13') #10
 fits <- list.secr.fit(model = models, constant = args, names = names)
 AIC(fits)
-m0 <- fits[[6]]
+m0 <- fits[[3]]
 lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
 upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
 Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
@@ -289,11 +326,23 @@ DdesignX <- m0$designD
 denssurf <- exp(DdesignX %*% log(Dpar))*100
 lambda0 <- exp(m0$fit$par[m0$parindx$lambda0])
 sigma <- exp(m0$fit$par[m0$parindx$sigma])
+Ddiffco <- 20
+spreadD <- function(mesh_dist_mat, lambda0, sigma, D){
+  rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
+    #this is the probability of detection at x 
+    probdet = apply(as.array(1:nrow(mesh_dist_mat)), 1, function(x){
+      lambda0 * exp(-(mesh_dist_mat[meshx,x]^2)/(2*sigma^2)) 
+    })
+    probdet = probdet/sum(probdet)
+    D[meshx] * probdet #* area #keep density per square km, not per mesh
+  }))
+}
+Dspreadsurf <- spreadD(meshdistmat, lambda0, sigma, denssurf)
 
 ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[(upperD-lowerD)<20,], 
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[(upperD-lowerD)<Ddiffco,], 
             mapping = aes(x = x, y =y, fill = D)) +
   geom_point(data = mesh, mapping = aes(x = x, y = y)) +
   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
@@ -304,54 +353,14 @@ ggplot() +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   theme_bw()
-sum(denssurf[(upperD-lowerD)<20])*4
+sum(denssurf[(upperD-lowerD)<Ddiffco])*4
 sum(denssurf)*4
 
-
-spreadD <- function(mesh_dist_mat, lambda0, sigma, D, area){
-  rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
-    #this is the probability of detection at x 
-    probdet = apply(as.array(1:nrow(mesh_dist_mat)), 1, function(x){
-      lambda0 * exp(-(mesh_dist_mat[meshx,x]^2)/(2*sigma^2)) 
-    })
-    probdet = probdet/sum(probdet)
-    D[meshx] * probdet #* area #keep density per square km, not per mesh
-  }))
-}
 
 #------------------------------Moving detector --------------------------------
 startpar <- list(D = log(Dpar), 
                  lambda0 = log(lambda0), 
                  sigma = log(sigma))
-
-trapcells <- create_grid_polygons(trapscr, spacing = 2000)
-#use
-#for each individual, create a use matrix
-create_ind_use <- function(ch_t, trapcells, tracksdf){
-  use <-mclapply(as.list(1:dim(ch_t)[1]), FUN = function(i){
-    apply(as.array(1:dim(ch_t)[2]), 1, function(k){
-      trackoccdf <- tracksdf[tracksdf$occ == k,]
-      if(!all(is.na(ch_t[i,k,]))){
-        #if i detected k, discard survey pts after detection in occasion k
-        dettime <- ch_t[i,k,which(!is.na(ch_t[i,k,]))]
-        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
-        #add up length of trackline in each grid cell
-        useik <- lengths_in_grid(create_line_spatlines(trackoccdf, tracksdfcolname = "occ"), k, trapcells)
-      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
-        useik <- usage(trapscr)[,k]
-      }
-      #(if there are covariates, perhaps could create matrix for them here, but for now ignore)
-    })
-    
-  }, mc.cores = 3)
-  return(use)
-}
-
-induse_ls <- create_ind_use(ch_t, trapcells, tracksdf)
-induse <- aperm(
-  array(unlist(induse_ls), 
-        dim =c(nrow(traps), nocc, dim(capthist)[1])), 
-  c(3, 1, 2))
 
 move_fit <- function(capthist,
                      tracksdf, 
@@ -372,7 +381,7 @@ move_fit <- function(capthist,
    stat_nll <- function(v){
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
-    D_mesh_ <- exp(DdesignX %*% v[Dparindex])*100 #per square km?
+    D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                             hazdenom, D_mesh_, 
                                             capthist, useall,
@@ -383,7 +392,7 @@ move_fit <- function(capthist,
   nll <- function(v){
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
-    D_mesh_ <- exp(DdesignX %*% v[Dparindex])*100 #per square km?
+    D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
     out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                        hazdenom, D_mesh_,
                                        capthist, useall,
@@ -428,15 +437,11 @@ move_fit <- function(capthist,
 }
 
 
-trapcells <- create_grid_polygons(trapscr, spacing = 2000)
+
 setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
+setwd("~/Documents/UniStAndrews/Dolphins/Charleston")
 
-
-#convert capthist to 1s and 0s
-ch_10 <- ch_t
-ch_10[is.na(ch_10)] <- 0
-ch_10[ch_10!=0] <- 1
 
 m_move <- move_fit(capthist = ch_10,
                    tracksdf = tracksdf, 
@@ -450,28 +455,83 @@ m_move <- move_fit(capthist = ch_10,
                    startpar = startpar)
 
 
-denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*10000
+denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
 lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, "value"])
 sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, "value"])
-denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*10000
+denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*100
 lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, "value"])
 sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, "value"])
+lowcolor = "#000004FF" 
+colorm1 = "#51127CFF" 
+colorm2 = "#B63679FF"
+colorm3 = "#FB8861FF"
+highcolor = "#FCFDBFFF"
 
+sharedmax = max(c(denssurf_stat[(upperD-lowerD)<Ddiffco,],
+                denssurf_move[(upperD-lowerD)<Ddiffco,],
+                denssurf[(upperD-lowerD)<Ddiffco,]
+                ))
+sharedmids = seq(0, sharedmax, length.out = 5)[2:4]
 ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[(upperD-lowerD)<20,], 
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[(upperD-lowerD)<Ddiffco,], 
             mapping = aes(x = x, y =y, fill = D)) +
   geom_point(data = mesh, mapping = aes(x = x, y = y)) +
   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_viridis_c(name = "D", option = "magma") +
+  scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+                       values = c(0, sharedmids, sharedmax)/sharedmax,
+                       limits = c(0, sharedmax),
+                       name = "Density", 
+                       breaks = c(0, sharedmids, sharedmax),
+                       labels = c(0, round(sharedmids,1),round(sharedmax, 2))) +  
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("secr") +
   theme_bw()
-
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[(upperD-lowerD)<Ddiffco,], 
+            mapping = aes(x = x, y =y, fill = D)) +
+  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+                       values = c(0, sharedmids, sharedmax)/sharedmax,
+                       limits = c(0, sharedmax),
+                       name = "Density", 
+                       breaks = c(0, sharedmids, sharedmax),
+                       labels = c(0, round(sharedmids,1),round(sharedmax, 2))) +  
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("Stationary Detector") +
+  theme_bw()
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[(upperD-lowerD)<Ddiffco,], 
+            mapping = aes(x = x, y =y, fill = D)) +
+  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+                       values = c(0, sharedmids, sharedmax)/sharedmax,
+                       limits = c(0, sharedmax),
+                       name = "Density", 
+                       breaks = c(0, sharedmids, sharedmax),
+                       labels = c(0, round(sharedmids,1),round(sharedmax, 2))) + 
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("Moving Detector") +
+  theme_bw()
 
 
 
