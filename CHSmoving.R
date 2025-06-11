@@ -50,13 +50,13 @@ create_grid_polygons <- function(grid, spacing = NULL){
 #' @param tracksdf dataframe with xy, occ, trapno, and time
 #' @return named list of SpatialLines objects
 #' @export
-create_line_spatlines <- function(tracksdf, scenario = "onison",
+create_line_spatlines <- function(tracksdf, scenario = "onison", tracksdfcolname = "ID",
                                   projto = sp::CRS(sf::st_crs(26916)$input)){
   #create a line for between each pt of track, put into named list by ID
   #check that it's not the last point in a track
   #(we don't want a line between tracks)
   check_pt <- function(row, tracksdf. = tracksdf){
-    if (tracksdf.$ID[row] == tracksdf.$ID[row+1]){
+    if (tracksdf.[row, tracksdfcolname] == tracksdf.[row+1, tracksdfcolname]){
       newline <- Line(tracksdf.[c(row, row+1),c("x", "y")])
     } else {
       newline <- NULL
@@ -64,13 +64,13 @@ create_line_spatlines <- function(tracksdf, scenario = "onison",
     return(newline)
   }
   linelist <- lapply(X = as.list(1:(nrow(tracksdf)-1)), FUN = check_pt)
-  names(linelist) <- tracksdf$ID[1:(length(tracksdf$ID)-1)]
+  names(linelist) <- tracksdf[1:(nrow(tracksdf)-1), tracksdfcolname]
   linelist <- linelist[which(!lapply(linelist, is.null) == TRUE)]
   big_Lines_list <- list()
-  nocc <- length(unique(tracksdf$ID))
+  nocc <- length(unique(tracksdf[, tracksdfcolname]))
   for (trackindex in 1:nocc){
-    trackIDi <- unique(tracksdf$ID)[trackindex]
-    thetrack <- tracksdf[which(tracksdf$ID == trackIDi),]
+    trackIDi <- unique(tracksdf[, tracksdfcolname])[trackindex]
+    thetrack <- tracksdf[which(tracksdf[, tracksdfcolname] == trackIDi),]
     thelines <- linelist[which(names(linelist) == paste(trackIDi))]
     
     #check scenario
@@ -129,25 +129,6 @@ lengths_in_grid <- function(tracks_sp_lines, tracksinoc, grid_polygons){
   }
   return(inters)
 }
-#for each individual, create a use matrix
-create_ind_use <- function(ch, trapcells, tracksdf){
-  use <- mclapply(as.list(1:dim(ch)[1]), FUN = function(i){
-    apply(as.array(1:dim(ch)[2]), 1, function(k){
-      trackoccdf <- tracksdf[tracksdf$occ == k,]
-      if(!all(is.na(ch[i,k,]))){
-        #if i detected k, discard survey pts after detection in occasion k
-        dettime <- min(trackoccdf$time) + ch[i,k,which(!is.na(ch[i,k,]))]
-        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
-        #add up length of trackline in each grid cell
-        useik <- lengths_in_grid(create_line_spatlines(trackoccdf), k, trap_cells)
-      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
-        useik <- useall[,k]
-      }
-      #(if there are covariates, perhaps could create matrix for them here, but for now ignore)
-    })
-  }, mc.cores = 3)
-  return(use)
-}
 #
 #-------------Read files -------------------------------------------------------
 
@@ -161,6 +142,7 @@ capthist <- readRDS("data/onison/all_occasions/capthistscr_noopen_2000.Rds")
 prim <- readRDS("data/all_scenarios/all_occasions/primary.Rds")
 traps <- readRDS("data/onison/all_occasions/trapscr_noopen_2000.Rds")
 mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
+meshpoly <- readRDS("data/onison/all_occasions/meshpoly_2000.Rds")
 distmat <- readRDS("data/onison/all_occasions/user_ne_dist_mat_2000.Rds")
 
 
@@ -170,14 +152,17 @@ olddat$time()[11]+2004
 surveys <-  unique(sight[which(sight$occ_key %in% which(prim$primary == 11)),"survey"])
 oldoccs <- unique(sight[which(sight$occ_key %in% which(prim$primary == 11)),"occ_key"])
 tracks <- tracks[tracks$ID %in% surveys,]
-tracks <- tracks[order(tracks$ID),]
+tracks <- tracks[order(tracks$ID, tracks$t),]
 
 #sort by track ID, then t
 tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1, 
                                    function(x){which(unique(tracks$ID) == tracks$ID[x])}),
                        x = tracks$x,
                        y = tracks$y,
+                       effort = tracks$effort,
                        time = tracks$t) #time right now only determines order, not relative time
+#note SIghting 1 in survey 710 (occasion 4) happens immediately, and the two trackpts aren't labelled on effort
+tracksdf[which(tracksdf$occ == 4 & tracksdf$time < 101),"effort"] <- "OnEffort"
 nocc <- length(unique(tracksdf$occ))
 dx = 2000
 
@@ -300,8 +285,8 @@ m0 <- fits[[6]]
 lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
 upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
 Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
-denssurf <- exp(DdesignX %*% log(Dpar))*100
 DdesignX <- m0$designD
+denssurf <- exp(DdesignX %*% log(Dpar))*100
 lambda0 <- exp(m0$fit$par[m0$parindx$lambda0])
 sigma <- exp(m0$fit$par[m0$parindx$sigma])
 
@@ -322,6 +307,7 @@ ggplot() +
 sum(denssurf[(upperD-lowerD)<20])*4
 sum(denssurf)*4
 
+
 spreadD <- function(mesh_dist_mat, lambda0, sigma, D, area){
   rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
     #this is the probability of detection at x 
@@ -338,45 +324,66 @@ startpar <- list(D = log(Dpar),
                  lambda0 = log(lambda0), 
                  sigma = log(sigma))
 
+trapcells <- create_grid_polygons(trapscr, spacing = 2000)
+#use
+#for each individual, create a use matrix
+create_ind_use <- function(ch_t, trapcells, tracksdf){
+  use <-mclapply(as.list(1:dim(ch_t)[1]), FUN = function(i){
+    apply(as.array(1:dim(ch_t)[2]), 1, function(k){
+      trackoccdf <- tracksdf[tracksdf$occ == k,]
+      if(!all(is.na(ch_t[i,k,]))){
+        #if i detected k, discard survey pts after detection in occasion k
+        dettime <- ch_t[i,k,which(!is.na(ch_t[i,k,]))]
+        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
+        #add up length of trackline in each grid cell
+        useik <- lengths_in_grid(create_line_spatlines(trackoccdf, tracksdfcolname = "occ"), k, trapcells)
+      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
+        useik <- usage(trapscr)[,k]
+      }
+      #(if there are covariates, perhaps could create matrix for them here, but for now ignore)
+    })
+    
+  }, mc.cores = 3)
+  return(use)
+}
 
-move_fit <- function(tracksdf, 
-                     traps,
+induse_ls <- create_ind_use(ch_t, trapcells, tracksdf)
+induse <- aperm(
+  array(unlist(induse_ls), 
+        dim =c(nrow(traps), nocc, dim(capthist)[1])), 
+  c(3, 1, 2))
+
+move_fit <- function(capthist,
+                     tracksdf, 
                      trapcells,
                      dist_trapmesh,
                      useall,
+                     induse,
                      DdesignX, 
                      hazdenom, 
                      mesh, 
                      startpar){
-  nocc <- length(unique(tracksdf$occ))
-  
-  #use
-  induse_ls <- create_ind_use(capthist, trapcells, tracksdf)
-  induse <- aperm(
-    array(unlist(induse_ls), 
-          dim =c(nrow(traps), nocc, dim(capthist)[1])), 
-    c(3, 1, 2))
-  
-  #convert capthist to 1s and 0s
-  capthist[is.na(capthist)] <- 0
-  capthist[capthist!=0] <- 1
-  
-  # #stationary detector likelihood
-  # stat_nll <- function(v){
-  #   lambda0_ <- exp(startpar$lambda0)
-  #   sigma_ <- exp(startpar$sigma)
-  #   D_mesh_ <- exp(DdesignX %*% startpar$D)*100 #per square km?
-  #   out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
-  #                                          hazdenom, D_mesh_, 
-  #                                          capthist, useall,
-  #                                          dist_trapmesh, mesh_mat)
-  #   return(out)
-  # }
+  mesh_mat <- as.matrix(mesh)
+  par <- unlist(startpar)
+  lambda0parindex <- which(names(par) == "lambda0")
+  sigmaparindex <- which(names(par) == "sigma")
+  Dparindex <- grep("D", names(par))
+   #stationary detector likelihood
+   stat_nll <- function(v){
+    lambda0_ <- exp(v[lambda0parindex])
+    sigma_ <- exp(v[sigmaparindex])
+    D_mesh_ <- exp(DdesignX %*% v[Dparindex])*100 #per square km?
+     out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+                                            hazdenom, D_mesh_, 
+                                            capthist, useall,
+                                            dist_trapmesh, mesh_mat)
+     return(out)
+   }
   #moving detector likelihood
   nll <- function(v){
-    lambda0_ <- exp(startpar$lambda0)
-    sigma_ <- exp(startpar$sigma)
-    D_mesh_ <- exp(DdesignX %*% startpar$D)*100 #per square km?
+    lambda0_ <- exp(v[lambda0parindex])
+    sigma_ <- exp(v[sigmaparindex])
+    D_mesh_ <- exp(DdesignX %*% v[Dparindex])*100 #per square km?
     out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                        hazdenom, D_mesh_,
                                        capthist, useall,
@@ -384,20 +391,19 @@ move_fit <- function(tracksdf,
     return(out)
   }
   
-  # start.time.sd <- Sys.time()
-  # fit_sd <- optim(par = startpar,
-  #                 fn = stat_nll,
-  #                 hessian = F, method = "Nelder-Mead")
-  # fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
+   start.time.sd <- Sys.time()
+   fit_sd <- optim(par = par,
+                   fn = stat_nll,
+                   hessian = F, method = "Nelder-Mead")
+   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
   
   start.time.md <- Sys.time()
-  fit_md <- optim(par = startpar,
+  fit_md <- optim(par = par,
                   fn = nll,
                   hessian = F, method = "Nelder-Mead")
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
-  parnames <- unlist(apply(as.array(1:length(startpar)), 1,
-                    function(p){rep(names(startpar)[p], length(startpar[[p]]))}))
+
   
   assemble_CIs <- function(fit){
     #fisher_info <- solve(fit$hessian)
@@ -405,7 +411,7 @@ move_fit <- function(tracksdf,
     #prop_sigma <- diag(prop_sigma)
     #upper <- fit$par+1.96*prop_sigma
     #lower <- fit$par-1.96*prop_sigma
-    interval <- data.frame(name = names(startpar),
+    interval <- data.frame(name = names(par),
                            value = fit$par#, 
                            #upper = diag(upper), 
                            #lower = diag(lower)
@@ -414,20 +420,57 @@ move_fit <- function(tracksdf,
     return(interval)
   } 
   
-  out <- list(#statdet_est = assemble_CIs(fit_sd), 
+  out <- list(statdet_est = assemble_CIs(fit_sd), 
               movdet_est = assemble_CIs(fit_md),
-              #statdet_time = fit.time.sd,
+              statdet_time = fit.time.sd,
               movdet_time = fit.time.md)
   return(out)
 }
 
 
+trapcells <- create_grid_polygons(trapscr, spacing = 2000)
+setwd("~/Documents/UniStAndrews/MovingDetector")
+Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
+#convert capthist to 1s and 0s
+ch_10 <- ch_t
+ch_10[is.na(ch_10)] <- 0
+ch_10[ch_10!=0] <- 1
+
+m_move <- move_fit(capthist = ch_10,
+                   tracksdf = tracksdf, 
+                   trapcells = trapcells,
+                   dist_trapmesh = distmatscr,
+                   useall = usage(trapscr),
+                   induse = induse,
+                   DdesignX = DdesignX, 
+                   hazdenom = 1, 
+                   mesh = scrmesh, 
+                   startpar = startpar)
 
 
+denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*10000
+lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, "value"])
+sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, "value"])
+denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*10000
+lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, "value"])
+sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, "value"])
 
-
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[(upperD-lowerD)<20,], 
+            mapping = aes(x = x, y =y, fill = D)) +
+  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(name = "D", option = "magma") +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  theme_bw()
 
 
 
