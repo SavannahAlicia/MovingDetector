@@ -40,11 +40,12 @@ sim_fit <- function(tracksdf,
   
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
-    start <- c( #logit(lambda0), 
+    start0 <- c( #logit(lambda0), 
       log(lambda0),
       log(sigma), log(D_mesh[1]))
     scaling_factors <- 10^round(log10(abs(start)))
-    start <- start/scaling_factors
+    start <- start0/scaling_factors
+    
     stat_nll <- function(v_scaled ){
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
@@ -71,11 +72,12 @@ sim_fit <- function(tracksdf,
 
     
   }else if(Dmod == "~x^2"){  
-    start <- c(#logit(lambda0),
+    start0 <- c(#logit(lambda0),
       log(lambda0),
       log(sigma), beta1, beta2)
     scaling_factors <- 10^round(log10(abs(start)))
-    start <- start/scaling_factors
+    start <- start0/scaling_factors
+    
     #quadratic density function
     stat_nll <- function(v_scaled ){
       v <- v_scaled * scaling_factors 
@@ -105,7 +107,7 @@ sim_fit <- function(tracksdf,
   start.time.sd <- Sys.time()
   fit_sd <- optim(par = start,
                   fn = stat_nll,
-                  hessian = F, method = "BFGS")
+                  hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
   fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
                                       method.args = list(eps = 1e-6, d = 1e-4, r = 4))
   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
@@ -113,8 +115,8 @@ sim_fit <- function(tracksdf,
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                   fn = nll,
-                  hessian = F, method = "BFGS")
-  fit_sd$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
+                  hessian = F, method = "Nelder-Mead")
+  fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
                                       method.args = list(eps = 1e-6, d = 1e-4, r = 4))
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
