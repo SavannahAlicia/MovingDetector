@@ -131,7 +131,8 @@ double
     Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
     arma::cube indusage, // ind by traps by occ
     Rcpp::NumericMatrix distmat, //traps x mesh 
-    Rcpp::NumericMatrix mesh //first column x, second y
+    Rcpp::NumericMatrix mesh, //first column x, second y
+    bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
@@ -147,7 +148,12 @@ double
     Rcpp::NumericVector meshy = mesh.column(1);
     Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
     Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
-    double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    double mesharea;
+    if(linear){
+      mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km     
+    } else {
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    }
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
@@ -206,7 +212,7 @@ double
               break; //don't need to keep summing hazard after detection
             }
             //add cumulative hazard for ind at trap if not detected
-            sumtoj_ind = sumtoj_ind + hu_ind_j;
+            sumtoj_ind += hu_ind_j;
           }
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
@@ -248,7 +254,8 @@ double
     arma::cube capthist,
     Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
     Rcpp::NumericMatrix distmat, //traps x mesh 
-    Rcpp::NumericMatrix mesh //first column x, second y
+    Rcpp::NumericMatrix mesh, //first column x, second y
+    bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
@@ -264,7 +271,12 @@ double
     Rcpp::NumericVector meshy = mesh.column(1);
     Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
     Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
-    double mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    double mesharea;
+    if(linear){
+      mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km
+    } else {
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+    }
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
