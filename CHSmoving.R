@@ -266,11 +266,14 @@ create_ind_use <- function(ch_t, trapcells, tracksdf){
 
 trapcells <- create_grid_polygons(trapscr, spacing = 2000)
 
-induse_ls <- create_ind_use(ch_t, trapcells, tracksdf)
-induse <- aperm(
-  array(unlist(induse_ls), 
-        dim =c(nrow(traps), nocc, dim(capthist)[1])), 
-  c(3, 1, 2))
+# induse_ls <- create_ind_use(ch_t, trapcells, tracksdf)
+# induse <- aperm(
+#   array(unlist(induse_ls), 
+#         dim =c(nrow(traps), nocc, dim(capthist)[1])), 
+#   c(3, 1, 2))
+# saveRDS(induse, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/induse.Rds")
+induse <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/induse.Rds")
+
 #convert capthist back to 1s and 0s
 ch_10 <- ch_t
 ch_10[is.na(ch_10)] <- 0
@@ -393,14 +396,20 @@ move_fit <- function(capthist,
                      DdesignX, 
                      hazdenom, 
                      mesh, 
-                     startpar){
+                     startpar0){
+  
   mesh_mat <- as.matrix(mesh)
-  par <- unlist(startpar)
+  par0 <- unlist(startpar)
+  #rescale for easy hessian
+  scaling_factors <- 10^round(log10(abs(par0)))
+  par <- par0/scaling_factors
   lambda0parindex <- which(names(par) == "lambda0")
   sigmaparindex <- which(names(par) == "sigma")
   Dparindex <- grep("D", names(par))
+  
    #stationary detector likelihood
-   stat_nll <- function(v){
+   stat_nll <- function(v_scaled){
+     v <- v_scaled * scaling_factors 
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
     D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
@@ -411,7 +420,8 @@ move_fit <- function(capthist,
      return(out)
    }
   #moving detector likelihood
-  nll <- function(v){
+  nll <- function(v_scaled){
+    v <- v_scaled * scaling_factors 
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
     D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
@@ -426,26 +436,32 @@ move_fit <- function(capthist,
    fit_sd <- optim(par = par,
                    fn = stat_nll,
                    hessian = F, method = "Nelder-Mead")
+   fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,
+                                       method = "Richardson",
+                                       method.args = list(eps = 1e-6, d = 1e-4, r = 4))
    fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs")
   
   start.time.md <- Sys.time()
   fit_md <- optim(par = par,
                   fn = nll,
                   hessian = F, method = "Nelder-Mead")
+  fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,
+                                      method = "Richardson",
+                                      method.args = list(eps = 1e-6, d = 1e-4, r = 4))
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
 
   
   assemble_CIs <- function(fit){
-    #fisher_info <- solve(fit$hessian)
-    #prop_sigma <- sqrt(diag(fisher_info))
-    #prop_sigma <- diag(prop_sigma)
-    #upper <- fit$par+1.96*prop_sigma
-    #lower <- fit$par-1.96*prop_sigma
+    fisher_info <- MASS::ginv(fit$hessian)
+    prop_sigma <- sqrt(diag(fisher_info))
+    prop_sigma <- diag(prop_sigma)
+    upper <- fit$par+1.96*prop_sigma
+    lower <- fit$par-1.96*prop_sigma
     interval <- data.frame(name = names(par),
-                           value = fit$par#, 
-                           #upper = diag(upper), 
-                           #lower = diag(lower)
+                           value = fit$par * scaling_factors, 
+                           upper = diag(upper) * scaling_factors, 
+                           lower = diag(lower) * scaling_factors
     )
     
     return(interval)
@@ -475,6 +491,7 @@ m_move <- move_fit(capthist = ch_10,
                    hazdenom = 1, 
                    mesh = scrmesh, 
                    startpar = startpar)
+saveRDS(m_move, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move.Rds")
 
 
 denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
