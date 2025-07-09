@@ -3,7 +3,7 @@ library(dplyr)
 
 create_plots <- function(sim_fits_out, Dmodel = "variable",
                          plotcols = c("cornflowerblue", "goldenrod", "black"),
-                         linesize = .3){
+                         linesize = .3, output = "plots"){
   ###------------------------compare computation time-----------------------------
   
   times <- do.call(rbind, lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
@@ -13,14 +13,17 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   }))
   
   timeplot <- ggplot() +
-    geom_density(data = tidyr::pivot_longer(times, cols = c("stat", "move")),
-                 mapping = aes(x = value, group = name, color = name)) +
+    geom_boxplot(data = tidyr::pivot_longer(times, cols = c("stat", "move")),
+                 mapping = aes(y = log(value), group = name, color = name)) +
     scale_color_manual(name = "Model", labels = c("Moving", "Stationary"),
                                                   values = plotcols[1:2]) +
-    ylab("Frequency") +
-    xlab("Seconds") +
+    ylab("Log seconds") +
+    xlab("") +
     theme_bw() +
-    theme(axis.text.y = element_blank(),
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
           legend.position = "none")
   ###--------------------------compare estimates ---------------------------------
   make_plot_dat<- function(sim_fits_out){
@@ -39,13 +42,15 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
                                                               nrow(stat_outs)))),
                       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
+    all_outs$sd <- (((all_outs$upper)- (all_outs$value))/1.96)
     
     all_outs2 <- all_outs %>%
       group_by(name, model) %>%
       summarize(mean = mean(value), 
                 median = median(value),
                 meanupper = quantile(value, probs = .975), 
-                meanlower = quantile(value, probs = .025))
+                meanlower = quantile(value, probs = .025),
+                meansd = mean(sd))
     
     out <- list(all_outs= all_outs, all_outs2 =all_outs2)
   }
@@ -85,6 +90,34 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
           axis.text.y = element_blank())
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
+  
+  lambda0precisionplot <- 
+    ggplot() +
+    geom_density(all_outs[all_outs$name == "lambda0",], 
+                 mapping = aes(x = invlogit(upper)- invlogit(lower), col = model),
+                 size = linesize) +
+    geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
+                             data.frame(name = "lambda0", model = "true", 
+                                        mean = logit(lambda0))), 
+               aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
+               aes(xintercept = invlogit(c(meanlower)), col = model), 
+               linetype = "dashed", size = linesize) +
+    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
+               aes(xintercept = invlogit(c(meanupper)), col = model),
+               linetype = "dashed", size = linesize) +
+    geom_vline(xintercept = lambda0, size = linesize, col = "black") +
+    xlab(expression("\u03bb"[0])) +
+    ylab("Frequency") + 
+    #xlim(.004,.006) +
+    scale_color_manual(name = "",
+                       values = plotcols, 
+                       labels = c("Moving", "Stationary", 
+                                  expression("True \u03bb"[0]))) +
+    theme_classic() +
+    theme(axis.title = element_text(size = 10),
+          legend.position = "none",
+          axis.text.y = element_blank())
   
   
   sigmaplot <- 
@@ -286,10 +319,10 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                             3,
                             4))
   }
-  return(out
-    
-    )
-  
+  if(output == "plots"){
+    return(out)
+  } else if(output == "plotdat")
+    return(plotdat)
   
 }
 
@@ -327,3 +360,55 @@ ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/si
        height = 169*(1/2),
        units = c("mm"),
        dpi = 300)
+
+plotdat_q <-create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
+all_outs_q <- plotdat_q$all_outs
+c(t.test(all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd, 
+       all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd,
+       paired = T, alternative = "less")$p.value,
+t.test(all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd, 
+       all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd,
+       paired = T, alternative = "less")$p.value,
+t.test(all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd, 
+       all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd, 
+       paired = T, alternative = "less")$p.value,
+t.test(all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd, 
+       all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd, 
+       paired = T, alternative = "less")$p.value
+)
+c(
+  mean((all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd^2-
+          all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2),
+  mean((all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd^2-
+          all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2),
+  mean((all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd^2-
+          all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2),
+  mean((all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd^2-
+          all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)
+  
+)
+
+
+
+plotdat_1 <-create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
+all_outs_1 <- plotdat_1$all_outs
+c(t.test(all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd, 
+       all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd,
+       paired = T, alternative = "less")$p.value,
+t.test(all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd, 
+       all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd,
+       paired = T, alternative = "less")$p.value,
+t.test(all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd, 
+       all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd, 
+       paired = T, alternative = "less")$p.value
+)
+
+c(
+  mean((all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd^2-
+          all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2),
+  mean((all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd^2-
+          all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2),
+  mean((all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd^2-
+          all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)
+)
+
