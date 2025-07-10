@@ -325,14 +325,12 @@ names <- c('null', #1
            'Dsmooth13') #10
 fits <- list.secr.fit(model = models, constant = args, names = names)
 AIC(fits[!apply(as.array(1:length(fits)), 1, function(x){any(is.na(attr(predictDsurface(fits[[x]], cl.D = T), "covariates")[,2]))})])
-m0 <- fits[[5]]
+m0 <- fits[[2]]
 lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
 upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
 Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
 DdesignX <- m0$designD
 denssurf <- exp(DdesignX %*% log(Dpar))*100
-lambda0 <- exp(m0$fit$par[m0$parindx$lambda0])
-sigma <- exp(m0$fit$par[m0$parindx$sigma])
 Ddiffco <- 100
 spreadD <- function(mesh_dist_mat, lambda0, sigma, D){
   rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
@@ -383,9 +381,7 @@ sum(denssurf)*4
 
 
 #------------------------------Moving detector --------------------------------
-startpar <- list(D = log(Dpar), 
-                 lambda0 = log(lambda0), 
-                 sigma = log(sigma))
+
 
 move_fit <- function(capthist,
                      tracksdf, 
@@ -399,7 +395,7 @@ move_fit <- function(capthist,
                      startpar0){
   
   mesh_mat <- as.matrix(mesh)
-  par0 <- unlist(startpar)
+  par0 <- unlist(startpar0)
   #rescale for easy hessian
   scaling_factors <- 10^round(log10(abs(par0)))
   par <- par0/scaling_factors
@@ -460,6 +456,7 @@ move_fit <- function(capthist,
     lower <- fit$par-1.96*prop_sigma
     interval <- data.frame(name = names(par),
                            value = fit$par * scaling_factors, 
+                           sd = diag(prop_sigma),
                            upper = diag(upper) * scaling_factors, 
                            lower = diag(lower) * scaling_factors
     )
@@ -480,18 +477,48 @@ setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 setwd("~/Documents/UniStAndrews/Dolphins/Charleston")
 
+formulas <- list(D~s(x,y,k=5),
+                 D~s(x,y,k=6),
+                 D~s(x,y,k=7),
+                 D~s(x,y,k=8),
+                 D~s(x,y,k=9))
 
-m_move <- move_fit(capthist = ch_10,
-                   tracksdf = tracksdf, 
-                   trapcells = trapcells,
-                   dist_trapmesh = distmatscr,
-                   useall = usage(trapscr),
-                   induse = induse,
-                   DdesignX = DdesignX, 
-                   hazdenom = 1, 
-                   mesh = scrmesh, 
-                   startpar = startpar)
-saveRDS(m_move, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move.Rds")
+myfits <- lapply(as.list(1:5), function(f){
+  formula = formulas[[f]]
+  Dpar =  exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$D]) 
+  lambda0 = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$lambda0])
+  sigma = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$sigma])
+  
+  startparf = list(D = log(Dpar), 
+                   lambda0 = log(lambda0), 
+                   sigma = log(sigma))
+  
+  datak <- data.frame(x = scrmesh$x, 
+                      y = scrmesh$y)
+  split <- interpret.gam(formula)
+  sml =  mgcv::smoothCon(split$smooth.spec[[1]], data = datak, 
+                         knots = NULL, absorb.cons = T, 
+                         scale.penalty = T, 
+                         null.space.penalty = F,
+                         sparse.cons = 0, 
+                         diagonal.penalty = F, 
+                         apply.by = T, 
+                         modCon = 0)
+  DdesignX = cbind( rep(1, nrow(datak)), sml[[1]]$X)
+  colnames(DdesignX) = c("(Intercept)", paste0("s(x,y).", 1:(ncol(DdesignX)-1)))
+  
+  m_move <- move_fit(capthist = ch_10,
+                     tracksdf = tracksdf, 
+                     trapcells = trapcells,
+                     dist_trapmesh = distmatscr,
+                     useall = usage(trapscr),
+                     induse = induse,
+                     DdesignX = DdesignX, 
+                     hazdenom = 1, 
+                     mesh = scrmesh, 
+                     startpar0 = startparf)
+  saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move", paste(formula)[3], ".Rds", sep = ""))
+})
 
 
 denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
@@ -500,19 +527,26 @@ sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, "value"])
 denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*100
 lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, "value"])
 sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, "value"])
-Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat, sigma_stat, denssurf_stat)
-Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move, sigma_move, denssurf_move)
+diffdense <- denssurf_stat - denssurf_move
+
+
+subarea <- which(apply(distmat, 2, min) < exp(m_move$movdet_est[10,2]))
+Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat, sigma_stat, denssurf_stat*as.numeric(1:length(denssurf_move) %in% subarea))
+Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move, sigma_move, denssurf_move*as.numeric(1:length(denssurf_move) %in% subarea))
+Dspread_diff <- Dspreadsurf_stat- Dspreadsurf_move
+
+
 lowcolor = "#000004FF" 
 colorm1 = "#51127CFF" 
 colorm2 = "#B63679FF"
 colorm3 = "#FB8861FF"
 highcolor = "#FCFDBFFF"
 
-sharedmax = max(c(denssurf_stat[,],
-                denssurf_move[,],
-                denssurf[,]
+sharedmax = max(c(denssurf_stat[subarea,],
+                denssurf_move[subarea,],
+                denssurf[subarea,]
                 ))
-sharedmids = c(2, 5, 10)
+sharedmids = c(sharedmax*(1/5), sharedmax*(2/5), sharedmax*(3/5),  sharedmax*(4/5))
 
 ggpubr::ggarrange(
 # ggplot() +
@@ -538,18 +572,18 @@ ggpubr::ggarrange(
 ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[,], 
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[subarea,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_stepsn(
     colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids,100, sharedmax),
-    values = (c(0,  sharedmids,100, sharedmax)/sharedmax),
+    breaks = c(0,  sharedmids, sharedmax),
+    values = (c(0,  sharedmids, sharedmax)/sharedmax),
     limits = c(0, sharedmax),
     name = "AC Density",
-    labels = c(0, round(sharedmids,1),100,round(sharedmax, 2))
+    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
   ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
@@ -560,17 +594,19 @@ ggplot() +
 ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[,], 
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[subarea,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-                       values = c(0, sharedmids, sharedmax)/sharedmax,
-                       limits = c(0, sharedmax),
-                       name = "AC Density", 
-                       breaks = c(0, sharedmids, sharedmax),
-                       labels = c(0, round(sharedmids,1),round(sharedmax, 2))) + 
+  scale_fill_stepsn(
+    colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+    breaks = c(0, sharedmids, sharedmax),
+    values = (c(0,  sharedmids, sharedmax)/sharedmax),
+    limits = c(0, sharedmax),
+    name = "AC Density",
+    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
+  ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
@@ -579,6 +615,32 @@ ggplot() +
   theme_bw(),
 ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
 
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = diffdense)[subarea,], 
+            mapping = aes(x = x, y =y, fill = D)) +
+  #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(
+    #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+   # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
+    #values = (c(min(diffdense[subarea]),  sharedmids,100, sharedmax)/sharedmax),
+    #limits = c(min(diffdense[subarea]), max(diffdense[subarea])),
+    name = "AC Density Difference"
+  ) + 
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("Stationary - Moving") +
+  theme_bw()
+
+sharedmax = max(c(Dspreadsurf_move,
+                  Dspreadsurf_stat
+))
+sharedmids = c(sharedmax*(1/5), sharedmax*(2/5), sharedmax*(3/5),  sharedmax*(4/5))
 
 
 ggpubr::ggarrange(
@@ -612,11 +674,11 @@ ggplot() +
   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_stepsn(
     colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids,100, sharedmax),
-    values = (c(0,  sharedmids,100, sharedmax)/sharedmax),
+    breaks = c(0,  sharedmids, sharedmax),
+    values = (c(0,  sharedmids, sharedmax)/sharedmax),
     limits = c(0, sharedmax),
     name = "Animal D",
-    labels = c(0, round(sharedmids,1),100,round(sharedmax, 0))
+    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
    ) +  
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
@@ -635,11 +697,11 @@ ggplot() +
   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_stepsn(
     colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids,100, sharedmax),
-    values = (c(0,  sharedmids,100, sharedmax)/sharedmax),
+    breaks = c(0,  sharedmids, sharedmax),
+    values = (c(0,  sharedmids, sharedmax)/sharedmax),
     limits = c(0, sharedmax),
     name = "Animal D",
-    labels = c(0, round(sharedmids,1),100,round(sharedmax, 2))
+    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
   ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
@@ -648,6 +710,50 @@ ggplot() +
   ggtitle("Moving Detector") +
   theme_bw(),
 ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
+
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff), 
+            mapping = aes(x = x, y =y, fill = D)) +
+  #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(
+    #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+    # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
+    #values = (c(min(diffdense[subarea]),  sharedmids,100, sharedmax)/sharedmax),
+    #limits = c(min(diffdense[subarea]), max(diffdense[subarea])),
+    name = "Animal Density Difference"
+  ) + 
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("Stationary - Moving") +
+  theme_bw()
+
+ggplot() +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff/Dspreadsurf_stat), 
+            mapping = aes(x = x, y =y, fill = D)) +
+  #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(
+    #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+    # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
+    #values = (c(min(diffdense[subarea]),  sharedmids,100, sharedmax)/sharedmax),
+    #limits = c(min(diffdense[subarea]), max(diffdense[subarea])),
+    name = "Animal Density \n% Difference"
+  ) + 
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("Stationary - Moving") +
+  theme_bw()
 
 
 detpars <- data.frame(lambda0 = c(lambda0, lambda0_stat, lambda0_move),
