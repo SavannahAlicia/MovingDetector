@@ -482,6 +482,22 @@ formulas <- list(D~s(x,y,k=5),
                  D~s(x,y,k=7),
                  D~s(x,y,k=8),
                  D~s(x,y,k=9))
+Xmats <- lapply(as.list(1:5), function(f){
+  formula <- formulas[[f]]
+  split <- interpret.gam(formula)
+  sml =  mgcv::smoothCon(split$smooth.spec[[1]], data = scrmesh, 
+                         knots = NULL, absorb.cons = T, 
+                         scale.penalty = T, 
+                         null.space.penalty = F,
+                         sparse.cons = 0, 
+                         diagonal.penalty = F, 
+                         apply.by = T, 
+                         modCon = 0)
+  DdesignX = cbind( rep(1, nrow(scrmesh)), sml[[1]]$X)
+  colnames(DdesignX) = c("(Intercept)", paste0("s(x,y).", 1:(ncol(DdesignX)-1)))
+  return(DdesignX)
+})
+
 
 myfits <- lapply(as.list(1:5), function(f){
   formula = formulas[[f]]
@@ -492,20 +508,8 @@ myfits <- lapply(as.list(1:5), function(f){
   startparf = list(D = log(Dpar), 
                    lambda0 = log(lambda0), 
                    sigma = log(sigma))
-  
-  datak <- data.frame(x = scrmesh$x, 
-                      y = scrmesh$y)
-  split <- interpret.gam(formula)
-  sml =  mgcv::smoothCon(split$smooth.spec[[1]], data = datak, 
-                         knots = NULL, absorb.cons = T, 
-                         scale.penalty = T, 
-                         null.space.penalty = F,
-                         sparse.cons = 0, 
-                         diagonal.penalty = F, 
-                         apply.by = T, 
-                         modCon = 0)
-  DdesignX = cbind( rep(1, nrow(datak)), sml[[1]]$X)
-  colnames(DdesignX) = c("(Intercept)", paste0("s(x,y).", 1:(ncol(DdesignX)-1)))
+  DdesignX <- Xmats[[f]]
+
   
   m_move <- move_fit(capthist = ch_10,
                      tracksdf = tracksdf, 
@@ -518,7 +522,43 @@ myfits <- lapply(as.list(1:5), function(f){
                      mesh = scrmesh, 
                      startpar0 = startparf)
   saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move", paste(formula)[3], ".Rds", sep = ""))
+  return(m_move)
+  })
+
+AICs <- apply(as.array(1:length(myfits)), 1, function(i){
+  AIC_fn <- function(n,L){2*n + 2*L}
+  parloc <- list(lambda0 = which(myfits[[i]]$movdet_est$name == "lambda0"),
+                 sigma = which(myfits[[i]]$movdet_est$name == "sigma"),
+                 D = which(grepl("D", myfits[[i]]$movdet_est$name)))
+
+  movL <- negloglikelihood_moving_cpp(lambda0 = exp(myfits[[i]]$movdet_est$value[parloc$lambda0]), 
+                                      sigma = exp(myfits[[i]]$movdet_est$value[parloc$sigma]),  
+                              timeincr = 1, 
+                              D_mesh = exp(Xmats[[i]] %*% myfits[[i]]$movdet_est$value[parloc$D]),
+                              capthist= ch_10, 
+                              usage = usage(trapscr),
+                              indusage = induse, 
+                              distmat =  distmatscr,
+                              mesh = as.matrix(scrmesh))
+  statL <- negloglikelihood_stationary_cpp(lambda0 = exp(myfits[[i]]$movdet_est$value[parloc$lambda0]), 
+                                           sigma = exp(myfits[[i]]$movdet_est$value[parloc$sigma]),  
+                                           timeincr = 1, 
+                                           D_mesh = exp(Xmats[[i]] %*% myfits[[i]]$movdet_est$value[parloc$D]),
+                                           capthist= ch_10, 
+                                           usage = usage(trapscr),
+                                           distmat =  distmatscr,
+                                           mesh = as.matrix(scrmesh))
+  statAIC <- AIC_fn(n = length(unlist(parloc)),
+                    L = statL)
+  movAIC <- AIC_fn(n = length(unlist(parloc)),
+                   L = movL)
+  return(
+    data.frame(stat = statAIC, 
+                    mov = movAIC, 
+                    mod = paste(formulas[[i]])[c(3)])
+         )
 })
+myAICs <- do.call(rbind, AICs)
 
 
 denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
