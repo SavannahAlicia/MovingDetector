@@ -50,7 +50,8 @@ create_grid_polygons <- function(grid, spacing = NULL){
 #' @param tracksdf dataframe with xy, occ, trapno, and time
 #' @return named list of SpatialLines objects
 #' @export
-create_line_spatlines <- function(tracksdf, scenario = "onison", tracksdfcolname = "ID",
+create_line_spatlines <- function(tracksdf, scenario = "onison", 
+                                  tracksdfcolname = "ID",
                                   projto = sp::CRS(sf::st_crs(26916)$input)){
   #create a line for between each pt of track, put into named list by ID
   #check that it's not the last point in a track
@@ -166,6 +167,7 @@ tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1,
 tracksdf[which(tracksdf$occ == 4 & tracksdf$time < 101),"effort"] <- "OnEffort"
 nocc <- length(unique(tracksdf$occ))
 dx = 2000
+
 
 #-------------Subset capthist -------------------------------------------------
 capthist <- subset(capthist, occasions = oldoccs)
@@ -559,20 +561,22 @@ AICs <- apply(as.array(1:length(myfits)), 1, function(i){
          )
 })
 myAICs <- do.call(rbind, AICs)
-
+m_move <- myfits[[3]]
+DdesignX <- Xmats[[3]]
+m0 <- fits[[4]]
 
 denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
-lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, "value"])
-sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, "value"])
+lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
+sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
 denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*100
-lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, "value"])
-sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, "value"])
+lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
+sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
 diffdense <- denssurf_stat - denssurf_move
 
 
-subarea <- which(apply(distmat, 2, min) < exp(m_move$movdet_est[10,2]))
-Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat, sigma_stat, denssurf_stat*as.numeric(1:length(denssurf_move) %in% subarea))
-Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move, sigma_move, denssurf_move*as.numeric(1:length(denssurf_move) %in% subarea))
+subarea <- which(apply(distmat, 2, min) < exp(m_move$movdet_est[m0$parindx$sigma,2]))
+Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat$value, sigma_stat$value, denssurf_stat*as.numeric(1:length(denssurf_move) %in% subarea))
+Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move$value, sigma_move$value, denssurf_move*as.numeric(1:length(denssurf_move) %in% subarea))
 Dspread_diff <- Dspreadsurf_stat- Dspreadsurf_move
 
 
@@ -583,86 +587,92 @@ colorm3 = "#FB8861FF"
 highcolor = "#FCFDBFFF"
 
 sharedmax = max(c(denssurf_stat[subarea,],
-                denssurf_move[subarea,],
-                denssurf[subarea,]
+                denssurf_move[subarea,]
                 ))
 sharedmids = c(sharedmax*(1/5), sharedmax*(2/5), sharedmax*(3/5),  sharedmax*(4/5))
 
-ggpubr::ggarrange(
-# ggplot() +
-#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-#           linewidth = .1, alpha = 1) +
-#   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[,], 
-#             mapping = aes(x = x, y =y, fill = D)) +
-#   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-#   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-#   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-#   scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-#                        values = c(0, sharedmids, sharedmax)/sharedmax,
-#                        limits = c(0, sharedmax),
-#                        name = "AC Density", 
-#                        breaks = c(0, sharedmids, sharedmax),
-#                        labels = c(0, round(sharedmids,1),round(sharedmax, 2))) +  
-#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-#           linewidth = .1, alpha = 0.3) +
-#   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
-#            ylim = c(min(mesh$y), max(mesh$y))) +
-#   ggtitle("secr") +
-#   theme_bw(),
-ggplot() +
+
+ACDstatplot <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[subarea,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_stepsn(
-    colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids, sharedmax),
-    values = (c(0,  sharedmids, sharedmax)/sharedmax),
-    limits = c(0, sharedmax),
-    name = "AC Density",
-    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
-  ) + 
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  #geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "AC Density",
+                       option = "magma") +
+  # scale_fill_stepsn(
+  #   colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+  #   breaks = c(0,  sharedmids, sharedmax),
+  #   values = (c(0,  sharedmids, sharedmax)/sharedmax),
+  #   limits = c(0, sharedmax),
+  #   name = "AC Density",
+  #   labels = c(0, round(sharedmids,1),round(sharedmax, 2))
+  # ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Stationary Detector") +
-  theme_bw(),
-ggplot() +
+  theme_bw()+
+  theme(legend.position = "none")
+ACDmovplot <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[subarea,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_stepsn(
-    colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0, sharedmids, sharedmax),
-    values = (c(0,  sharedmids, sharedmax)/sharedmax),
-    limits = c(0, sharedmax),
-    name = "AC Density",
-    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
-  ) + 
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  #geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") + 
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "AC Density",
+                       option = "magma") +
+  # scale_fill_stepsn(
+  #   colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
+  #   breaks = c(0, sharedmids, sharedmax),
+  #   values = (c(0,  sharedmids, sharedmax)/sharedmax),
+  #   limits = c(0, sharedmax),
+  #   name = "AC Density",
+  #   labels = c(0, round(sharedmids,1),round(sharedmax, 2))
+  # ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Moving Detector") +
-  theme_bw(),
-ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
+  theme_bw()+
+  theme(legend.position = "none")
 
-ggplot() +
+ACDlegendplot <- ggplot(data = data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[subarea,], 
+                     mapping = aes(x = x, y =y, fill = D)) +
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "AC Density",
+                       option = "magma") +
+  geom_point(alpha = 0, shape = 0) +
+  scale_y_continuous(limits = c(0,1)) +
+  scale_x_continuous(limits = c(0,1)) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "inside",
+        legend.direction = "horizontal",
+        legend.position.inside = c(0.5, 0.5), # move the legend to the center
+        legend.key = element_rect(fill='NA'),
+        panel.grid = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank())
+
+ACDdiffplot<- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = diffdense)[subarea,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+ # geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_viridis_c(
     #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
    # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
@@ -675,7 +685,42 @@ ggplot() +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Stationary - Moving") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "none")
+
+ACDdifflegendplot <- ggplot(data.frame(x = mesh$x, y = mesh$y, D = diffdense)[subarea,], 
+         mapping = aes(x = x, y =y, fill = D)) +
+  scale_fill_viridis_c(
+    name = "AC Density\nDifference"
+  ) + 
+  geom_point(alpha = 0, shape = 0) +
+  scale_y_continuous(limits = c(0,1)) +
+  scale_x_continuous(limits = c(0,1)) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "inside",
+        legend.direction = "horizontal",
+        legend.position.inside = c(0.5, 0.5), # move the legend to the center
+        legend.key = element_rect(fill='NA'),
+        panel.grid = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank())
+
+
+ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/ACDplot.png",
+       plot = grid.arrange(
+         grobs = list(ACDstatplot, ACDmovplot, ACDdiffplot,
+                      ACDlegendplot, ACDdifflegendplot),
+         widths = c((1), (1), (1)),
+         heights = c(1,.2),
+         layout_matrix = rbind(c(1,  2, 3),
+                               c(4, 4, 5))),
+       width = 230,
+       height = 230*.5,
+       units = c("mm"),
+       dpi = 300)
 
 sharedmax = max(c(Dspreadsurf_move,
                   Dspreadsurf_stat
@@ -683,87 +728,74 @@ sharedmax = max(c(Dspreadsurf_move,
 sharedmids = c(sharedmax*(1/5), sharedmax*(2/5), sharedmax*(3/5),  sharedmax*(4/5))
 
 
-ggpubr::ggarrange(
-# ggplot() +
-#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-#           linewidth = .1, alpha = 1) +
-#   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf)[,], 
-#             mapping = aes(x = x, y =y, fill = D)) +
-#   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-#   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-#   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-#   scale_fill_gradientn(colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-#                        values = c(0, sharedmids, sharedmax)/sharedmax,
-#                        limits = c(0, sharedmax),
-#                        name = "Animal D", 
-#                        breaks = c(0, sharedmids, sharedmax),
-#                        labels = c(0, round(sharedmids,1),round(sharedmax, 2))) +  
-#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-#           linewidth = .1, alpha = 0.3) +
-#   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
-#            ylim = c(min(mesh$y), max(mesh$y))) +
-#   ggtitle("secr") +
-#   theme_bw(),
-ggplot() +
+animDstat <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf_stat)[,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_stepsn(
-    colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids, sharedmax),
-    values = (c(0,  sharedmids, sharedmax)/sharedmax),
-    limits = c(0, sharedmax),
-    name = "Animal D",
-    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+ # geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(option = "magma",
+                       name = "Animal Density",
+                       limits = c(0, sharedmax)
    ) +  
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Stationary Detector") +
-  theme_bw() 
-,
-ggplot() +
+  theme_bw() +
+  theme(legend.position = "none")
+
+animDmov <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf_move)[,], 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_stepsn(
-    colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    breaks = c(0,  sharedmids, sharedmax),
-    values = (c(0,  sharedmids, sharedmax)/sharedmax),
-    limits = c(0, sharedmax),
-    name = "Animal D",
-    labels = c(0, round(sharedmids,1),round(sharedmax, 2))
-  ) + 
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  #geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "Animal Density",
+                       option = "magma") +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 0.3) +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Moving Detector") +
-  theme_bw(),
-ncol=2, nrow=1, common.legend = TRUE, legend="bottom")
+  theme_bw() +
+  theme(legend.position = "none")
 
-ggplot() +
+animDlegend <- ggplot(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf_move)[,], 
+                      mapping = aes(x = x, y =y, fill = D)) +
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "Animal Density",
+                       option = "magma") +
+  geom_point(alpha = 0, shape = 0) +
+  scale_y_continuous(limits = c(0,1)) +
+  scale_x_continuous(limits = c(0,1)) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "inside",
+        legend.direction = "horizontal",
+        legend.position.inside = c(0.5, 0.5), # move the legend to the center
+        legend.key = element_rect(fill='NA'),
+        panel.grid = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank())
+
+animDdiff <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff), 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  #geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_viridis_c(
-    #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
-    # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
-    #values = (c(min(diffdense[subarea]),  sharedmids,100, sharedmax)/sharedmax),
-    #limits = c(min(diffdense[subarea]), max(diffdense[subarea])),
     name = "Animal Density Difference"
   ) + 
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -771,16 +803,17 @@ ggplot() +
   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
            ylim = c(min(mesh$y), max(mesh$y))) +
   ggtitle("Stationary - Moving") +
-  theme_bw()
+  theme_bw() + 
+  theme(legend.position = "none")
 
-ggplot() +
+animDpercdiff <- ggplot() +
   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
           linewidth = .1, alpha = 1) +
   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff/Dspreadsurf_stat), 
             mapping = aes(x = x, y =y, fill = D)) +
   #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  #geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
   scale_fill_viridis_c(
     #colors = c(lowcolor, colorm1, colorm2, colorm3, highcolor),
     # breaks = c(min(diffdense[subarea]),  sharedmids,100, sharedmax),
@@ -795,26 +828,154 @@ ggplot() +
   ggtitle("Stationary - Moving") +
   theme_bw()
 
+animDdifflegend <- 
+  ggplot(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff), 
+          mapping = aes(x = x, y =y, fill = D)) +
+  scale_fill_viridis_c(limits = c(0, sharedmax),
+                       name = "Animal Density\nDifference") +
+  geom_point(alpha = 0, shape = 0) +
+  scale_y_continuous(limits = c(0,1)) +
+  scale_x_continuous(limits = c(0,1)) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "inside",
+        legend.direction = "horizontal",
+        legend.position.inside = c(0.5, 0.5), # move the legend to the center
+        legend.key = element_rect(fill='NA'),
+        panel.grid = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank())
 
-detpars <- data.frame(lambda0 = c(lambda0, lambda0_stat, lambda0_move),
-                      sigma = c(sigma, sigma_stat, sigma_move),
-                      name = c("secr", "stationary", "moving"))
-detdat <- do.call(rbind, lapply(as.list(1:3), function(n){df=data.frame(x = seq(0,4*detpars$sigma[n], length.out = 20))
-                                df$y = detpars$lambda0[n]*exp(-df$x^2/(2*detpars$sigma[n]^2))
-                                df$name = detpars$name[n]
+ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/animDplot.png",
+       plot = grid.arrange(
+         grobs = list(animDstat, animDmov, animDdiff,
+                      animDlegend, animDdifflegend),
+         widths = c((1), (1), (1)),
+         heights = c(1,.2),
+         layout_matrix = rbind(c(1,  2, 3),
+                               c(4, 4, 5))),
+       width = 230,
+       height = 230*.5,
+       units = c("mm"),
+       dpi = 300)
+
+
+
+detpars <- data.frame(lambda0 = unlist(c(lambda0_stat, lambda0_move)),
+                      sigma = unlist(c(sigma_stat, sigma_move)),
+                      name = names(c(lambda0_stat, lambda0_move)),
+                      model = c(rep("stationary", 3), rep("moving", 3)))
+detdat <- do.call(rbind, lapply(as.list(1:6), function(n){
+  df=
+    data.frame(x = seq(0,4*max(detpars$sigma), length.out = 20))
+                                
+  df$y = detpars$lambda0[n]*exp(-df$x^2/(2*detpars$sigma[n]^2))
+                                
+  df$name = detpars$name[n]
+  df$model = detpars$model[n]
                                 return(df)}))
-ggplot() +
-  geom_line(detdat[detdat$name %in% c("moving", "stationary"),],
-            mapping = aes(x = x ,y = y, color = name, group = name),
+detdatwide <-  pivot_wider(detdat, values_from = y, names_from = name)
+
+detfctplot <- ggplot() +
+  geom_line(detdat[detdat$name %in% c("value"),],
+            mapping = aes(x = x, y = y, color = model, group = model),
             linewidth = 1.5) +
-  geom_vline(data = detpars[detpars$name %in% c("moving","stationary"),],  
-             mapping = aes(group = name, color = name, xintercept = sigma),
-             linetype = "dashed",
-             linewidth = 1.5) +
-  scale_color_manual(name = "Model", 
-                     values =  c("cornflowerblue", "goldenrod")) +
+  geom_ribbon(detdatwide,
+            mapping = aes(x = x, ymin = lower, ymax = upper, 
+                          fill = model, group = model),
+            color = "transparent",
+            alpha = .5) +
+  geom_point(data = data.frame(x = detpars[detpars$name %in% c("value"),"sigma"], y = 0, 
+                               model = detpars[detpars$name %in% c("value"),"model"]),  
+             mapping = aes(group = model, color = model, x = x, y = y),
+            size = 3, shape = 4, stroke = 1.5) +
+  ylab("Detection rate") +
+  xlab("Distance (m)")+
+  scale_color_manual(name = "", 
+                     values =  c("cornflowerblue", "goldenrod"),
+                     labels = c("Moving", "Stationary")) +
+  scale_fill_manual(name = "", 
+                     values =  c("cornflowerblue", "goldenrod"),
+                     labels = c("Moving", "Stationary")) +
   theme_bw()
 
+ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/detplot.png",
+       plot = detfctplot,
+       width = 169,
+       height = 169*.7,
+       units = c("mm"),
+       dpi = 300)
 
+tracksdf$xnext <- c(tracksdf$x[2:(nrow(tracksdf))], NA)
+tracksdf$ynext <- c(tracksdf$y[2:(nrow(tracksdf))], NA)
+for(occi in unique(tracksdf$occ)){
+  tracksdf[tracksdf$occ == occi,]$xnext[nrow(tracksdf[tracksdf$occ == occi,])] <- 
+    tracksdf[tracksdf$occ == occi,]$ynext[nrow(tracksdf[tracksdf$occ == occi,])] <-
+    NA
+}
+tracksdf$dist_betw <- c(apply(as.array(1:(nrow(tracksdf)-1)), 1, function(x){
+  dist(rbind(c(tracksdf[x,c("x","y")]), c(tracksdf[(x),c("xnext", "ynext")])))
+}), NA)
 
+tracksdf$cumdist <- 0
+for(occi in unique(tracksdf$occ)){
+  tracksdf[tracksdf$occ == occi,]$cumdist <- cumsum(tracksdf[tracksdf$occ == occi,]$dist_betw)
+}
+
+#
+
+tracksdf$arrowbool <- F
+cumdist_n <- plyr::round_any(tracksdf$cumdist, 2000)
+tracksdf$arrowbool[which(cumdist_n[-1] != cumdist_n[-nrow(tracksdf)])] <- T
+
+#visualize track direction
+tracklines_ls <- create_line_spatlines(tracksdf, tracksdfcolname = "occ")
+
+plotsurv <- function(occi){
+  survplot <- ggplot() +
+    geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+            linewidth = .1, alpha = 0.3) +
+    geom_sf(st_as_sf(tracklines_ls[[occi]]), mapping = aes()
+    ) +
+    geom_segment(data = tracksdf[which(tracksdf$occ == occi & 
+                                         tracksdf$effort == "OnEffort" &
+                                         tracksdf$arrowbool),],
+                 mapping = aes(x = x, y = y,
+                               xend = xnext, yend = ynext
+                 ),
+                 color = "red",
+                 arrow = arrow(angle = 45, 
+                               ends = "last", 
+                               type = "open", 
+                               length = unit(0.1, "cm"))) +
+    #scale_color_viridis_c(name = "Hours") +
+    coord_sf(xlim = c(min(tracksdf[tracksdf$occ == occi,]$x), max(tracksdf[tracksdf$occ == occi,]$x)), 
+             ylim = c(min(tracksdf[tracksdf$occ == occi,]$y), max(tracksdf[tracksdf$occ == occi,]$y))) +
+    theme_bw() +
+    theme(legend.position = "none")
+  return(survplot)
+}
+surv1 <- plotsurv(1)
+surv2 <- plotsurv(2)
+surv3 <- plotsurv(3)
+surv4 <- plotsurv(4)
+surv5 <- plotsurv(5)
+surv6 <- plotsurv(6)
+
+#ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/surveydirection.png",
+#       plot = 
+         grid.arrange(
+         grobs = list(surv1, surv2, surv3,
+                      surv4, surv5, surv6),
+         widths = c((1), (1), (1)),
+         heights = c(1, 1),
+         layout_matrix = rbind(c(1,  2, 3),
+                               c(4, 5, 6)))
+         #,
+       # width = 250,
+       # height = 250,
+       # units = c("mm"),
+       # dpi = 300)
 
