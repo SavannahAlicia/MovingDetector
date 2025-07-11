@@ -8,7 +8,6 @@ library(sf)
 library(gridExtra)
 library(dplyr)
 setwd("~/Documents/UniStAndrews/MovingDetector")
-#source("movingdetectorlikelihood.R")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 #-------------------------------functions---------------------------------------
