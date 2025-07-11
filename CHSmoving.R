@@ -954,7 +954,13 @@ plotsurv <- function(occi){
     coord_sf(xlim = c(min(tracksdf[tracksdf$occ == occi,]$x), max(tracksdf[tracksdf$occ == occi,]$x)), 
              ylim = c(min(tracksdf[tracksdf$occ == occi,]$y), max(tracksdf[tracksdf$occ == occi,]$y))) +
     theme_bw() +
-    theme(legend.position = "none")
+    annotate("text", x = -Inf, y = Inf,
+             label = paste("Survey", occi), vjust = 1.2, hjust = -0.1) +
+    theme(legend.position = "none",
+          axis.text = element_blank(),
+          panel.grid = element_blank(),
+          axis.title = element_blank(),
+          axis.ticks = element_blank())
   return(survplot)
 }
 surv1 <- plotsurv(1)
@@ -964,18 +970,20 @@ surv4 <- plotsurv(4)
 surv5 <- plotsurv(5)
 surv6 <- plotsurv(6)
 
-#ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/surveydirection.png",
-#       plot = 
+ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/surveydirection.png",
+       plot = 
          grid.arrange(
          grobs = list(surv1, surv2, surv3,
                       surv4, surv5, surv6),
-         widths = c((1), (1), (1)),
-         heights = c(1, 1),
-         layout_matrix = rbind(c(1,  2, 3),
-                               c(4, 5, 6)))
-         #,
-       # width = 250,
-       # height = 250,
-       # units = c("mm"),
-       # dpi = 300)
+         widths = c((1), (1)),
+         heights = c(1, 1, 1),
+         layout_matrix = rbind(c(1,  4),
+                               c(2, 5),
+                               c(3, 6)))
+         ,
+        width = 150,
+        height = 250,
+        units = c("mm"),
+        dpi = 300)
 
+colSums(usage(trapscr))
