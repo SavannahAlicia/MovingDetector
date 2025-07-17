@@ -146,6 +146,7 @@ mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
 meshpoly <- readRDS("data/onison/all_occasions/meshpoly_2000.Rds")
 distmat <- readRDS("data/onison/all_occasions/user_ne_dist_mat_2000.Rds")
 meshdistmat <- readRDS("data/onison/all_occasions/mesh_dist_mat_2000.Rds")
+all_poly_2000 <- readRDS("data/onison/all_occasions/all_poly_2000.Rds")
 
 
 #-------------Tracks dataframe -------------------------------------------------
@@ -325,61 +326,61 @@ names <- c('null', #1
            'Dsmooth11', #8
            'Dsmooth12', #9
            'Dsmooth13') #10
-fits <- list.secr.fit(model = models, constant = args, names = names)
-AIC(fits[!apply(as.array(1:length(fits)), 1, function(x){any(is.na(attr(predictDsurface(fits[[x]], cl.D = T), "covariates")[,2]))})])
-m0 <- fits[[2]]
-lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
-upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
-Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
-DdesignX <- m0$designD
-denssurf <- exp(DdesignX %*% log(Dpar))*100
-Ddiffco <- 100
+ fits <- list.secr.fit(model = models, constant = args, names = names)
+# AIC(fits[!apply(as.array(1:length(fits)), 1, function(x){any(is.na(attr(predictDsurface(fits[[x]], cl.D = T), "covariates")[,2]))})])
+# m0 <- fits[[2]]
+# lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100
+# upperD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,3]*100
+# Dpar <- exp(m0$fit$par[m0$parindx$D]) #density per hectare
+# DdesignX <- m0$designD
+# denssurf <- exp(DdesignX %*% log(Dpar))*100
+# Ddiffco <- 100
 spreadD <- function(mesh_dist_mat, lambda0, sigma, D){
   rowSums(apply(as.array(1:nrow(mesh_dist_mat)), 1, function(meshx){
-    #this is the probability of detection at x 
+    #this is the probability of detection at x
     probdet = apply(as.array(1:nrow(mesh_dist_mat)), 1, function(x){
-      lambda0 * exp(-(mesh_dist_mat[meshx,x]^2)/(2*sigma^2)) 
+      lambda0 * exp(-(mesh_dist_mat[meshx,x]^2)/(2*sigma^2))
     })
     probdet = probdet/sum(probdet)
     D[meshx] * probdet #* area #keep density per square km, not per mesh
   }))
 }
-Dspreadsurf <- spreadD(meshdistmat, lambda0, sigma, denssurf)
-Drowlimit <- (upperD-lowerD)<Ddiffco
-ggplot() +
-  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-          linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[Drowlimit,], 
-            mapping = aes(x = x, y =y, fill = D)) +
-  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_viridis_c(name = "magma") +
-  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-          linewidth = .1, alpha = 0.3) +
-  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
-           ylim = c(min(mesh$y), max(mesh$y))) +
-  theme_bw()
-
-Drowlimit <- apply(distmat, 2, min) < 1.5*sigma
-ggplot() +
-  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-          linewidth = .1, alpha = 1) +
-  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[Drowlimit,], 
-            mapping = aes(x = x, y =y, fill = D)) +
-  geom_point(data = mesh, mapping = aes(x = x, y = y)) +
-  geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
-  geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
-  scale_fill_viridis_c(name = "magma") +
-  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
-          linewidth = .1, alpha = 0.3) +
-  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
-           ylim = c(min(mesh$y), max(mesh$y))) +
-  theme_bw()
-
-
-sum(denssurf[(upperD-lowerD)<Ddiffco])*4
-sum(denssurf)*4
+# Dspreadsurf <- spreadD(meshdistmat, lambda0, sigma, denssurf)
+# Drowlimit <- (upperD-lowerD)<Ddiffco
+# ggplot() +
+#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+#           linewidth = .1, alpha = 1) +
+#   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[Drowlimit,], 
+#             mapping = aes(x = x, y =y, fill = D)) +
+#   geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+#   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+#   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+#   scale_fill_viridis_c(name = "magma") +
+#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+#           linewidth = .1, alpha = 0.3) +
+#   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+#            ylim = c(min(mesh$y), max(mesh$y))) +
+#   theme_bw()
+# 
+# Drowlimit <- apply(distmat, 2, min) < 1.5*sigma
+# ggplot() +
+#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+#           linewidth = .1, alpha = 1) +
+#   geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf)[Drowlimit,], 
+#             mapping = aes(x = x, y =y, fill = D)) +
+#   geom_point(data = mesh, mapping = aes(x = x, y = y)) +
+#   geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "red", shape = "+") +
+#   geom_point(data = sight_single, mapping = aes(x = x, y =y), color = "green") +
+#   scale_fill_viridis_c(name = "magma") +
+#   geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+#           linewidth = .1, alpha = 0.3) +
+#   coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+#            ylim = c(min(mesh$y), max(mesh$y))) +
+#   theme_bw()
+# 
+# 
+# sum(denssurf[(upperD-lowerD)<Ddiffco])*4
+# sum(denssurf)*4
 
 
 #------------------------------Moving detector --------------------------------
@@ -479,16 +480,70 @@ setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 setwd("~/Documents/UniStAndrews/Dolphins/Charleston")
 
+#soap film smoother
+cut <- list(matrix(c(1143961, bbox(all_poly_2000)[2,1], #anticlockwise, start bottom left
+                     1156161,bbox(all_poly_2000)[2,1],
+                     # bbox(all_poly_2000)[1,2], bbox(all_poly_2000)[2,1],
+                     bbox(all_poly_2000)[1,2], 3669697,
+                     bbox(all_poly_2000)[1,2], bbox(all_poly_2000)[2,2],
+                     bbox(all_poly_2000)[1,1],  bbox(all_poly_2000)[2,2],
+                     1150161, 3638997,
+                     1143961, bbox(all_poly_2000)[2,1]), 
+                   ncol = 2, 
+                   byrow = TRUE))
+box <- st_polygon(cut)
+box <- st_geometry(box)
+box <- st_set_crs(box, st_crs(all_poly_2000))
+epoly <- st_intersection(st_as_sf(all_poly_2000), box)
+boundline <- st_union(st_buffer(st_geometry(st_as_sf(epoly)),800))
+crds <- coordinates(as_Spatial(st_cast(boundline, "LINESTRING")))[[1]][[1]]
+bound <- list(list(x = crds[,1], y = crds[,2], f = rep(0, nrow(crds))))
+
+knots_soap <- data.frame( x = c(#1162593, 
+  1160659, 1158595, 
+  1168527, 
+  #1145050,
+  #1176396, 
+  #1147759,
+  1167237, 1162593, 1176396),
+  y = c(#3671596, 
+    3659084, 3651086,
+    3659986, 
+    #3660760,
+    #3666436,
+    #3648506, 
+    3647732, 3638444, 3653279))
+
+knots_soap2 <- data.frame( x = c(
+  1162593, 
+  1160659, 1158595, 
+  1168527, 
+  1145050,
+  1176396, 
+  1147759,
+  1167237, 1162593, 1176396),
+  y = c(
+    3671596, 
+    3659084, 3651086,
+    3659986, 
+    3660760,
+    3666436,
+    3648506, 
+    3647732, 3638444, 3653279))
+
 formulas <- list(D~s(x,y,k=5),
                  D~s(x,y,k=6),
                  D~s(x,y,k=7),
                  D~s(x,y,k=8),
-                 D~s(x,y,k=9))
-Xmats <- lapply(as.list(1:5), function(f){
+                 D~s(x,y,k=9),
+                 D~s(x, y, bs = "so", xt = list(bnd = bound)),
+                 D~s(x, y, bs = "so", xt = list(bnd = bound)))
+
+get_X_mat <- function(f, knots = NULL){
   formula <- formulas[[f]]
   split <- interpret.gam(formula)
   sml =  mgcv::smoothCon(split$smooth.spec[[1]], data = scrmesh, 
-                         knots = NULL, absorb.cons = T, 
+                         knots = knots, absorb.cons = T, 
                          scale.penalty = T, 
                          null.space.penalty = F,
                          sparse.cons = 0, 
@@ -498,20 +553,24 @@ Xmats <- lapply(as.list(1:5), function(f){
   DdesignX = cbind( rep(1, nrow(scrmesh)), sml[[1]]$X)
   colnames(DdesignX) = c("(Intercept)", paste0("s(x,y).", 1:(ncol(DdesignX)-1)))
   return(DdesignX)
-})
+  }
 
-
-myfits <- lapply(as.list(1:5), function(f){
+fit_smooth <- function(f, startother = NULL, addtl_name = ""){
   formula = formulas[[f]]
-  Dpar =  exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$D]) 
-  lambda0 = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$lambda0])
-  sigma = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$sigma])
+  if(is.null(startother)){
+    Dpar =  exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$D]) 
+    lambda0 = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$lambda0])
+    sigma = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$sigma])
+  } else {
+    Dpar =  exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$D]) 
+    lambda0 = exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$lambda0])
+    sigma = exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$sigma])
+  }
   
   startparf = list(D = log(Dpar), 
                    lambda0 = log(lambda0), 
                    sigma = log(sigma))
   DdesignX <- Xmats[[f]]
-
   
   m_move <- move_fit(capthist = ch_10,
                      tracksdf = tracksdf, 
@@ -523,9 +582,17 @@ myfits <- lapply(as.list(1:5), function(f){
                      hazdenom = 1, 
                      mesh = scrmesh, 
                      startpar0 = startparf)
-  saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move", paste(formula)[3], ".Rds", sep = ""))
+  saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/m_move", paste(formula)[3], addtl_name, ".Rds", sep = ""))
   return(m_move)
-  })
+}
+
+Xmats <- lapply(as.list(1:5), get_X_mat)
+Xmats[[6]] <- get_X_mat(f = 6, knots = knots_soap)
+Xmats[[7]] <- get_X_mat(f = 6, knots = knots_soap2)
+
+myfits <- lapply(as.list(1:5), fit_smooth)
+myfits[[6]] <- fit_smooth(6, startother = 4)
+myfits[[7]] <- fit_smooth(7, startother = 8, addtl_name = "moreknots")
 
 AICs <- apply(as.array(1:length(myfits)), 1, function(i){
   AIC_fn <- function(n,L){2*n + 2*L}
@@ -561,8 +628,8 @@ AICs <- apply(as.array(1:length(myfits)), 1, function(i){
          )
 })
 myAICs <- do.call(rbind, AICs)
-m_move <- myfits[[3]]
-DdesignX <- Xmats[[3]]
+m_move <- myfits[[6]]
+DdesignX <- Xmats[[6]]
 m0 <- fits[[4]]
 
 denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
@@ -574,7 +641,7 @@ sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper
 diffdense <- denssurf_stat - denssurf_move
 
 
-subarea <- which(apply(distmat, 2, min) < exp(m_move$movdet_est[m0$parindx$sigma,2]))
+subarea <- 1:ncol(distmat)#which(apply(distmat, 2, min) < exp(m_move$movdet_est[m0$parindx$sigma,2]))
 Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat$value, sigma_stat$value, denssurf_stat*as.numeric(1:length(denssurf_move) %in% subarea))
 Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move$value, sigma_move$value, denssurf_move*as.numeric(1:length(denssurf_move) %in% subarea))
 Dspread_diff <- Dspreadsurf_stat- Dspreadsurf_move
