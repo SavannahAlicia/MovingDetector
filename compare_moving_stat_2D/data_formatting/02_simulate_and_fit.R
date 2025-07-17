@@ -1,3 +1,4 @@
+## 2 dimensional space
 ###-----------simulate data for moving and stationary detectors-----------------
 ###-------and fit model with stationary and moving detector---------------------
 
