@@ -65,16 +65,16 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   lambda0plot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = invlogit(value), col = model), size = linesize) +
+                 mapping = aes(x = exp(value), col = model), size = linesize) +
     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
                              data.frame(name = "lambda0", model = "true", 
                                         mean = logit(lambda0))), 
-               aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+               aes(xintercept = exp(c(mean)), col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanlower)), col = model), 
+               aes(xintercept = exp(c(meanlower)), col = model), 
                linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanupper)), col = model),
+               aes(xintercept = exp(c(meanupper)), col = model),
                linetype = "dashed", size = linesize) +
     geom_vline(xintercept = lambda0, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
@@ -94,17 +94,17 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   lambda0precisionplot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = invlogit(upper)- invlogit(lower), col = model),
+                 mapping = aes(x = exp(upper)- exp(lower), col = model),
                  size = linesize) +
     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
                              data.frame(name = "lambda0", model = "true", 
                                         mean = logit(lambda0))), 
-               aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+               aes(xintercept = exp(c(mean)), col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanlower)), col = model), 
+               aes(xintercept = exp(c(meanlower)), col = model), 
                linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanupper)), col = model),
+               aes(xintercept = exp(c(meanupper)), col = model),
                linetype = "dashed", size = linesize) +
     geom_vline(xintercept = lambda0, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
@@ -325,4 +325,6 @@ grid.arrange(
   heights = c(1,1,1),
   layout_matrix = rbind(c(1,2),c(3,4),5)
 )
+}
 
+sim_fits_out <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/simulation_results/all_sim_fits1.Rds")
