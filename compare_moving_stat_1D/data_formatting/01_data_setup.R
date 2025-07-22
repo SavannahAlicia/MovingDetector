@@ -1,3 +1,4 @@
+## 1 D
 #each trackline is a series of points with x, y, and time
 trackxmin = 1500
 trackxmax = 3500
@@ -5,39 +6,40 @@ tracksteplength = 125/5
 diaglength = sqrt(tracksteplength^2/2)
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
-swlen = 90
+swlen = 91
+ystretch = 3 #must be integer
 #create winding stream
-streamdf <- data.frame(x = c(trackxmin,
-                             trackxmin+tracksteplength,
-                             c(trackxmin+tracksteplength + tracksteplength*1:swlen),
-                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5),
-                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1,
-                             rep(trackxmin+tracksteplength + tracksteplength*1, 4),
-                             c(trackxmin+tracksteplength + tracksteplength*1:swlen),
-                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5),
-                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1,
-                             rep(trackxmin+tracksteplength + tracksteplength*1, 4),
-                             c(trackxmin+tracksteplength + tracksteplength*1:swlen),
-                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5),
-                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1,
-                             rep(trackxmin+tracksteplength + tracksteplength*1, 4),
+streamdf <- data.frame(x = c(trackxmin, #1
+                             trackxmin+tracksteplength, #1
+                             c(trackxmin+tracksteplength + tracksteplength*1:swlen),#91
+                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch), #5
+                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
+                             rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)), #4
+                             c(trackxmin+tracksteplength + tracksteplength*1:swlen), #91
+                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch),#5
+                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
+                             rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),#4
+                             c(trackxmin+tracksteplength + tracksteplength*1:swlen), #91
+                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch),#5
+                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
+                             rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),
                              c(trackxmin+tracksteplength + tracksteplength*1:7)
 ),
-y = c(0,
-      0,
-      0*1:swlen,
-      0*swlen + tracksteplength*1:5,
-      0*(swlen-1):1 + tracksteplength*5,
-      0*1 + tracksteplength*6:9,
-      0*1:swlen + tracksteplength*10,
-      0*swlen + tracksteplength*11:15,
-      0*(swlen-1):1 + tracksteplength*15,
-      0*1 + tracksteplength*16:19,
-      0*1:swlen + tracksteplength*20,
-      0*swlen + tracksteplength*21:25,
-      0*(swlen-1):1 + tracksteplength*25,
-      0*1 + tracksteplength*26:29,
-      0*1:7 + tracksteplength*30
+y = c(0, #1
+      0, #1
+      0*1:swlen, #91
+      0*swlen + tracksteplength*(0 + 1:(5*ystretch)), #5
+      0*(swlen-1):1 + tracksteplength*1*(5*ystretch), #90 #same as last of 5
+      0*1 + tracksteplength*((5 * ystretch * 1) + 1:(5*ystretch-1)),#4
+      0*1:swlen + tracksteplength*(2*5*ystretch), #91 increase from last of 4
+      0*swlen + tracksteplength*((5 * ystretch * 2) + 1:(5*ystretch)), #5
+      0*(swlen-1):1 + tracksteplength*3*(5*ystretch), #90
+      0*1 + tracksteplength*((5 * ystretch * 3) + 1:(5*ystretch-1)), #4
+      0*1:swlen + tracksteplength*(4*5*ystretch),#91
+      0*swlen + tracksteplength*((5 * ystretch * 4) + 1:(5*ystretch)), #5
+      0*(swlen-1):1 + tracksteplength*5*(5*ystretch), #90
+      0*1 + tracksteplength*((5 * ystretch * 5) + 1:(5*ystretch-1)), #4
+      0*1:7 + tracksteplength*6*(5*ystretch) #7
 ))
 #turn it into tracksdf
 tracksteps = nrow(streamdf)-1
@@ -68,21 +70,31 @@ nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
 meshspacing = tracksteplength * meshstepmult
-mesh <- secrlinear::read.linearmask(data = rbind(data.frame(x = min(streamdf$x)-3*sigma, y = 0),
-                                                 streamdf[,c("x","y")],
-                                                 data.frame(x = streamdf$x[(tracksteps+1)] + sqrt((3*sigma)^2/2),
-                                                            y = streamdf$y[(tracksteps+1)] + sqrt((3*sigma)^2/2))), 
-                                    spacing = meshspacing)
+meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-floor((3*sigma)/meshspacing)*meshspacing, 
+                                                           to = streamdf$x[3],
+                                                           by = meshspacing),
+                                                   y = 0),
+                                        streamdf[which(streamdf$x %in% c(seq(streamdf$x[3], max(streamdf$x)+meshspacing, by = meshspacing)) &
+                                                         streamdf$y %in% c(seq(streamdf$y[1], max(streamdf$y)+meshspacing, by = meshspacing))),],
+                                        data.frame(x = streamdf$x[(tracksteps+1)] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing),
+                                                   y = streamdf$y[(tracksteps+1)] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
+                           spacing = meshspacing)
 
-D_mesh <- rep(flatD, nrow(mesh))
-D_mesh_q <- beta3*exp(beta1*(mesh$x + beta2)^2)
+D_meshlin <- rep(flatD, nrow(meshlin))
+D_meshlin_q <- beta3*exp(beta1*(meshlin$x + beta2)^2)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
-
+ggplot() +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+             mapping = aes(x = x, y = y), shape = 21) +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
+          mapping = aes())  +
+  coord_sf(crs = 26916)
 
 #trap grid
 trapspacing = meshspacing
-xgr <- seq(min(tracksdf$x)+50, max(tracksdf$x)+50, by = trapspacing)
+xgr <- seq(min(meshlin$x), max(meshlin$x), by = trapspacing)
 ygr <- seq(min(tracksdf$y), max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
 # allocate track records to grid
@@ -100,6 +112,16 @@ tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, FUN = function(x){which(
 traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
 
+
+ggplot() +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+             mapping = aes(x = x, y = y), shape = 21) +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
+  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red") +
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
+          mapping = aes())  +
+  coord_sf(crs = 26916)
+
 #create trapgrid (will break tracklines into trap grid, keeping times)
 trap_cells <- create_grid_polygons(traps, spacing = trapspacing)
 #all lines
@@ -115,17 +137,9 @@ colnames(useall) <- 1:nocc
 useall[,c(1:ncol(useall))] <- do.call(cbind,
                                       mclapply(X= as.list(1:ncol(useall)), 
                                                FUN = getuse, mc.cores = 3))
-# #assemble into a i,j,k use matrix
-# induse_ls <- create_ind_use(exch, trapcells, tracksdf) #takes about 30 seconds
-# induse <- aperm(
-#   array(unlist(induse_ls), 
-#         dim =c(nrow(traps), nocc, length(induse_ls))), 
-#   c(3, 1, 2))
-# saveRDS(induse, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/induse.Rds")
-induse <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/induse.Rds")
 
 #calculate non Euclidean distance matrix for all trap cells and mesh cells
-
+#both graph distance and 2D
 polypts <- rbind(data.frame(x = min(streamdf$x)-3*sigma, y = 0, time = 0, occ = 1:4 ),
                  cbind(tracksdf[,c("occ","x","y")], data.frame(time= tracksdf$time + 1)),
                  data.frame(x = streamdf$x[(tracksteps+1)] + sqrt((3*sigma)^2/2),
@@ -134,44 +148,63 @@ polypts <- rbind(data.frame(x = min(streamdf$x)-3*sigma, y = 0, time = 0, occ = 
 polypts <- polypts[order(polypts[,"occ"], polypts[,"time"]),]
 riverpoly <- st_buffer(st_as_sfc(do.call(rbind, 
                                          create_line_spatlines(polypts)), crs = 26916), 
-                       dist = 20)
-# trappts <- st_as_sf(x = traps, coords = c("x","y"), crs = 26916)
+                       dist = 150)
+trappts <- st_as_sf(x = traps, coords = c("x","y"), crs = 26916)
 # connects <- nngeo::st_connect(trappts, riverpoly)
 # connects <- connects[ which(as.numeric(st_length(connects)) > 0.001)]
 # conbuf <- st_buffer(connects, 20)
-# all_poly <- as_Spatial(st_union(x = riverpoly,y = conbuf))
-# r <- raster(ncol = 1000, nrow = 1000)
-# extent(r) <- extent(all_poly)
-# rp <- rasterize(all_poly, r)
-# rp2 <- rasterize(as(all_poly, "SpatialLines"), r)
-# crs(rp) <- crs(rp2) <- crs(all_poly)
-# values(rp)[!is.na(values(rp))] = 1
-# values(rp2)[!is.na(values(rp2))] = 1
-# rp_df <- as.data.frame(as(rp, "SpatialPixelsDataFrame"))
-# rp_df2 <- as.data.frame(as(rp2, "SpatialPixelsDataFrame"))
-# colnames(rp_df) <- colnames(rp_df2) <- c("value", "x", "y")
-# rp_dfm <- rbind(rp_df, rp_df2)
-# rp_m <- rasterFromXYZ(rp_dfm[,c("x", "y", "value")], crs = crs(all_poly))
-# trans <- gdistance::transition(rp_m, mean, directions = 16)
-# trans.c <- gdistance::geoCorrection(trans, type = "c")
-# saveRDS(trans.c, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
+all_poly <- as_Spatial(riverpoly)#as_Spatial(st_union(x = riverpoly,y = conbuf))
+r <- raster(ncol = 500, nrow = 500)
+extent(r) <- extent(all_poly)
+rp <- rasterize(all_poly, r)
+rp2 <- rasterize(as(all_poly, "SpatialLines"), r)
+crs(rp) <- crs(rp2) <- crs(all_poly)
+values(rp)[!is.na(values(rp))] = 1
+values(rp2)[!is.na(values(rp2))] = 1
+rp_df <- as.data.frame(as(rp, "SpatialPixelsDataFrame"))
+rp_df2 <- as.data.frame(as(rp2, "SpatialPixelsDataFrame"))
+colnames(rp_df) <- colnames(rp_df2) <- c("value", "x", "y")
+rp_dfm <- rbind(rp_df, rp_df2)
+rp_m <- rasterFromXYZ(rp_dfm[,c("x", "y", "value")], crs = crs(all_poly))
+trans <- gdistance::transition(rp_m, mean, directions = 16)
+trans.c <- gdistance::geoCorrection(trans, type = "c")
+saveRDS(trans.c, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
 trans.c <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
 userdfn1 <- function (xy1, xy2, trans.c) {
   gdistance::costDistance(trans.c, as.matrix(xy1), as.matrix(xy2))
 }
 
-dist_trapmesh <- userdfn1(traps[,1:2], mesh[,1:2], trans.c)
+#distances along graph
+unique(tracksdf$trapno[tracksdf$occ == 1])
+meshgraph <- make_graph(edges = c(rep(1:nrow(meshlin), each = 2)[-c(1, 2*nrow(meshlin))]), n = nrow(meshlin), directed = FALSE)
+meshgraph$layout <- as.matrix(meshlin)
+meshdists_lin <- distances(meshgraph) * meshspacing
+#which mesh indices are traps
+meshistraps_lin <- which(do.call(paste, meshlin[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
+dist_trapmesh_lin <- meshdists_lin[meshistraps_lin, ]
+
+#also create 2D mesh for comparison with 2D
+xgr <- seq(st_bbox(riverpoly)[1]-25,st_bbox(riverpoly)[3]+trapspacing, by = trapspacing)
+ygr <- seq(st_bbox(riverpoly)[2]-100, st_bbox(riverpoly)[4]+trapspacing, by = trapspacing)
+gr <- expand.grid(xgr, ygr)
+
+mesh2Dxy <- gr[st_intersects(riverpoly, st_as_sf(gr, coords = c("Var1", "Var2"), crs = crs(riverpoly)))[[1]],]
+colnames(mesh2Dxy) <- c("x", "y")
+mesh2D <-  secr::read.mask(data = mesh2Dxy,
+                           spacing = meshspacing)
+
+
+dist_trapmesh <- userdfn1(traps[,1:2], mesh2D[,1:2], trans.c)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
-  geom_point(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
+  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red")+
   scale_color_viridis_d() +
+  geom_point(data.frame(x = mesh2D$x, y = mesh2D$y), shape = 2,
+             mapping = aes(x = x, y = y)) +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
-          mapping = aes()) +
-  geom_point(data.frame(x = traps$x,
-                        y = traps$y, 
-                        dets = as.factor(apply((!is.na(excapthist)), 3, sum))),
-             mapping = aes(x = x, y = y), shape = 21, fill = "transparent", color = "red") +
+          mapping = aes())  +
   coord_sf(crs = 26916)
 
