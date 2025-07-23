@@ -174,20 +174,26 @@ sim_capthist <- function(pop = NULL,
                          hazdenom, #for hazard rate
                          mesh,
                          meshunit,
+                         tracksmeshdistmat,
                          report_probseenxk = FALSE){
   if(is.null(pop)){
     #select mesh locations for ACs (secr sim.popn for polygons has bug)
-    n <- rpois(1, meshunit*sum(D_mesh))
+    n <- rpois(1, sum(D_mesh))
     pop_mesh_ind <- sample(length(D_mesh), n, replace = T, prob = D_mesh/sum(D_mesh))
     pop <- mesh[pop_mesh_ind,]
     rownames(pop) <- NULL
   }
   #this is now distances between pop hrcs and track locations
-  dist_dat_pop <- apply(as.matrix(tracksdf[,c("x","y")]), 1, function(trapj){
-    apply(as.matrix(pop), 1, function(popi){
-      dist(rbind(trapj,
-                 popi), method = "euclidean")
-    }) }) #ind by track location
+  #dist_dat_pop <- apply(as.matrix(tracksdf[,c("x","y")]), 1, function(trapj){
+  #  apply(as.matrix(pop), 1, function(popi){
+  #    gdistance::costDistance(trans.c, trapj, popi)
+  #  }) }) #ind by track location
+  if(!is.null(pop_mesh_ind)){
+    dist_dat_pop <- t(tracksmeshdistmat[,pop_mesh_ind])
+  } else {
+    stop("No distance calculation for custom population")
+  }
+
   
   capthist <- lapply(as.list(1:nrow(pop)), #for each individual
                      FUN = function(i){

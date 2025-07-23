@@ -1,11 +1,14 @@
 #1 dimensional
+set.seed(4994)
 start.time.all_q <- Sys.time()
 all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
+                             set.seed(sim)
                              return(sim_fit(tracksdf = tracksdf, 
                                             traps = traps,
                                             trapcells = trapcells,
                                             dist_trapmesh = dist_trapmesh_lin,
+                                            tracksmeshdistmat = tracksmeshdistmat_lin,
                                             useall = useall,
                                             lambda0 = lambda0,
                                             sigma = sigma,

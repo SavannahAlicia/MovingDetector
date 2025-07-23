@@ -178,10 +178,11 @@ userdfn1 <- function (xy1, xy2, trans.c) {
 unique(tracksdf$trapno[tracksdf$occ == 1])
 meshgraph <- make_graph(edges = c(rep(1:nrow(meshlin), each = 2)[-c(1, 2*nrow(meshlin))]), n = nrow(meshlin), directed = FALSE)
 meshgraph$layout <- as.matrix(meshlin)
-meshdists_lin <- distances(meshgraph) * meshspacing
+dist_meshmesh_lin <- distances(meshgraph) * meshspacing
+
 #which mesh indices are traps
 meshistraps_lin <- which(do.call(paste, meshlin[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
-dist_trapmesh_lin <- meshdists_lin[meshistraps_lin, ]
+dist_trapmesh_lin <- dist_meshmesh_lin[meshistraps_lin, ]
 
 #also create 2D mesh for comparison with 2D
 xgr <- seq(st_bbox(riverpoly)[1]-25,st_bbox(riverpoly)[3]+trapspacing, by = trapspacing)
@@ -196,8 +197,12 @@ D_mesh2D <- rep(flatD, nrow(mesh2D))
 D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
 
 
+dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
+meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
+dist_trapmesh_2D <- dist_meshmesh_2D[meshistraps_2D,]
 
-dist_trapmesh <- userdfn1(traps[,1:2], mesh2D[,1:2], trans.c)
+tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
+tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
