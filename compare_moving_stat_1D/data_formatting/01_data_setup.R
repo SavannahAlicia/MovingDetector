@@ -81,7 +81,7 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                            spacing = meshspacing)
 
 D_meshlin <- rep(flatD, nrow(meshlin))
-D_meshlin_q <- beta3*exp(beta1*(meshlin$x + beta2)^2)
+D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 ggplot() +
@@ -192,6 +192,9 @@ mesh2Dxy <- gr[st_intersects(riverpoly, st_as_sf(gr, coords = c("Var1", "Var2"),
 colnames(mesh2Dxy) <- c("x", "y")
 mesh2D <-  secr::read.mask(data = mesh2Dxy,
                            spacing = meshspacing)
+D_mesh2D <- rep(flatD, nrow(mesh2D))
+D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
+
 
 
 dist_trapmesh <- userdfn1(traps[,1:2], mesh2D[,1:2], trans.c)
@@ -202,8 +205,8 @@ ggplot() +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
   geom_point(data = traps, mapping = aes(x = x, y = y), color = "red")+
   scale_color_viridis_d() +
-  geom_point(data.frame(x = mesh2D$x, y = mesh2D$y), shape = 2,
-             mapping = aes(x = x, y = y)) +
+  geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
+             mapping = aes(x = x, y = y, alpha = D)) +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
           mapping = aes())  +
   coord_sf(crs = 26916)

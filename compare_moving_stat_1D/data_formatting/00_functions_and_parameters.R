@@ -19,7 +19,6 @@ sigma = 300
 flatD <- 0.4
 beta1 <- -(1/400000)
 beta2 <- -2650 
-beta3 <- 10
 meshstepmult <- 5
 
 
@@ -173,9 +172,14 @@ sim_capthist <- function(pop = NULL,
                          sigma, 
                          D_mesh,
                          hazdenom, #for hazard rate
+                         mesh,
+                         meshunit,
                          report_probseenxk = FALSE){
   if(is.null(pop)){
-    pop <- secrlinear::sim.linearpopn(mask = mesh, D = D_mesh)
+    #select mesh locations for ACs (secr sim.popn for polygons has bug)
+    n <- rpois(1, meshunit*sum(D_mesh))
+    pop_mesh_ind <- sample(length(D_mesh), n, replace = T, prob = D_mesh/sum(D_mesh))
+    pop <- mesh[pop_mesh_ind,]
     rownames(pop) <- NULL
   }
   #this is now distances between pop hrcs and track locations

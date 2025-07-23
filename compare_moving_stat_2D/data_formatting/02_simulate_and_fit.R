@@ -7,15 +7,26 @@ sim_fit <- function(tracksdf,
                     trapcells,
                     dist_trapmesh,
                     useall,
-                    lambda0, sigma, D_mesh, beta1, beta2,
+                    lambda0, 
+                    sigma, 
+                    D_mesh, 
+                    beta1, 
+                    beta2,
                     hazdenom, 
                     mesh, 
+                    meshunit, #area or length
                     Dmod = "~1"){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
-  capthist_full <- sim_capthist(pop = NULL, traps,
-                                tracksdf, lambda0, sigma, D_mesh,
-                                hazdenom) 
+  capthist_full <- sim_capthist(pop = NULL, 
+                                traps, 
+                                tracksdf,
+                                lambda0, 
+                                sigma, 
+                                D_mesh,
+                                hazdenom, #for hazard rate
+                                mesh,
+                                meshunit) 
   capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
   
   #in case mesh is df
@@ -110,7 +121,7 @@ sim_fit <- function(tracksdf,
                   fn = stat_nll,
                   hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
   fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
-                                      method.args = list(eps = 1e-6, d = 1e-4, r = 4))
+                                      method.args = list(eps = 1e-5, d = 1e-3, r = 3))
   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
   
   start.time.md <- Sys.time()
