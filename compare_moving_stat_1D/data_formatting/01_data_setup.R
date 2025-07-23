@@ -201,13 +201,36 @@ dist_trapmesh <- userdfn1(traps[,1:2], mesh2D[,1:2], trans.c)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
-  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), mapping = aes(x = x, y = y, alpha = D), shape = 21) +
-  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
-  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red")+
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
+          mapping = aes())  +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+             mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
+             alpha = .5, shape = "+") +
+  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red",
+             size = 1.5, shape = "+") +
   scale_color_viridis_d() +
   geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
              mapping = aes(x = x, y = y, alpha = D)) +
-  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
-          mapping = aes())  +
-  coord_sf(crs = 26916)
-
+  coord_sf(datum = NULL) +
+  theme_bw()
+ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/plots/setup1Driver.png",
+       plot = ggplot() +
+         geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
+         geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
+                 mapping = aes())  +
+         geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+                    mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
+         geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
+                    alpha = .5, shape = "+") +
+         geom_point(data = traps, mapping = aes(x = x, y = y), color = "red",
+                    size = 1.5, shape = "+") +
+         scale_color_viridis_d() +
+         geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
+                    mapping = aes(x = x, y = y, alpha = D)) +
+         coord_sf(datum = NULL) +
+         theme_bw(),
+       width = 169,
+       height = 169,
+       units = c("mm"),
+       dpi = 300)
