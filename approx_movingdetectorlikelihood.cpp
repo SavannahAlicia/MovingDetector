@@ -152,7 +152,7 @@ double
     if(linear){
       mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km     
     } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/10000; //hectares
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/1000000; //km^2
     }
     clock.tock("setup");
     //begin for loops for lambdan calculation
@@ -275,7 +275,7 @@ double
     if(linear){
       mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km
     } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/100000; //km^2 instead of ha
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/1000000; //km^2 instead of ha
     }
     clock.tock("setup");
     //begin for loops for lambdan calculation
