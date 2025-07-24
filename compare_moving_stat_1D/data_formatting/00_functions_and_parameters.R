@@ -14,11 +14,11 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 set.seed(12345)
 nsims = 500
-lambda0 = .005
-sigma = 3000
+lambda0 = .001
+sigma = 4000
 flatD <- 0.4
 beta1 <- -(1/10000000)
-beta2 <- -13250
+beta2 <- -21250
 meshstepmult <- 5
 
 
@@ -178,7 +178,7 @@ sim_capthist <- function(pop = NULL,
                          report_probseenxk = FALSE){
   if(is.null(pop)){
     #select mesh locations for ACs (secr sim.popn for polygons has bug)
-    n <- rpois(1, sum(D_mesh))
+    n <- rpois(1, sum(D_mesh)*meshunit)
     pop_mesh_ind <- sample(length(D_mesh), n, replace = T, prob = D_mesh/sum(D_mesh))
     pop <- mesh[pop_mesh_ind,]
     rownames(pop) <- NULL
@@ -201,7 +201,7 @@ sim_capthist <- function(pop = NULL,
                               FUN = function(occk){
                                 #prob individual is seen this occasion (survey)
                                 trackoccdf <- tracksdf[tracksdf$occ == occk,]
-                                begintimek <-min(trackoccdf$time)
+                                begintimek <- min(trackoccdf$time)
                                 #NOTE if you want a distance denominated hazard, use length diffs for hazdenom
                                 #if you want rate per unit time, use time increment in seconds
                                 increments <- #c(0, 
@@ -265,7 +265,7 @@ create_ind_use <- function(ch, trapcells, tracksdf){
         dettime <- min(trackoccdf$time) + ch[i,k,which(!is.na(ch[i,k,]))]
         trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
         #add up length of trackline in each grid cell
-        useik <- lengths_in_grid(create_line_spatlines(trackoccdf), k, trap_cells)
+        useik <- lengths_in_grid(create_line_spatlines(trackoccdf), k, trapcells)
       } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
         useik <- useall[,k]
       }
