@@ -13,7 +13,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
 set.seed(12345)
-nsims = 500
+nsims = 100
 lambda0 = .001
 sigma = 4000
 flatD <- 0.4

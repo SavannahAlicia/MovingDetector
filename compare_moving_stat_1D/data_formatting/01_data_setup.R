@@ -183,9 +183,9 @@ userdfn1 <- function (xy1, xy2, trans.c) {
 
 #distances along graph
 unique(tracksdf$trapno[tracksdf$occ == 1])
-meshgraph <- make_graph(edges = c(rep(1:nrow(meshlin), each = 2)[-c(1, 2*nrow(meshlin))]), n = nrow(meshlin), directed = FALSE)
+meshgraph <- igraph::make_graph(edges = c(rep(1:nrow(meshlin), each = 2)[-c(1, 2*nrow(meshlin))]), n = nrow(meshlin), directed = FALSE)
 meshgraph$layout <- as.matrix(meshlin)
-dist_meshmesh_lin <- distances(meshgraph) * meshspacing
+dist_meshmesh_lin <- igraph::distances(meshgraph) * meshspacing
 
 #which mesh indices are traps
 meshistraps_lin <- which(do.call(paste, meshlin[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
