@@ -642,10 +642,10 @@ myAICs <- do.call(rbind, AICs)
 
 create_plots <- function(m_move, DdesignX, m0, label, subarea_sigmamult = NULL){
   
-  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*100
+  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))#*100 returns in km^2  now
   lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
-  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*100
+  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))#*100
   lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
   diffdense <- denssurf_stat - denssurf_move

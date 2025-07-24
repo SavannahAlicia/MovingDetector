@@ -2,9 +2,9 @@
 #each trackline is a series of points with x, y, and time
 trackxmin = 1500
 trackxmax = 3500
-tracksteplength = 125/5
+tracksteplength = 1250/5
 diaglength = sqrt(tracksteplength^2/2)
-tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
+tracksteps = 80 #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
 swlen = 91
 ystretch = 3 #must be integer
@@ -87,10 +87,10 @@ hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 ggplot() +
   geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
              mapping = aes(x = x, y = y), shape = 21) +
-  scale_color_viridis_b() +
+  scale_color_viridis_d() +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
                     mapping = aes())  +
-  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ, color = occ), 
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ, color = as.factor(occ)), 
              size = 3,shape = "+") +
   coord_sf(crs = 26916)
 
@@ -142,15 +142,20 @@ useall[,c(1:ncol(useall))] <- do.call(cbind,
 
 #calculate non Euclidean distance matrix for all trap cells and mesh cells
 #both graph distance and 2D
-polypts <- rbind(data.frame(x = min(streamdf$x)-3*sigma, y = 0, time = 0, occ = 1:4 ),
-                 cbind(tracksdf[,c("occ","x","y")], data.frame(time= tracksdf$time + 1)),
-                 data.frame(x = streamdf$x[(tracksteps+1)] + sqrt((3*sigma)^2/2),
-                            y = streamdf$y[(tracksteps+1)] + sqrt((3*sigma)^2/2),
-                            occ = 1:4, time = (max(tracksdf$time)+1)))
-polypts <- polypts[order(polypts[,"occ"], polypts[,"time"]),]
+streamwidth = (meshspacing*1.2)*2
+polypts <- data.frame(x = meshlin$x,
+                      y = meshlin$y,
+                      occ = 1, 
+                      t = 1:nrow(meshlin))
 riverpoly <- st_buffer(st_as_sfc(do.call(rbind, 
                                          create_line_spatlines(polypts)), crs = 26916), 
-                       dist = 150)
+                       dist = streamwidth/2)
+ggplot() +
+  geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
+          mapping = aes())  +
+  coord_sf(datum = NULL) +
+  theme_bw()
 trappts <- st_as_sf(x = traps, coords = c("x","y"), crs = 26916)
 # connects <- nngeo::st_connect(trappts, riverpoly)
 # connects <- connects[ which(as.numeric(st_length(connects)) > 0.001)]
@@ -195,16 +200,11 @@ mesh2Dxy <- gr[st_intersects(riverpoly, st_as_sf(gr, coords = c("Var1", "Var2"),
 colnames(mesh2Dxy) <- c("x", "y")
 mesh2D <-  secr::read.mask(data = mesh2Dxy,
                            spacing = meshspacing)
-D_mesh2D <- rep(flatD, nrow(mesh2D))
-D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
 
+#take density along the line and divide that by area
 
-dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
-meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
-dist_trapmesh_2D <- dist_meshmesh_2D[meshistraps_2D,]
-
-tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
-tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
+D_mesh2D <- rep(flatD/(streamwidth/meshspacing), nrow(mesh2D))
+D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)/(streamwidth/meshspacing)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
@@ -221,6 +221,15 @@ ggplot() +
              mapping = aes(x = x, y = y, alpha = D)) +
   coord_sf(datum = NULL) +
   theme_bw()
+
+dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
+meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
+dist_trapmesh_2D <- dist_meshmesh_2D[meshistraps_2D,]
+
+tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
+tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
+
+
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/plots/setup1Driver.png",
        plot = ggplot() +
          geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
