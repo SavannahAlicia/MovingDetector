@@ -42,26 +42,26 @@ y = c(0, #1
       0*1:7 + tracksteplength*6*(5*ystretch) #7
 ))
 #turn it into tracksdf
-tracksteps = nrow(streamdf)-1
+tracksteps = nrow(streamdf)/3 -1
 tracksdf <- rbind(
   data.frame(occ = 1,
-             x = streamdf$x,
-             y = streamdf$y, 
+             x = streamdf$x[1:(tracksteps+1)],
+             y = streamdf$y[1:(tracksteps+1)], 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 2,
-             x = streamdf$x,
-             y = streamdf$y, 
+             x = streamdf$x[(1:(tracksteps+1) + (tracksteps+1))],
+             y = streamdf$y[(1:(tracksteps+1) + (tracksteps+1))], 
              time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
-             x = streamdf$x,
-             y = streamdf$y,  
+             x = streamdf$x[(1:(tracksteps+1) + 2*(tracksteps+1))],
+             y = streamdf$y[(1:(tracksteps+1) + 2*(tracksteps+1))],  
              time = seq(ymd_hms("2024-01-03 0:00:00"), (ymd_hms("2024-01-03 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 4,
-             x = streamdf$x,
-             y = streamdf$y, 
+             x = streamdf$x[1:(tracksteps+1)],
+             y = streamdf$y[1:(tracksteps+1)], 
              time = seq(ymd_hms("2024-01-04 0:00:00"), (ymd_hms("2024-01-04 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
 )
@@ -76,8 +76,8 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                                                    y = 0),
                                         streamdf[which(streamdf$x %in% c(seq(streamdf$x[3], max(streamdf$x)+meshspacing, by = meshspacing)) &
                                                          streamdf$y %in% c(seq(streamdf$y[1], max(streamdf$y)+meshspacing, by = meshspacing))),],
-                                        data.frame(x = streamdf$x[(tracksteps+1)] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing),
-                                                   y = streamdf$y[(tracksteps+1)] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
+                                        data.frame(x = streamdf$x[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing),
+                                                   y = streamdf$y[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
                            spacing = meshspacing)
 
 D_meshlin <- rep(flatD, nrow(meshlin))
@@ -87,9 +87,11 @@ hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 ggplot() +
   geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
              mapping = aes(x = x, y = y), shape = 21) +
-  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
+  scale_color_viridis_b() +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
-          mapping = aes())  +
+                    mapping = aes())  +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ, color = occ), 
+             size = 3,shape = "+") +
   coord_sf(crs = 26916)
 
 #trap grid
