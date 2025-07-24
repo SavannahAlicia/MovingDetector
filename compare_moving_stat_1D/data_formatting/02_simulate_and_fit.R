@@ -13,7 +13,8 @@ sim_fit <- function(tracksdf,
                     hazdenom, 
                     mesh, 
                     meshunit,
-                    Dmod = "~1"){
+                    Dmod = "~1",
+                    linear = F){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
   capthist_full <- sim_capthist(pop = NULL, 
@@ -66,7 +67,7 @@ sim_fit <- function(tracksdf,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat,
-                                             linear = T)
+                                             linear)
       return(out)
     }
     #moving detector likelihood
@@ -79,7 +80,7 @@ sim_fit <- function(tracksdf,
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat,
-                                         linear = T)
+                                         linear)
       return(out)
     }
 
@@ -100,7 +101,7 @@ sim_fit <- function(tracksdf,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat,
-                                             linear = T)
+                                             linear)
       return(out)
     }
     #moving detector likelihood
@@ -113,7 +114,7 @@ sim_fit <- function(tracksdf,
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat,
-                                         linear = T)
+                                         linear)
       return(out)
     }
   }  

@@ -18,7 +18,8 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                                             hazdenom = hazdenom, 
                                             mesh = meshlin, 
                                             meshunit = meshspacing/1000,
-                                            Dmod = "~x^2"))
+                                            Dmod = "~x^2",
+                                            linear = T))
                            },
                            mc.cores = 6
 )
@@ -43,7 +44,8 @@ all_sim_fits1 <- mclapply(X = as.list(1:nsims),
                                            hazdenom = hazdenom, 
                                            mesh = meshlin, 
                                            meshunit = meshspacing/1000,
-                                           Dmod = "~1"))
+                                           Dmod = "~1",
+                                           linear = T))
                           },
                           mc.cores = 6
 )
@@ -70,7 +72,8 @@ all_sim_fits_q2D <- mclapply(X = as.list(1:nsims),
                                             hazdenom = hazdenom, 
                                             mesh = mesh2D, 
                                             meshunit = (meshspacing/1000)^2,
-                                            Dmod = "~x^2"))
+                                            Dmod = "~x^2",
+                                            linear = F))
                            },
                            mc.cores = 6
 )
@@ -95,7 +98,8 @@ all_sim_fits12D <- mclapply(X = as.list(1:nsims),
                                            hazdenom = hazdenom, 
                                            mesh = mesh2D, 
                                            meshunit = (meshspacing/1000)^2,
-                                           Dmod = "~1"))
+                                           Dmod = "~1",
+                                           linear = F))
                           },
                           mc.cores = 6
 )
