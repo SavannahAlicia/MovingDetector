@@ -80,8 +80,8 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                                                    y = streamdf$y[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
                            spacing = meshspacing)
 
-D_meshlin <- rep(flatD, nrow(meshlin))
-D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)
+D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/meshspacing)
+D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)*(streamwidth/meshspacing)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 ggplot() +
@@ -192,8 +192,8 @@ meshistraps_lin <- which(do.call(paste, meshlin[,c("x","y")]) %in% do.call(paste
 dist_trapmesh_lin <- dist_meshmesh_lin[meshistraps_lin, ]
 
 #also create 2D mesh for comparison with 2D
-xgr <- seq(st_bbox(riverpoly)[1]-25,st_bbox(riverpoly)[3]+trapspacing, by = trapspacing)
-ygr <- seq(st_bbox(riverpoly)[2]-100, st_bbox(riverpoly)[4]+trapspacing, by = trapspacing)
+xgr <- seq(st_bbox(riverpoly)[1]-1000,st_bbox(riverpoly)[3]+trapspacing, by = trapspacing)
+ygr <- seq(st_bbox(riverpoly)[2]-1000, st_bbox(riverpoly)[4]+trapspacing, by = trapspacing)
 gr <- expand.grid(xgr, ygr)
 
 mesh2Dxy <- gr[st_intersects(riverpoly, st_as_sf(gr, coords = c("Var1", "Var2"), crs = crs(riverpoly)))[[1]],]
@@ -203,8 +203,8 @@ mesh2D <-  secr::read.mask(data = mesh2Dxy,
 
 #take density along the line and divide that by area
 
-D_mesh2D <- rep(flatD/(streamwidth/meshspacing), nrow(mesh2D))
-D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)/(streamwidth/meshspacing)
+D_mesh2D <- rep(flatD, nrow(mesh2D))
+D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
