@@ -1,6 +1,6 @@
 ## 1 D
 #each trackline is a series of points with x, y, and time
-trackxmin = 1500
+trackxmin = 11500
 trackxmax = 3500
 tracksteplength = 1250/5
 diaglength = sqrt(tracksteplength^2/2)
@@ -9,6 +9,7 @@ trackint = 360 #seconds (doesn't really matter for length based hazard as long a
 swlen = 91
 ystretch = 3 #must be integer
 #create winding stream
+
 streamdf <- data.frame(x = c(trackxmin, #1
                              trackxmin+tracksteplength, #1
                              c(trackxmin+tracksteplength + tracksteplength*1:swlen),#91
@@ -79,9 +80,9 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                                         data.frame(x = streamdf$x[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing),
                                                    y = streamdf$y[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
                            spacing = meshspacing)
-
-D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/meshspacing)
-D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)*(streamwidth/meshspacing)
+streamwidth = (meshspacing*1.2)*2
+D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/1000)
+D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)*(streamwidth/1000)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 ggplot() +
@@ -108,12 +109,12 @@ for (tr in 1:length(trapno)) {
   trapno[tr] <- which.min(d)
 }
 
+
 # pick out possible traps as used cells
 un <- sort(unique(trapno))
 tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, FUN = function(x){which(un == trapno[x])})
 traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
-
 
 ggplot() +
   geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
@@ -125,16 +126,16 @@ ggplot() +
   coord_sf(crs = 26916)
 
 #create trapgrid (will break tracklines into trap grid, keeping times)
-trap_cells <- create_grid_polygons(traps, spacing = trapspacing)
+trapcells <- create_grid_polygons(traps, spacing = trapspacing)
 #all lines
 tracklines <- create_line_spatlines(tracksdf)
 
 #use for undetected inds
 getuse <- function(oc){
-  usecol <- lengths_in_grid(tracklines, oc, trap_cells)
+  usecol <- lengths_in_grid(tracklines, oc, trapcells)
   return(usecol)
 }
-useall <- matrix(0, nr = nrow(trap_cells), nc = nocc)
+useall <- matrix(0, nr = nrow(trapcells), nc = nocc)
 colnames(useall) <- 1:nocc
 useall[,c(1:ncol(useall))] <- do.call(cbind,
                                       mclapply(X= as.list(1:ncol(useall)), 
@@ -142,7 +143,6 @@ useall[,c(1:ncol(useall))] <- do.call(cbind,
 
 #calculate non Euclidean distance matrix for all trap cells and mesh cells
 #both graph distance and 2D
-streamwidth = (meshspacing*1.2)*2
 polypts <- data.frame(x = meshlin$x,
                       y = meshlin$y,
                       occ = 1, 
@@ -205,6 +205,26 @@ mesh2D <-  secr::read.mask(data = mesh2Dxy,
 
 D_mesh2D <- rep(flatD, nrow(mesh2D))
 D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
+meshunit_lin <- (meshspacing)/1000
+meshunit_2D <- meshspacing^2/1000^2 #
+tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
+tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
+
+exch <- sim_capthist(pop = NULL, 
+                                        traps, 
+                                        tracksdf,
+                                        lambda0, 
+                                        sigma, 
+                                        D_mesh2D,
+                                        hazdenom, #for hazard rate
+                                        mesh2D,
+                                        meshunit_2D,
+                                        tracksmeshdistmat_2D) 
+excapthist <- exch[apply(exch, 1, function(x){!all(is.na(x))}),,]
+excapthist[is.na(excapthist)] <- 0
+excapthist[excapthist!=0] <- 1
+
+trapcaps <- apply(excapthist, 3, sum)
 
 ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
@@ -214,20 +234,20 @@ ggplot() +
              mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
              alpha = .5, shape = "+") +
-  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red",
-             size = 1.5, shape = "+") +
-  scale_color_viridis_d() +
   geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
              mapping = aes(x = x, y = y, alpha = D)) +
+  geom_point(data = data.frame(x = traps$x, 
+                               y = traps$y,
+                               capts = trapcaps),
+             mapping = aes(x = x, y = y, color = as.factor(capts)),
+             size = 3, shape = 1, stroke = 1) +
+  scale_color_viridis_d() +
   coord_sf(datum = NULL) +
   theme_bw()
 
 dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
 meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
 dist_trapmesh_2D <- dist_meshmesh_2D[meshistraps_2D,]
-
-tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
-tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
 
 
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/plots/setup1Driver.png",
