@@ -14,11 +14,11 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 set.seed(12345)
 nsims = 100
-lambda0 = .001
-sigma = 4000
+lambda0 = .05/1250
+sigma = 5000
 flatD <- 0.4
 beta1 <- -(1/10000000)
-beta2 <- -21250
+beta2 <- -34000
 meshstepmult <- 5
 
 
@@ -175,6 +175,7 @@ sim_capthist <- function(pop = NULL,
                          mesh,
                          meshunit,
                          tracksmeshdistmat,
+                         linear = F,
                          report_probseenxk = FALSE){
   if(is.null(pop)){
     #select mesh locations for ACs (secr sim.popn for polygons has bug)

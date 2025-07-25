@@ -17,14 +17,14 @@ streamdf <- data.frame(x = c(trackxmin, #1
                              trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
                              rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)), #4
                              c(trackxmin+tracksteplength + tracksteplength*1:swlen), #91
-                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch),#5
-                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
-                             rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),#4
-                             c(trackxmin+tracksteplength + tracksteplength*1:swlen), #91
-                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch),#5
-                             trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
-                             rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),
-                             c(trackxmin+tracksteplength + tracksteplength*1:7)
+                             rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch)#,#5
+                             #trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
+                            # rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),#4
+                            # c(trackxmin+tracksteplength + tracksteplength*1:swlen), #91
+                             #rep(trackxmin+tracksteplength + tracksteplength*swlen, 5*ystretch),#5
+                             #trackxmin+tracksteplength + tracksteplength*(swlen-1):1, #90
+                            # rep(trackxmin+tracksteplength + tracksteplength*1, (5*ystretch-1)),
+                             #c(trackxmin+tracksteplength + tracksteplength*1:7)
 ),
 y = c(0, #1
       0, #1
@@ -33,17 +33,17 @@ y = c(0, #1
       0*(swlen-1):1 + tracksteplength*1*(5*ystretch), #90 #same as last of 5
       0*1 + tracksteplength*((5 * ystretch * 1) + 1:(5*ystretch-1)),#4
       0*1:swlen + tracksteplength*(2*5*ystretch), #91 increase from last of 4
-      0*swlen + tracksteplength*((5 * ystretch * 2) + 1:(5*ystretch)), #5
-      0*(swlen-1):1 + tracksteplength*3*(5*ystretch), #90
-      0*1 + tracksteplength*((5 * ystretch * 3) + 1:(5*ystretch-1)), #4
-      0*1:swlen + tracksteplength*(4*5*ystretch),#91
-      0*swlen + tracksteplength*((5 * ystretch * 4) + 1:(5*ystretch)), #5
-      0*(swlen-1):1 + tracksteplength*5*(5*ystretch), #90
-      0*1 + tracksteplength*((5 * ystretch * 5) + 1:(5*ystretch-1)), #4
-      0*1:7 + tracksteplength*6*(5*ystretch) #7
+      0*swlen + tracksteplength*((5 * ystretch * 2) + 1:(5*ystretch))#, #5
+     # 0*(swlen-1):1 + tracksteplength*3*(5*ystretch), #90
+     # 0*1 + tracksteplength*((5 * ystretch * 3) + 1:(5*ystretch-1)), #4
+     # 0*1:swlen + tracksteplength*(4*5*ystretch),#91
+     # 0*swlen + tracksteplength*((5 * ystretch * 4) + 1:(5*ystretch)), #5
+     # 0*(swlen-1):1 + tracksteplength*5*(5*ystretch), #90
+     # 0*1 + tracksteplength*((5 * ystretch * 5) + 1:(5*ystretch-1)), #4
+     # 0*1:7 + tracksteplength*6*(5*ystretch) #7
 ))
 #turn it into tracksdf
-tracksteps = nrow(streamdf)/3 -1
+tracksteps = nrow(streamdf) -1
 tracksdf <- rbind(
   data.frame(occ = 1,
              x = streamdf$x[1:(tracksteps+1)],
@@ -51,18 +51,18 @@ tracksdf <- rbind(
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 2,
-             x = streamdf$x[(1:(tracksteps+1) + (tracksteps+1))],
-             y = streamdf$y[(1:(tracksteps+1) + (tracksteps+1))], 
+             x = streamdf$x[(1:(tracksteps+1))],
+             y = streamdf$y[(1:(tracksteps+1))], 
              time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 3,
-             x = streamdf$x[(1:(tracksteps+1) + 2*(tracksteps+1))],
-             y = streamdf$y[(1:(tracksteps+1) + 2*(tracksteps+1))],  
+             x = streamdf$x[1:(tracksteps+1)],
+             y = streamdf$y[1:(tracksteps+1)],  
              time = seq(ymd_hms("2024-01-03 0:00:00"), (ymd_hms("2024-01-03 0:00:00") + (tracksteps)*trackint), 
                         by = trackint)),
   data.frame(occ = 4,
-             x = streamdf$x[1:(tracksteps+1)],
-             y = streamdf$y[1:(tracksteps+1)], 
+             x = streamdf$x[(1:(tracksteps+1) )],
+             y = streamdf$y[(1:(tracksteps+1) )], 
              time = seq(ymd_hms("2024-01-04 0:00:00"), (ymd_hms("2024-01-04 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
 )
@@ -77,8 +77,8 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                                                    y = 0),
                                         streamdf[which(streamdf$x %in% c(seq(streamdf$x[3], max(streamdf$x)+meshspacing, by = meshspacing)) &
                                                          streamdf$y %in% c(seq(streamdf$y[1], max(streamdf$y)+meshspacing, by = meshspacing))),],
-                                        data.frame(x = streamdf$x[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing),
-                                                   y = streamdf$y[(3*(tracksteps+1))] + sqrt(meshspacing^2/2) * 1:ceiling((3*sigma)/meshspacing)))), 
+                                        data.frame(x = streamdf$x[((tracksteps+1))] + -meshspacing * 1:ceiling((3*sigma)/meshspacing),
+                                                   y = streamdf$y[((tracksteps+1))] ))), 
                            spacing = meshspacing)
 streamwidth = (meshspacing*1.2)*2
 D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/1000)
@@ -210,16 +210,22 @@ meshunit_2D <- meshspacing^2/1000^2 #
 tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
 tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
 
-exch <- sim_capthist(pop = NULL, 
+
+n <- rpois(1, sum(D_meshlin_q)*meshunit_lin)
+pop_mesh_ind <- sample(length(D_meshlin_q), n, replace = T, prob = D_meshlin_q/sum(D_meshlin_q))
+pop <- meshlin[pop_mesh_ind,]
+rownames(pop) <- NULL
+indsatmesh <- apply(as.array(1:nrow(meshlin)), 1, function(x)length(which(pop_mesh_ind==x)))
+exch <- sim_capthist(pop = pop, 
                                         traps, 
                                         tracksdf,
                                         lambda0, 
                                         sigma, 
-                                        D_mesh2D,
+                                        D_meshlin_q,
                                         hazdenom, #for hazard rate
-                                        mesh2D,
-                                        meshunit_2D,
-                                        tracksmeshdistmat_2D) 
+                                        meshlin,
+                                        meshunit_lin,
+                                        tracksmeshdistmat_lin) 
 excapthist <- exch[apply(exch, 1, function(x){!all(is.na(x))}),,]
 excapthist[is.na(excapthist)] <- 0
 excapthist[excapthist!=0] <- 1
@@ -230,20 +236,25 @@ ggplot() +
   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
           mapping = aes())  +
-  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
-             mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
-  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
-             alpha = .5, shape = "+") +
-  geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
-             mapping = aes(x = x, y = y, alpha = D)) +
+ # geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+#             mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
+ # geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
+#             alpha = .5, shape = "+") +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q, inds = indsatmesh), 
+             shape = 22, size = 3,
+             mapping = aes(x = x, y = y, fill = indsatmesh)) +
   geom_point(data = data.frame(x = traps$x, 
                                y = traps$y,
                                capts = trapcaps),
-             mapping = aes(x = x, y = y, color = as.factor(capts)),
+             mapping = aes(x = x, y = y
+                           , color = (capts)),
              size = 3, shape = 1, stroke = 1) +
-  scale_color_viridis_d() +
+  scale_fill_viridis_b() +
+  scale_color_viridis_b(option = "magma") +
   coord_sf(datum = NULL) +
   theme_bw()
+dim(excapthist)
+sum(excapthist)/dim(excapthist)[1]
 
 dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
 meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
