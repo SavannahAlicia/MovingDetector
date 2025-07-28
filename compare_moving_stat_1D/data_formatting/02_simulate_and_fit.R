@@ -9,7 +9,7 @@ sim_fit <- function(tracksdf,
                     dist_trapmesh,
                     tracksmeshdistmat,
                     useall,
-                    lambda0, sigma, D_mesh, beta1, beta2,
+                    lambda0, sigma, D_mesh, beta1, beta2, beta3,
                     hazdenom, 
                     mesh, 
                     meshunit,
@@ -58,18 +58,18 @@ sim_fit <- function(tracksdf,
     scaling_factors <- 10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
-    stat_nll <- function(v_scaled){
-      v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1])
-      sigma_ <- exp(v[2])
-      D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
-      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
-                                             hazdenom, D_mesh_, 
-                                             capthist, useall,
-                                             dist_trapmesh, mesh_mat,
-                                             linear)
-      return(out)
-    }
+    # stat_nll <- function(v_scaled){
+    #   v <- v_scaled * scaling_factors 
+    #   lambda0_ <- exp(v[1])#invlogit(v[1])
+    #   sigma_ <- exp(v[2])
+    #   D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
+    #   out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+    #                                          hazdenom, D_mesh_, 
+    #                                          capthist, useall,
+    #                                          dist_trapmesh, mesh_mat,
+    #                                          linear)
+    #   return(out)
+    # }
     #moving detector likelihood
     nll <- function(v_scaled){
       v <- v_scaled * scaling_factors 
@@ -88,28 +88,28 @@ sim_fit <- function(tracksdf,
   }else if(Dmod == "~x^2"){
     start0 <- c(#logit(lambda0),
       log(lambda0),
-      log(sigma), beta1, beta2)
+      log(sigma), beta1, beta2, beta3)
     scaling_factors <- 10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     #quadratic density function
-    stat_nll <- function(v_scaled){
-      v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1])
-      sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)
-      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
-                                             hazdenom, D_mesh_, 
-                                             capthist, useall,
-                                             dist_trapmesh, mesh_mat,
-                                             linear)
-      return(out)
-    }
+    # stat_nll <- function(v_scaled){
+    #   v <- v_scaled * scaling_factors 
+    #   lambda0_ <- exp(v[1])#invlogit(v[1])
+    #   sigma_ <- exp(v[2])
+    #   D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])
+    #   out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+    #                                          hazdenom, D_mesh_, 
+    #                                          capthist, useall,
+    #                                          dist_trapmesh, mesh_mat,
+    #                                          linear)
+    #   return(out)
+    # }
     #moving detector likelihood
     nll <- function(v_scaled){
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
+      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])#exp(beta1*(mesh$x + beta2)^2 + beta3)
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
@@ -119,15 +119,15 @@ sim_fit <- function(tracksdf,
     }
   }  
   
-  start.time.sd <- Sys.time()
-  fit_sd <- optim(par = start,
-                  fn = stat_nll,
-                  hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
-  fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,
-                                      method = "Richardson",
-                                      method.args = list(eps = 1e-5, d = 1e-3, r = 3))
-  fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
-  
+  # start.time.sd <- Sys.time()
+  # fit_sd <- optim(par = start,
+  #                 fn = stat_nll,
+  #                 hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
+  # fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,
+  #                                     method = "Richardson",
+  #                                     method.args = list(eps = 1e-5, d = 1e-3, r = 3))
+  # fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
+  # 
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                   fn = nll,
@@ -140,7 +140,7 @@ sim_fit <- function(tracksdf,
   if (Dmod == "~1"){
     outnames <- c("lambda0", "sigma", "D")
   } else if(Dmod == "~x^2"){
-    outnames <- c("lambda0", "sigma", "beta1", "beta2")
+    outnames <- c("lambda0", "sigma", "beta1", "beta2", "beta3")
   }
   assemble_CIs <- function(fit){
     fisher_info <- solve(fit$hessian)
@@ -157,9 +157,9 @@ sim_fit <- function(tracksdf,
     return(interval)
   } 
   
-  out <- list(statdet_est = assemble_CIs(fit_sd), 
+  out <- list(#statdet_est = assemble_CIs(fit_sd), 
               movdet_est = assemble_CIs(fit_md),
-              statdet_time = fit.time.sd,
+              #statdet_time = fit.time.sd,
               movdet_time = fit.time.md,
               sim_time = fit.time.sim)
   return(out)

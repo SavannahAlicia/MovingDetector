@@ -1,21 +1,23 @@
 ## 1 dimension
 library(dplyr)
 
-create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
-                         plotcols = c("cornflowerblue", "goldenrod", "black"),
+create_plots <- function(sim_fits_out, mesh, D_mesh,
+                         sim_fits_outlin, meshlin, D_meshlin, 
+                         Dmodel, 
+                         plotcols = c("#721F81FF","#F1605DFF","black" ),
                          linesize = .3, output = "plots"){
   ###------------------------compare computation time-----------------------------
   
   times <- do.call(rbind, lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
-    stattime = as.numeric(sim_fits_out[[x]]$statdet_time)
-    movetime = as.numeric(sim_fits_out[[x]]$movdet_time)
-    return(data.frame(stat = stattime, move = movetime))
+    lintime = as.numeric(sim_fits_outlin[[x]]$movdet_time)
+    twoDtime = as.numeric(sim_fits_out[[x]]$movdet_time)
+    return(data.frame(twoD = twoDtime, lin = lintime))
   }))
   
   timeplot <- ggplot() +
-    geom_boxplot(data = tidyr::pivot_longer(times, cols = c("stat", "move")),
+    geom_boxplot(data = tidyr::pivot_longer(times, cols = c("twoD", "lin")),
                  mapping = aes(y = log(value), group = name, color = name)) +
-    scale_color_manual(name = "Model", labels = c("Moving", "Stationary"),
+    scale_color_manual(name = "Model", labels = c("1D", "2D"),
                        values = plotcols[1:2]) +
     ylab("Log seconds") +
     xlab("") +
@@ -24,25 +26,26 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
           axis.ticks.x = element_blank(),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
-          legend.position = "none")
+          legend.position = "none"
+          )
   
   ###--------------------------compare estimates ---------------------------------
-  make_plot_dat<- function(sim_fits_out){
+  make_plot_dat<- function(sim_fits_out, sim_fits_outlin){
     
-    stat_outs <- do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
-      df <- sim_fits_out[[x]]$statdet_est
-      df$sim = rep(x,nrow(sim_fits_out[[1]]$statdet_est))
+    lin_outs <- do.call(rbind,lapply(as.list(1:length(sim_fits_outlin)), FUN = function(x){
+      df <- sim_fits_outlin[[x]]$movdet_est
+      df$sim = rep(x,nrow(sim_fits_outlin[[1]]$movdet_est))
       return(df)
     }))
-    move_outs <-  do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
+    twoD_outs <-  do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
       df <- sim_fits_out[[x]]$movdet_est
-      df$sim = rep(x,nrow(sim_fits_out[[1]]$statdet_est))
+      df$sim = rep(x,nrow(sim_fits_out[[1]]$movdet_est))
       return(df)
     }))
     
-    all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
-                                                              nrow(stat_outs)))),
-                      cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
+    all_outs <- rbind(cbind(lin_outs, data.frame(model = rep("1D", 
+                                                              nrow(lin_outs)))),
+                      cbind(twoD_outs, data.frame(model = rep("2D",nrow(twoD_outs)))))
     all_outs$sd <- (((all_outs$upper)- (all_outs$value))/1.96)
     
     all_outs2 <- all_outs %>%
@@ -51,11 +54,11 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
                 median = median(value),
                 meanupper = quantile(value, probs = .975), 
                 meanlower = quantile(value, probs = .025),
-                meansd = mean(sd))
+                meansd = mean(sd, na.rm = T))
     
     out <- list(all_outs= all_outs, all_outs2 =all_outs2)
   }
-  plotdat <- make_plot_dat(sim_fits_out)
+  plotdat <- make_plot_dat(sim_fits_out, sim_fits_outlin)
   all_outs <- plotdat$all_outs
   all_outs2 <- plotdat$all_outs2
   
@@ -82,8 +85,9 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
     #xlim(.004,.006) +
     scale_color_manual(name = "",
                        values = plotcols, 
-                       labels = c("Moving", "Stationary", 
-                                  expression("True \u03bb"[0]))) +
+                       labels = c("1D", "2D", 
+                                  expression("True \u03bb"[0]))
+                       ) +
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           legend.position = "none",
@@ -94,25 +98,14 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
   lambda0precisionplot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = exp(upper)- exp(lower), col = model),
+                 mapping = aes(x = sd, col = model),
                  size = linesize) +
-    geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-                             data.frame(name = "lambda0", model = "true", 
-                                        mean = logit(lambda0))), 
-               aes(xintercept = exp(c(mean)), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanlower)), col = model), 
-               linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanupper)), col = model),
-               linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = lambda0, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
     ylab("Frequency") + 
     #xlim(.004,.006) +
     scale_color_manual(name = "",
                        values = plotcols, 
-                       labels = c("Moving", "Stationary", 
+                       labels = c("1D", "2D", 
                                   expression("True \u03bb"[0]))) +
     theme_classic() +
     theme(axis.title = element_text(size = 10),
@@ -136,7 +129,7 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
                linetype = "dashed", size = linesize) +
     geom_vline(xintercept = sigma, size = linesize, col = "black")+
     scale_color_manual(name = "",
-                       labels = c("Moving", "Stationary", "True \u03C3"),
+                       labels = c("1D", "2D", "True \u03C3"),
                        values = plotcols) +
     xlab("\u03C3") +
     ylab("Frequency") +
@@ -181,49 +174,107 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
   
   meshstep <- meshspacing
   if(Dmodel == "variable"){
-  D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), meshstep),3),
-                          y = rep(rep(mesh$y[1], length(seq(min(mesh$x), max(mesh$x), meshstep))),3),
-                          trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), meshstep) + beta2)^2), 3),
-                          stationarydets = c(
-                                               exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+  D_plotdat <- data.frame(x = c(rep(mesh$x,3)),
+                          y = c(rep(mesh$y, 3)),
+                          trueD = rep(D_mesh, 3),
+                          twoDdets = c(
+                                               exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                           all_outs2$name == "beta1", "mean"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                     (mesh$x + 
+                                                        as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                                all_outs2$name == "beta2", "mean"]))^2),
                                           
-                                               exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                               exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                           all_outs2$name == "beta1", "meanupper"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                     (mesh$x + 
+                                                        as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                                all_outs2$name == "beta2", "meanupper"]))^2),
                                              
-                                               exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                               exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                           all_outs2$name == "beta1", "meanlower"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                     (mesh$x + 
+                                                        as.numeric(all_outs2[all_outs2$model == "2D" & 
                                                                                all_outs2$name == "beta2", "meanlower"]))^2)),
-                          movingdets = c(
-                                           exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                          lindets = c(
+                                           exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                       all_outs2$name == "beta1", "mean"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                 (mesh$x + 
+                                                    as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                            all_outs2$name == "beta2", "mean"]))^2),
                                     
-                                           exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                           exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                       all_outs2$name == "beta1", "meanupper"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                 (mesh$x + 
+                                                    as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                            all_outs2$name == "beta2", "meanupper"]))^2),
                                         
-                                           exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                           exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                       all_outs2$name == "beta1", "meanlower"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                 (mesh$x + 
+                                                    as.numeric(all_outs2[all_outs2$model == "1D" & 
                                                                            all_outs2$name == "beta2", "meanlower"]))^2)),
-                          quantile = c(rep("mean", length(seq(min(mesh$x), max(mesh$x), meshstep))),
-                                       rep("2.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))),
-                                       rep("97.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))))
-  )} else if(Dmodel == "flat"){
+                          quantile = c(rep("mean", length(mesh$x)),
+                                       rep("2.5%",length(mesh$x)),
+                                       rep("97.5%",length(mesh$x)))
+  )
+  
+  D_plotdatlin <- data.frame(x = c(rep(meshlin$x,3)),
+                              y = c(rep(meshlin$y, 3)),
+                              trueD = rep(D_meshlin, 3),
+                              twoDdets = c(
+                                exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                           all_outs2$name == "beta1", "mean"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                                all_outs2$name == "beta2", "mean"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                             all_outs2$name == "beta3", "mean"])),
+                                
+                                exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                           all_outs2$name == "beta1", "meanupper"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                                all_outs2$name == "beta2", "meanupper"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                             all_outs2$name == "beta3", "meanupper"])),
+                                
+                                exp(as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                           all_outs2$name == "beta1", "meanlower"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                                all_outs2$name == "beta2", "meanlower"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "2D" & 
+                                                             all_outs2$name == "beta3", "meanlower"]))),
+                              lindets = c(
+                                exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                           all_outs2$name == "beta1", "mean"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                                all_outs2$name == "beta2", "mean"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                             all_outs2$name == "beta3", "mean"])),
+                                
+                                exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                           all_outs2$name == "beta1", "meanupper"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                                all_outs2$name == "beta2", "meanupper"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                             all_outs2$name == "beta3", "meanupper"])),
+                                
+                                exp(as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                           all_outs2$name == "beta1", "meanlower"]) * 
+                                      (meshlin$x + 
+                                         as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                                all_outs2$name == "beta2", "meanlower"]))^2 +
+                                      as.numeric(all_outs2[all_outs2$model == "1D" & 
+                                                             all_outs2$name == "beta3", "meanlower"]))),
+                              quantile = c(rep("mean", length(meshlin$x)),
+                                           rep("2.5%",length(meshlin$x)),
+                                           rep("97.5%",length(meshlin$x)))
+                              )
+  
+  } else if(Dmodel == "flat"){
     
   D_plotdat <- data.frame(x = rep(mesh$x, 3),
                           y = rep(mesh$y, 3),
@@ -245,37 +296,41 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
   )}
   
   ggplot() + 
-    geom_tile(data = D_plotdat[,c(1,2,3)], aes(x = x, y= y, fill = trueD)) +
-    scale_color_manual(values = "black",  name = "D") +
+    geom_tile(data = D_plotdatlin[D_plotdatlin$quantile == "mean",c(1,2,3)], aes(x = x, y= y, fill = trueD)) +
+    scale_fill_viridis_c(name = "D") +
     theme_classic() +
     labs(title = "True density") +
     theme(axis.text.y = element_blank()
           ,
-          legend.position = "none") 
+         # legend.position = "none"
+          ) 
   ggplot() + 
-    geom_tile(data = D_plotdat[,c(1,2,4)], aes(x = x, y= y, fill = stationarydets)) +
+    geom_tile(data = D_plotdatlin[D_plotdatlin$quantile == "mean",c(1,2,4)], aes(x = x, y= y, fill = twoDdets*streamwidth/1000)) +
     scale_fill_viridis_c(name = "D") +
     theme_classic() +
-    labs(title = "Stationary detectors") +
+    labs(title = "2D") +
     theme(axis.text.y = element_blank(),
-          legend.position = "none") 
+          #legend.position = "none"
+          ) 
   ggplot() + 
-    geom_tile(data = D_plotdat[,c(1,2,5)], aes(x = x, y= y, fill = movingdets)) +
+    geom_tile(data = D_plotdatlin[D_plotdatlin$quantile == "mean",c(1,2,5)],
+              aes(x = x, y= y, fill = lindets)) +
     scale_fill_viridis_c(name = "D") +
     theme_classic() +
-    labs(title = "Moving detectors") +
+    labs(title = "1D") +
     theme(axis.text.y = element_blank(),
-          legend.position = "none") 
+          #legend.position = "none"
+          ) 
   
   
-  D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
+  D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "twoDdets", "lindets"))
   
   Dplot <- 
     ggplot() + 
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = linesize) +
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
-    scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
+    scale_color_manual(values = c(plotcols, "black"), labels = c("1D", "2D", "True"),
                        name = "") +
     #ylim(0,.5) +
    # xlim(1500,3000)+
@@ -285,6 +340,11 @@ create_plots <- function(sim_fits_out, mesh, Dmodel = "variable",
           axis.text = element_text(size = 10),
           legend.title = element_text(size = 10),
           legend.text = element_text(size = 10))
+  
+  Dbyx <- unique(D_plotdat[D_plotdat$quantile == "mean",][order(D_plotdat[which(D_plotdat$quantile == "mean"), "x"]),][,-which(colnames(D_plotdat) == "y")])
+  ggplot() +
+    geom_line(Dbyx, mapping = aes(x = x, y = twoDdets)) +
+    geom_line(Dbyx, mapping = aes(x = x, y = lindets))
   
   #ggsave(file = paste("writing_up/flatdens.png", sep = ""),
   # plot =

@@ -82,7 +82,7 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                            spacing = meshspacing)
 streamwidth = (meshspacing*1.2)*2
 D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/1000)
-D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2)*(streamwidth/1000)
+D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2 + beta3)*(streamwidth/1000)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 ggplot() +
@@ -204,7 +204,7 @@ mesh2D <-  secr::read.mask(data = mesh2Dxy,
 #take density along the line and divide that by area
 
 D_mesh2D <- rep(flatD, nrow(mesh2D))
-D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2)
+D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2 + beta3)
 meshunit_lin <- (meshspacing)/1000
 meshunit_2D <- meshspacing^2/1000^2 #
 tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
