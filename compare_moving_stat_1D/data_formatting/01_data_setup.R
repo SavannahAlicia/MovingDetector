@@ -1,4 +1,5 @@
 ## 1 D
+library(lubridate)
 #each trackline is a series of points with x, y, and time
 trackxmin = 11500
 trackxmax = 3500
@@ -69,8 +70,13 @@ tracksdf <- rbind(
 tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
 nocc <- length(unique(tracksdf$occ))
 
-#mesh grid
+#----------------- Mesh  -------------------------------------------------------
 meshspacing = tracksteplength * meshstepmult
+meshunit_lin <- (meshspacing)/1000
+meshunit_2D <- meshspacing^2/1000^2 #
+streamwidth = (meshspacing*1.2)*2
+
+# ----------- 1D
 meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-floor((3*sigma)/meshspacing)*meshspacing, 
                                                            to = streamdf$x[3],
                                                            by = meshspacing),
@@ -80,23 +86,57 @@ meshlin <- secr::read.mask(data = unique(rbind(data.frame(x = seq(streamdf$x[3]-
                                         data.frame(x = streamdf$x[((tracksteps+1))] + -meshspacing * 1:ceiling((3*sigma)/meshspacing),
                                                    y = streamdf$y[((tracksteps+1))] ))), 
                            spacing = meshspacing)
-streamwidth = (meshspacing*1.2)*2
+# ------- 2D
+#create river polygon centered on linear mesh
+polypts <- data.frame(x = meshlin$x,
+                      y = meshlin$y,
+                      occ = 1, 
+                      t = 1:nrow(meshlin))
+riverpoly <- st_buffer(st_as_sfc(do.call(rbind, 
+                                         create_line_spatlines(polypts)), crs = 26916), 
+                       dist = streamwidth/2)
+
+#create mesh based on grid within river
+xgr <- seq(st_bbox(riverpoly)[1]-1000,
+           st_bbox(riverpoly)[3]+meshspacing, by = meshspacing)
+ygr <- seq(st_bbox(riverpoly)[2]-1000,
+           st_bbox(riverpoly)[4]+meshspacing, by = meshspacing)
+gr <- expand.grid(xgr, ygr)
+mesh2Dxy <- gr[st_intersects(riverpoly,
+                             st_as_sf(gr, coords = c("Var1", "Var2"), crs = crs(riverpoly)))[[1]],]
+colnames(mesh2Dxy) <- c("x", "y")
+mesh2D <-  secr::read.mask(data = mesh2Dxy,
+                           spacing = meshspacing)
+
+ggplot() +
+  geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
+          mapping = aes())  +
+  coord_sf(datum = NULL) +
+  theme_bw()
+#.----------------- Densities --------------------------------------------------
+
+# ------------- 1D
 D_meshlin <- rep(flatD, nrow(meshlin))*(streamwidth/1000)
 D_meshlin_q <- exp(beta1*(meshlin$x + beta2)^2 + beta3)*(streamwidth/1000)
-hazdenom <- 1 #hazard is per time or distance, currently specified as distance
+
+# --------------- 2D
+D_mesh2D <- rep(flatD, nrow(mesh2D))
+D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2 + beta3)
+
 
 ggplot() +
   geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
              mapping = aes(x = x, y = y), shape = 21) +
   scale_color_viridis_d() +
   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
-                    mapping = aes())  +
+          mapping = aes())  +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ, color = as.factor(occ)), 
              size = 3,shape = "+") +
   coord_sf(crs = 26916)
-
-#trap grid
+# ----------------------- Traps ------------------------------------------------
 trapspacing = meshspacing
+#trap grid
 xgr <- seq(min(meshlin$x), max(meshlin$x), by = trapspacing)
 ygr <- seq(min(tracksdf$y), max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
@@ -116,15 +156,6 @@ tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, FUN = function(x){which(
 traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
 
-ggplot() +
-  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
-             mapping = aes(x = x, y = y), shape = 21) +
-  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
-  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red") +
-  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
-          mapping = aes())  +
-  coord_sf(crs = 26916)
-
 #create trapgrid (will break tracklines into trap grid, keeping times)
 trapcells <- create_grid_polygons(traps, spacing = trapspacing)
 #all lines
@@ -141,48 +172,20 @@ useall[,c(1:ncol(useall))] <- do.call(cbind,
                                       mclapply(X= as.list(1:ncol(useall)), 
                                                FUN = getuse, mc.cores = 3))
 
+ggplot() +
+  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+             mapping = aes(x = x, y = y), shape = 21) +
+  geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), shape = "+") +
+  geom_point(data = traps, mapping = aes(x = x, y = y), color = "red") +
+  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = 26916),
+          mapping = aes())  +
+  coord_sf(crs = 26916)
+
+# ----------- Distances ------------------
 #calculate non Euclidean distance matrix for all trap cells and mesh cells
 #both graph distance and 2D
-polypts <- data.frame(x = meshlin$x,
-                      y = meshlin$y,
-                      occ = 1, 
-                      t = 1:nrow(meshlin))
-riverpoly <- st_buffer(st_as_sfc(do.call(rbind, 
-                                         create_line_spatlines(polypts)), crs = 26916), 
-                       dist = streamwidth/2)
-ggplot() +
-  geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
-  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
-          mapping = aes())  +
-  coord_sf(datum = NULL) +
-  theme_bw()
-trappts <- st_as_sf(x = traps, coords = c("x","y"), crs = 26916)
-# connects <- nngeo::st_connect(trappts, riverpoly)
-# connects <- connects[ which(as.numeric(st_length(connects)) > 0.001)]
-# conbuf <- st_buffer(connects, 20)
-all_poly <- as_Spatial(riverpoly)#as_Spatial(st_union(x = riverpoly,y = conbuf))
-r <- raster(ncol = 500, nrow = 500)
-extent(r) <- extent(all_poly)
-rp <- rasterize(all_poly, r)
-rp2 <- rasterize(as(all_poly, "SpatialLines"), r)
-crs(rp) <- crs(rp2) <- crs(all_poly)
-values(rp)[!is.na(values(rp))] = 1
-values(rp2)[!is.na(values(rp2))] = 1
-rp_df <- as.data.frame(as(rp, "SpatialPixelsDataFrame"))
-rp_df2 <- as.data.frame(as(rp2, "SpatialPixelsDataFrame"))
-colnames(rp_df) <- colnames(rp_df2) <- c("value", "x", "y")
-rp_dfm <- rbind(rp_df, rp_df2)
-rp_m <- rasterFromXYZ(rp_dfm[,c("x", "y", "value")], crs = crs(all_poly))
-trans <- gdistance::transition(rp_m, mean, directions = 16)
-trans.c <- gdistance::geoCorrection(trans, type = "c")
-saveRDS(trans.c, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
-trans.c <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
-userdfn1 <- function (xy1, xy2, trans.c) {
-  gdistance::costDistance(trans.c, as.matrix(xy1), as.matrix(xy2))
-}
 
-#distances along graph
-unique(tracksdf$trapno[tracksdf$occ == 1])
+# ----- 1D ----
 meshgraph <- igraph::make_graph(edges = c(rep(1:nrow(meshlin), each = 2)[-c(1, 2*nrow(meshlin))]), n = nrow(meshlin), directed = FALSE)
 meshgraph$layout <- as.matrix(meshlin)
 dist_meshmesh_lin <- igraph::distances(meshgraph) * meshspacing
@@ -191,75 +194,90 @@ dist_meshmesh_lin <- igraph::distances(meshgraph) * meshspacing
 meshistraps_lin <- which(do.call(paste, meshlin[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
 dist_trapmesh_lin <- dist_meshmesh_lin[meshistraps_lin, ]
 
-#also create 2D mesh for comparison with 2D
-xgr <- seq(st_bbox(riverpoly)[1]-1000,st_bbox(riverpoly)[3]+trapspacing, by = trapspacing)
-ygr <- seq(st_bbox(riverpoly)[2]-1000, st_bbox(riverpoly)[4]+trapspacing, by = trapspacing)
-gr <- expand.grid(xgr, ygr)
-
-mesh2Dxy <- gr[st_intersects(riverpoly, st_as_sf(gr, coords = c("Var1", "Var2"), crs = crs(riverpoly)))[[1]],]
-colnames(mesh2Dxy) <- c("x", "y")
-mesh2D <-  secr::read.mask(data = mesh2Dxy,
-                           spacing = meshspacing)
-
-#take density along the line and divide that by area
-
-D_mesh2D <- rep(flatD, nrow(mesh2D))
-D_mesh2D_q <- exp(beta1*(mesh2D$x + beta2)^2 + beta3)
-meshunit_lin <- (meshspacing)/1000
-meshunit_2D <- meshspacing^2/1000^2 #
-tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
-tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
-
-
-n <- rpois(1, sum(D_meshlin_q)*meshunit_lin)
-pop_mesh_ind <- sample(length(D_meshlin_q), n, replace = T, prob = D_meshlin_q/sum(D_meshlin_q))
-pop <- meshlin[pop_mesh_ind,]
-rownames(pop) <- NULL
-indsatmesh <- apply(as.array(1:nrow(meshlin)), 1, function(x)length(which(pop_mesh_ind==x)))
-exch <- sim_capthist(pop = pop, 
-                                        traps, 
-                                        tracksdf,
-                                        lambda0, 
-                                        sigma, 
-                                        D_meshlin_q,
-                                        hazdenom, #for hazard rate
-                                        meshlin,
-                                        meshunit_lin,
-                                        tracksmeshdistmat_lin) 
-excapthist <- exch[apply(exch, 1, function(x){!all(is.na(x))}),,]
-excapthist[is.na(excapthist)] <- 0
-excapthist[excapthist!=0] <- 1
-
-trapcaps <- apply(excapthist, 3, sum)
-
-ggplot() +
-  geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
-  geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
-          mapping = aes())  +
- # geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
-#             mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
- # geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
-#             alpha = .5, shape = "+") +
-  geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q, inds = indsatmesh), 
-             shape = 22, size = 3,
-             mapping = aes(x = x, y = y, fill = indsatmesh)) +
-  geom_point(data = data.frame(x = traps$x, 
-                               y = traps$y,
-                               capts = trapcaps),
-             mapping = aes(x = x, y = y
-                           , color = (capts)),
-             size = 3, shape = 1, stroke = 1) +
-  scale_fill_viridis_b() +
-  scale_color_viridis_b(option = "magma") +
-  coord_sf(datum = NULL) +
-  theme_bw()
-dim(excapthist)
-sum(excapthist)/dim(excapthist)[1]
+# -------- 2D -------
+# requires transition layer to calculate shortest distances
+trappts <- st_as_sf(x = traps, coords = c("x","y"), crs = 26916)
+# connects <- nngeo::st_connect(trappts, riverpoly)
+# connects <- connects[ which(as.numeric(st_length(connects)) > 0.001)]
+# conbuf <- st_buffer(connects, 20)
+# all_poly <- as_Spatial(riverpoly)#as_Spatial(st_union(x = riverpoly,y = conbuf))
+# r <- raster(ncol = 500, nrow = 500)
+# extent(r) <- extent(all_poly)
+# rp <- rasterize(all_poly, r)
+# rp2 <- rasterize(as(all_poly, "SpatialLines"), r)
+# crs(rp) <- crs(rp2) <- crs(all_poly)
+# values(rp)[!is.na(values(rp))] = 1
+# values(rp2)[!is.na(values(rp2))] = 1
+# rp_df <- as.data.frame(as(rp, "SpatialPixelsDataFrame"))
+# rp_df2 <- as.data.frame(as(rp2, "SpatialPixelsDataFrame"))
+# colnames(rp_df) <- colnames(rp_df2) <- c("value", "x", "y")
+# rp_dfm <- rbind(rp_df, rp_df2)
+# rp_m <- rasterFromXYZ(rp_dfm[,c("x", "y", "value")], crs = crs(all_poly))
+# trans <- gdistance::transition(rp_m, mean, directions = 16)
+# trans.c <- gdistance::geoCorrection(trans, type = "c")
+# saveRDS(trans.c, file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
+trans.c <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/data_objs/transc.Rds")
+userdfn1 <- function (xy1, xy2, trans.c) {
+  gdistance::costDistance(trans.c, as.matrix(xy1), as.matrix(xy2))
+}
 
 dist_meshmesh_2D <- userdfn1(mesh2D[,1:2], mesh2D[,1:2], trans.c)
 meshistraps_2D <- which(do.call(paste, mesh2D[,c("x","y")]) %in% do.call(paste, traps[,c("x","y")]))
 dist_trapmesh_2D <- dist_meshmesh_2D[meshistraps_2D,]
 
+# distances in 2D space for simulating capture histories
+tracksmeshdistmat_2D <- userdfn1(tracksdf[,c("x","y")], mesh2D[,1:2], trans.c)
+tracksmeshdistmat_lin <- userdfn1(tracksdf[,c("x","y")], meshlin[,1:2], trans.c)
+
+
+# ------------------ Example capture history -----------------------------------
+# n <- rpois(1, sum(D_meshlin_q)*meshunit_lin)
+# pop_mesh_ind <- sample(length(D_meshlin_q), n, replace = T, prob = D_meshlin_q/sum(D_meshlin_q))
+# pop <- meshlin[pop_mesh_ind,]
+# rownames(pop) <- NULL
+# indsatmesh <- apply(as.array(1:nrow(meshlin)), 1, function(x)length(which(pop_mesh_ind==x)))
+# exch <- sim_capthist(pop = pop, 
+#                                         traps, 
+#                                         tracksdf,
+#                                         lambda0, 
+#                                         sigma, 
+#                                         D_meshlin_q,
+#                                         hazdenom, #for hazard rate
+#                                         meshlin,
+#                                         meshunit_lin,
+#                                         tracksmeshdistmat_lin) 
+# excapthist <- exch[apply(exch, 1, function(x){!all(is.na(x))}),,]
+# excapthist[is.na(excapthist)] <- 0
+# excapthist[excapthist!=0] <- 1
+# 
+# trapcaps <- apply(excapthist, 3, sum)
+# 
+# ggplot() +
+#   geom_sf(riverpoly, mapping = aes(), fill = "lightblue") +
+#   geom_sf(st_as_sfc(do.call(rbind, create_line_spatlines(tracksdf)), crs = NULL),
+#           mapping = aes())  +
+#  # geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q), 
+# #             mapping = aes(x = x, y = y, alpha = D), shape = 21, size = 2) +
+#  # geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ), size = .5, 
+# #             alpha = .5, shape = "+") +
+#   geom_point(data.frame(x = meshlin$x, y = meshlin$y, D = D_meshlin_q, inds = indsatmesh), 
+#              shape = 22, size = 3,
+#              mapping = aes(x = x, y = y, fill = indsatmesh)) +
+#   geom_point(data = data.frame(x = traps$x, 
+#                                y = traps$y,
+#                                capts = trapcaps),
+#              mapping = aes(x = x, y = y
+#                            , color = (capts)),
+#              size = 3, shape = 1, stroke = 1) +
+#   scale_fill_viridis_b() +
+#   scale_color_viridis_b(option = "magma") +
+#   coord_sf(datum = NULL) +
+#   theme_bw()
+# dim(excapthist)
+# sum(excapthist)/dim(excapthist)[1]
+# 
+
+# ------------------- Save figure of setup -------------------------------------
 
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/plots/setup1Driver.png",
        plot = ggplot() +

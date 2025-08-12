@@ -90,7 +90,7 @@ sim_fit <- function(tracksdf,
       log(lambda0),
       log(sigma), beta1, beta2, beta3)
     scaling_factors <- 10^round(log10(abs(start0)))
-    start <- start0/scaling_factors
+    start <- start0/(scaling_factors + 1e-16)
     #quadratic density function
     # stat_nll <- function(v_scaled){
     #   v <- v_scaled * scaling_factors 
