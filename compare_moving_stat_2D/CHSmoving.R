@@ -1197,7 +1197,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   surv5 <- plotsurv(5)
   surv6 <- plotsurv(6)
   
-  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/", label, "surveydirection.png", sep = ""),
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/surveydirection.png", sep = ""),
          plot = 
            grid.arrange(
              grobs = list(surv1, surv2, surv3,
@@ -1218,10 +1218,10 @@ create_plots(m_move = myfits[[6]],
              m0 = fits[[4]],
              label = paste(formulas[[6]])[3],
              subareacutoff = 0.5)
-create_plots(m_move = myfits[[3]],
-             DdesignX = Xmats[[3]],
-             m0 = fits[[4]],
-             label = paste(formulas[[3]])[3],
+create_plots(m_move = myfits[[2]],
+             DdesignX = Xmats[[2]],
+             m0 = fits[[3]],
+             label = paste(formulas[[2]])[3],
              subareacutoff = 0.5)
 
 
