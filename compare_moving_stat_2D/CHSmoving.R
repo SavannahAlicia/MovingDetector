@@ -534,6 +534,43 @@ knots_soap2 <- data.frame( x = c(
     3648506, 
     3647732, 3638444, 3653279))
 
+ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/soapfilmsetup.png", sep = ""),
+       plot = grid.arrange(
+         grobs = list(  ggplot() +
+                          geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+                                  linewidth = .1, alpha = 1) + 
+                          geom_sf(boundline, mapping = aes()) +
+                          geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+                                  linewidth = .1, alpha = .5) +
+                          geom_point(data = knots_soap, mapping = aes(x = x, y = y)) +
+                          # geom_point(data.frame(x = bound[[1]]$x, y = bound[[1]]$y), mapping = aes(x = x,y = y)) +
+                          coord_sf(xlim = c(min(bound[[1]]$x), max(bound[[1]]$x)), 
+                                   ylim = c(min(bound[[1]]$y), max(bound[[1]]$y))) +
+                          theme_bw() +
+                          theme(axis.title = element_blank()),
+                        ggplot() +
+                          geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+                                  linewidth = .1, alpha = 1) + 
+                          geom_sf(boundline, mapping = aes()) +
+                          geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+                                  linewidth = .1, alpha = .5) +
+                          geom_point(data = knots_soap2, mapping = aes(x = x, y = y)) +
+                          # geom_point(data.frame(x = bound[[1]]$x, y = bound[[1]]$y), mapping = aes(x = x,y = y)) +
+                          coord_sf(xlim = c(min(bound[[1]]$x), max(bound[[1]]$x)), 
+                                   ylim = c(min(bound[[1]]$y), max(bound[[1]]$y))) +
+                          theme_bw() +
+                          theme(axis.title = element_blank(),
+                                axis.text.y = element_text(color = "transparent"))),
+         widths = c((1), (1)),
+         heights = c(1),
+         layout_matrix = rbind(c(1,  2)))
+     ,
+       width = 169,
+       height = 169/2,
+       units = c("mm"),
+       dpi = 300)
+
+
 formulas <- list(D~s(x,y,k=5),
                  D~s(x,y,k=6),
                  D~s(x,y,k=7),
@@ -643,12 +680,15 @@ myAICs <- do.call(rbind, AICs)
 create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   
   denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))#*100 returns in km^2  now
+  abund_stat <- sum(denssurf_stat) * 4
   lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
   denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))#*100
+  abund_move <- sum(denssurf_move) * 4
   lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
   diffdense <- denssurf_stat - denssurf_move
+  difabund <- sum(diffdense) *4
   
   #------------------------determine pdet for cutoff -----------------------------
   calc_pdet_x <- function(lambda0, sigma){
@@ -704,7 +744,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary Detector") +
     theme_bw()+
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   pdetmovplot <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -721,7 +762,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Moving Detector") +
     theme_bw()+
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   pdetdiffplot <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -737,7 +779,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary - Moving") +
     theme_bw()+
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   pdetlegendplot <- ggplot(pdet_df, 
                            mapping = aes(x = x, y = y, fill = relpdetx_stat)) +
@@ -794,8 +837,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   #-----------------------------densities---------------------------------------
   denssurf_stat_forspreading <- denssurf_stat
   denssurf_stat_forspreading[-subarea_stat,] <- 0
+  abund_stat_inpdot <- sum(denssurf_stat_forspreading) * 4
   denssurf_mov_forspreading <- denssurf_move
   denssurf_mov_forspreading[-subarea_mov,] <- 0
+  abund_move_inpdot <- sum(denssurf_mov_forspreading) * 4
   Dspreadsurf_stat <- spreadD(meshdistmat, lambda0_stat$value, sigma_stat$value, denssurf_stat_forspreading)
   Dspreadsurf_move <- spreadD(meshdistmat, lambda0_move$value, sigma_move$value, denssurf_mov_forspreading)
   Dspread_diff <- Dspreadsurf_stat - Dspreadsurf_move
@@ -838,7 +883,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary Detector") +
     theme_bw()+
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   ACDmovplot <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -865,7 +911,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Moving Detector") +
     theme_bw()+
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   ACDlegendplot <- ggplot(data = data.frame(x = mesh$x, y = mesh$y, D = denssurf_move)[subarea_both,], 
                           mapping = aes(x = x, y =y, fill = D)) +
@@ -908,7 +955,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary - Moving") +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   ACDdifflegendplot <- ggplot(data.frame(x = mesh$x, y = mesh$y, D = diffdense)[subarea_both,], 
                               mapping = aes(x = x, y =y, fill = D)) +
@@ -968,7 +1016,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary Detector") +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   animDmov <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -987,7 +1036,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Moving Detector") +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   animDlegend <- ggplot(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf_move)[,], 
                         mapping = aes(x = x, y =y, fill = D)) +
@@ -1026,7 +1076,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary - Moving") +
     theme_bw() + 
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          axis.title = element_blank())
   
   animDpercdiff <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -1048,7 +1099,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
     coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
              ylim = c(min(mesh$y), max(mesh$y))) +
     ggtitle("Stationary - Moving") +
-    theme_bw()
+    theme_bw() + 
+    theme(axis.title = element_blank())
   
   animDdifflegend <- 
     ggplot(data.frame(x = mesh$x, y = mesh$y, D = Dspread_diff), 
@@ -1091,7 +1143,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
                         model = c(rep("stationary", 3), rep("moving", 3)))
   detdat <- do.call(rbind, lapply(as.list(1:6), function(n){
     df=
-      data.frame(x = seq(0,4*max(detpars$sigma), length.out = 20))
+      data.frame(x = seq(0,4*max(detpars$sigma), length.out = 40))
     
     df$y = detpars$lambda0[n]*exp(-df$x^2/(2*detpars$sigma[n]^2))
     
@@ -1102,19 +1154,20 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   
   detfctplot <- ggplot() +
     geom_line(detdat[detdat$name %in% c("value"),],
-              mapping = aes(x = x, y = y, color = model, group = model),
+              mapping = aes(x = x/1000, y = y*1000, color = model, group = model),
               linewidth = 1.5) +
     geom_ribbon(detdatwide,
-                mapping = aes(x = x, ymin = lower, ymax = upper, 
+                mapping = aes(x = x/1000, ymin = lower*1000, ymax = upper*1000, 
                               fill = model, group = model),
                 color = "transparent",
                 alpha = .5) +
-    geom_point(data = data.frame(x = detpars[detpars$name %in% c("value"),"sigma"], y = 0, 
+    geom_point(data = data.frame(x = detpars[detpars$name %in% c("value"),"sigma"]/1000,
+                                 y = 0, 
                                  model = detpars[detpars$name %in% c("value"),"model"]),  
                mapping = aes(group = model, color = model, x = x, y = y),
                size = 3, shape = 4, stroke = 1.5) +
-    ylab("Detection rate") +
-    xlab("Distance (m)")+
+    ylab("Detection rate\n(detections per km)") +
+    xlab("Distance (km)")+
     scale_color_manual(name = "", 
                        values =  c("cornflowerblue", "goldenrod"),
                        labels = c("Moving", "Stationary")) +
@@ -1130,8 +1183,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
          units = c("mm"),
          dpi = 300)
   
-  return(list(statN = sum(Dspreadsurf_stat),
-              movN = sum(Dspreadsurf_move)))
+  return(list(statN = abund_stat,
+              movN = abund_move,
+              statNpdet = abund_stat_inpdot,
+              movNpdet = abund_move_inpdot))
 }  
 
 #-------visualize track direction ----------------------------------------------
@@ -1218,13 +1273,111 @@ create_plots(m_move = myfits[[6]],
              m0 = fits[[4]],
              label = paste(formulas[[6]])[3],
              subareacutoff = 0.5)
+create_plots(m_move = myfits[[6]],
+             DdesignX = Xmats[[6]],
+             m0 = fits[[4]],
+             label = paste(paste(formulas[[6]])[3], "nocutoff"),
+             subareacutoff = 0)
 create_plots(m_move = myfits[[2]],
              DdesignX = Xmats[[2]],
              m0 = fits[[3]],
-             label = paste(formulas[[2]])[3],
+             label = paste(paste(formulas[[2]])[3]),
              subareacutoff = 0.5)
+create_plots(m_move = myfits[[2]],
+             DdesignX = Xmats[[2]],
+             m0 = fits[[3]],
+             label = paste(paste(formulas[[2]])[3], "nocutoff"),
+             subareacutoff = 0)
 
 
 
 
 colSums(usage(trapscr))
+
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+baseplot <-  ggplot() +
+  geom_sf(data = st_as_sf(lpoly), fill = "#93c0d3", col = "#9aaac4") +
+  coord_sf(xlim = c(min(traps$x), max(traps$x)), 
+           ylim = c(min(traps$y), max(traps$y))) +
+  theme_bw() +
+  theme(text=element_text(size=2),
+        plot.title=element_blank(), 
+        axis.text.x = element_text(angle = 90),
+        axis.ticks.length=unit(-0.1, "cm")
+  )
+#avg and max detections per detected individual,
+
+  detsperind <- apply(capthist, 1, sum)
+  dpi <- ggplot() +
+    geom_bar(data.frame(x = detsperind),
+             mapping =  aes(x = x),
+                          fill = cbbPalette[2], color = cbbPalette[2],
+             alpha = .8) +
+    ylab("Count") +
+    ggtitle("B") +
+    xlab("Detections per individual") +
+    scale_y_continuous(limits = c(0, 250)) + 
+    scale_x_continuous(breaks = c(0, 1, 2)) +
+    theme_bw() +
+    theme(axis.title.y = element_blank(),
+          plot.title=element_text(margin = margin(l = 4, b = -15)))
+  
+  #number of different traps/detectors at which individuals were detected, 
+  trapsperind <- rowSums(apply(capthist, c(1,3), max))
+  tpi <- ggplot() +
+    geom_bar(data.frame(x = trapsperind),mapping =  aes(x = x),
+             fill = cbbPalette[2], color = cbbPalette[2],
+             alpha = .8) +
+    scale_y_continuous(limits = c(0, 250)) + 
+    scale_x_continuous(breaks = c(0, 1, 2)) +
+    xlab("Traps per individual") +
+    ggtitle("C") +
+    theme_bw() +
+    theme(axis.title.y = element_blank(),
+          plot.title=element_text(margin = margin(l = 4,b = -15))) 
+  
+  totaleffort <- rowSums(usage(trapscr))/1000
+  #and number of individuals detected at a detector
+  indspertrap <- apply(capthist, 3, sum)/totaleffort
+
+  indspertrap[(indspertrap==0)]<- NA
+  trapdat <- cbind(traps, indspertrap)
+  cuts <- c(.01,  .5,  1, 1.5,  2,  7, 27)
+  
+  
+  ipt <- baseplot +
+    #coord_sf(xlim = c(min(trapdat$x), max(trapdat$x)), 
+    #         ylim = c(min(trapdat$y), max(trapdat$y))) +
+    geom_point(trapdat, mapping = aes(x = x, y = y, fill = indspertrap), 
+               size = 2, shape = 21) +
+    scale_fill_stepsn(colours = viridisLite::magma(length(cuts)-1),
+                      breaks = cuts,
+                      values = scales::rescale(cuts, to = c(0,1), from = range(cuts)), 
+                      limits = c(min(cuts), max(cuts)),
+                      labels = c(cuts),
+                      name = "",
+                      na.value = "grey") +
+    ggtitle("A") +
+    theme_void() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          legend.position = "inside",
+          legend.position.inside = c(.865,.16),
+          #axis.text.x = element_text(angle = 90),
+          legend.background = element_rect(fill= "transparent", color = NA),
+          plot.title=element_text(margin = margin(l = 4, b = -15)))
+  
+  
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/capthistsummary.png", sep = ""),
+         plot = grid.arrange(
+           grobs = list(dpi, tpi, ipt),
+           widths = c(1,1),
+           heights = c(1,.9),
+           layout_matrix = rbind(c(3,1),c(3,2))
+         ),
+         width = 169*.8,
+         height = 169*.8,
+         units = c("mm"),
+         dpi = 300)
+
