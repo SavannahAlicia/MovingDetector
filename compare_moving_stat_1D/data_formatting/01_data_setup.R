@@ -294,8 +294,13 @@ ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_1D/pl
          geom_point(data.frame(x = mesh2D$x, y = mesh2D$y, D = D_mesh2D_q), shape = 2,
                     mapping = aes(x = x, y = y, alpha = D)) +
          coord_sf(datum = NULL) +
-         theme_bw(),
+         scale_x_continuous(breaks = c(0, 10000, 20000, 30000),
+                            labels = c(0, 10, 20, 30)) +
+         scale_y_continuous(breaks = c( 0, 10000), 
+                            labels = c(0,10 )) +
+         theme_bw() +
+         theme(axis.title = element_blank()),
        width = 169,
-       height = 169,
+       height = 169/3,
        units = c("mm"),
        dpi = 300)
