@@ -65,18 +65,22 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   lambda0plot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = invlogit(value), col = model), size = linesize) +
+                 mapping = aes(x = exp(value)*1000, #per km instead of m
+                               col = model), size = linesize) +
     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
                              data.frame(name = "lambda0", model = "true", 
-                                        mean = logit(lambda0))), 
-               aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+                                        mean = log(lambda0))), 
+               aes(xintercept = exp(c(mean))*1000,
+                   col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanlower)), col = model), 
+               aes(xintercept = exp(c(meanlower))*1000, 
+                   col = model), 
                linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanupper)), col = model),
+               aes(xintercept = exp(c(meanupper))*1000, 
+                   col = model),
                linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = lambda0, size = linesize, col = "black") +
+    geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
     ylab("Frequency") + 
     #xlim(.004,.006) +
@@ -123,18 +127,22 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   sigmaplot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "sigma",], 
-                 mapping = aes(x = exp(value), col = model), size = linesize) +
+                 mapping = aes(x = exp(value)/1000, #in km instead of m
+                               col = model), size = linesize) +
     geom_vline(data = rbind(all_outs2[all_outs2$name == "sigma",],
                             data.frame(name = "sigma", model = "true",
                                        mean = log(sigma))),
-               aes(xintercept = exp(mean), col = model), size = linesize) +
+               aes(xintercept = exp(mean)/1000,
+                   col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "sigma",],
-               aes(xintercept = exp(meanlower), col = model), 
+               aes(xintercept = exp(meanlower)/1000,
+                   col = model), 
                linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "sigma",], 
-               aes(xintercept = exp(meanupper), col = model), 
+               aes(xintercept = exp(meanupper)/1000,
+                   col = model), 
                linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = sigma, size = linesize, col = "black")+
+    geom_vline(xintercept = sigma/1000, size = linesize, col = "black")+
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
@@ -170,14 +178,14 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   beta2plot <- ggplot() +
     geom_density(all_outs[all_outs$name == "beta2",],
-                 mapping = aes(x = value, col = model), size = linesize) +
+                 mapping = aes(x = value/1000, col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-               aes(xintercept = c(mean), col = model), size = linesize) +
+               aes(xintercept = c(mean)/1000, col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-               aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+               aes(xintercept = c(meanlower)/1000, col = model), linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "beta2",],
-               aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = beta2) +
+               aes(xintercept = c(meanupper)/1000, col = model), linetype = "dashed", size = linesize) +
+    geom_vline(xintercept = beta2/1000) +
     scale_color_manual(values = plotcols) +
     xlab("beta2") +
     ylab("Frequency") +
@@ -188,7 +196,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
   
-  meshstep <- meshspacing
+  meshstep <- meshspacing/10
   if(Dmodel == "variable"){
     D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), meshstep),3),
                             y = rep(rep(mesh$y[1], length(seq(min(mesh$x), max(mesh$x), meshstep))),3),
@@ -280,15 +288,21 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   Dplot <- 
     ggplot() + 
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x, y = value, col = name), size = linesize) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x, y = value, col = name), linetype = "dashed", size = linesize) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x/1000, y = value, col = name,
+                                                                                     linewidth = name)) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x/1000, y = value, col = name), linetype = "dashed", size = linesize) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x/1000, y = value, col = name), linetype = "dashed", size = linesize) +
     scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
                        name = "") +
+    scale_linewidth_manual(values = c(linesize*3, linesize*3, linesize), 
+                           labels = c("Moving", "Stationary", "True"), 
+                           name = "") +
     #ylim(0,.5) +
-    xlim(-beta2 - 1000, - beta2 + 1000)+
+    xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
     ylab("AC density") +
+    xlab("x") +
     theme_classic() +
+    guides(linewidth = "none") +
     theme(axis.title = element_text(size = 10),
           axis.text = element_text(size = 10),
           legend.title = element_text(size = 10),
@@ -351,11 +365,21 @@ ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/si
          geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
                     size = 1.5,shape = "+", color= "white") +
          scale_fill_viridis_c() +
+         scale_x_continuous(expand = c(0,0),
+                            breaks = c(0, 1000, 2000, 3000, 4000, 5000),
+                            labels = c("0","1","2",3,4,5)) +
+         scale_y_continuous(expand = c(0,0),
+                            breaks = c(0, 1000, 2000, 3000)) +
+         geom_segment(aes(x = 1500, y = 2500, xend = 3500, yend = 2500),
+                      arrow = arrow(length = unit(0.3, "cm")),
+                      color = "grey") +
          #xlim(1000, 4000) +
          geom_point(data.frame(x = traps$x,
                                y = traps$y),
                     mapping = aes(x = x, y = y), shape = 21, , color = "pink", fill = "red", alpha = .7, size = 1.4) +
-         theme_bw(),
+         theme_bw() +
+         theme(axis.title = element_blank(),
+               axis.text.y = element_blank()),
        width = 169,
        height = 169*(1/2),
        units = c("mm"),
