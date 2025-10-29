@@ -1,3 +1,4 @@
+#2D
 #----------------------------------data setup-----------------------------------
 #multiple tracklines, keep separate occasions since we only take first detection
 #per occasion
