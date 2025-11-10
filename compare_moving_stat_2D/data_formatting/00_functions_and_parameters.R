@@ -154,6 +154,7 @@ lengths_in_grid <- function(tracks_sp_lines, tracksinoc, grid_polygons){
 #' time logged for that occasion) if captured
 #' @export
 sim_capthist <- function(pop = NULL, 
+                         dist_dat_pop = NULL,
                          traps, 
                          tracksdf,
                          lambda0, 
@@ -162,17 +163,15 @@ sim_capthist <- function(pop = NULL,
                          hazdenom, #for hazard rate
                          report_probseenxk = FALSE){
   if(is.null(pop)){
-    pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", 
+    pop <- sim.popn(D = D_mesh, core = mesh, model2D = "IHP", #D in sim.popn is inds per hectare
                     Ndist = "poisson", buffertype = "rect")
     rownames(pop) <- NULL
   }
+  if(is.null(dist_dat_pop)){
   #this is now distances between pop hrcs and track locations
-  dist_dat_pop <- apply(as.matrix(tracksdf[,c("x","y")]), 1, function(trapj){
-    apply(as.matrix(pop), 1, function(popi){
-      dist(rbind(trapj,
-                 popi), method = "euclidean")
-    }) }) #ind by track location
-  
+  dist_dat_pop <- calc_dist_matC(as.matrix(tracksdf[,c("x","y")]), 
+                                 as.matrix(pop)) #ind by track location
+  }
   capthist <- lapply(as.list(1:nrow(pop)), #for each individual
                      FUN = function(i){
                        lapply(as.list(unique(tracksdf$occ)),
@@ -260,13 +259,13 @@ create_ind_use <- function(ch, trapcells, tracksdf){
 }
 
 #--------------------------------------true parameters -------------------------
-lambda0 = .005
+lambda0 = .001
 sigma = 300
 beta1 <- -(1/40000)
 beta2 <- -2500
 flatD = 0.4
 
-nsims = 500
+nsims = 50
 set.seed(1994)
 
 

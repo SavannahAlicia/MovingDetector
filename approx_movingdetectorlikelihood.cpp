@@ -15,6 +15,21 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
   return indices;
 }
 
+// [[Rcpp::export]]
+Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//traps (j) xy
+                                   Rcpp::NumericMatrix h //hrcs (i) xy
+                                     ) {
+  // Distance matrix has i rows and j columns
+  Rcpp::NumericMatrix dist_mat(t.nrow(), h.nrow());
+  for(int i = 0; i < h.nrow(); ++i) {
+    for(int j = 0; j < t.nrow(); ++j) {
+      double dx = t(j,0) - h(i,0);
+      double dy = t(j, 1) - h(i, 1);
+      dist_mat(j,i) = std::sqrt(dx * dx + dy * dy);
+    }
+  }
+  return dist_mat;
+}
 
 // [[Rcpp::export]]
 Rcpp::NumericVector seqC(int &first, int &last) {
