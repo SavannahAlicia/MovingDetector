@@ -186,7 +186,8 @@ sim_capthist <- function(pop = NULL,
                                   #          trackoccdf$time[-nrow(trackoccdf)], 
                                   #          unit = "secs"))
                                   c(0, apply(as.array(1:(nrow(trackoccdf)-1)), 1, function(x){
-                                    dist(trackoccdf[x:(x+1), c("x", "y")])}))
+                                    sqrt((tracksdf[x, c("x")]-tracksdf[x+1, c("x")])^2 + (tracksdf[x, c("y")]-tracksdf[x+1, c("y")])^2)
+                                    }))
                                 hazs <- apply(as.array(dist_dat_pop[i,tracksdf$occ == occk]),
                                               1, FUN = function(d){
                                                 hazdist_cpp(lambda0, sigma, d, hazdenom)
