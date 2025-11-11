@@ -3,6 +3,8 @@
 //[[Rcpp::depends(RcppClock)]]
 //[[Rcpp::plugins(cpp11)]]
 #include <RcppClock.h>
+#include <algorithm>
+#include <string>
 //----------------- Supporting functions ---------------------------------------
 // [[Rcpp::export]]
 Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
@@ -111,6 +113,112 @@ double vec_max(Rcpp::NumericVector x) {
   // we want the value so dereference 
   return *it;
 }
+
+// [[Rcpp::export]]
+
+Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf, 
+                             std::string scenario = "everything") {
+  
+  // Check that required columns exist
+  Rcpp::CharacterVector colnames = tracksdf.names();
+  
+  // Check required columns
+  if (std::find(colnames.begin(), colnames.end(), "x") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "y") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "occ") == colnames.end()) {
+    Rcpp::stop("tracksdf must contain columns: x, y, occ");
+  }
+  
+  //Check if "effort" column exists
+  bool has_effort = (std::find(colnames.begin(), colnames.end(), "effort") != colnames.end());
+  
+  // If "effort" exists, extract it
+  Rcpp::CharacterVector effort;
+  if (has_effort) {
+    effort = tracksdf["effort"];
+  }
+  
+  Rcpp::NumericVector x = tracksdf["x"];
+  Rcpp::NumericVector y = tracksdf["y"];
+  Rcpp::IntegerVector occ = tracksdf["occ"];
+  
+  // Find unique track IDs
+  Rcpp::IntegerVector uniq_occ = sort_unique(occ);
+  int n_occ = uniq_occ.size();
+  
+  // Initialize output
+  Rcpp::List out_list(n_occ);
+  Rcpp::CharacterVector out_names(n_occ);
+  
+  // Iterate over each unique track ID
+  for (int k = 0; k < n_occ; ++k) {
+    int track_id = uniq_occ[k];
+    
+    // Indices for this occasion from tracksdf (of points, not segments)
+    Rcpp::LogicalVector mask = occ == track_id;
+    Rcpp::IntegerVector idx = Rcpp::seq(0, occ.size() - 1); // indexes rows of entire tracksdf
+    idx = idx[mask]; // subsetted to rows that are in this occasion
+    
+    // If there are less than two points in a track
+    int n_pt = idx.size();
+    if (n_pt < 2) {
+      out_list[k] = R_NilValue;
+      out_names[k] = std::to_string(track_id);
+      continue;
+    }
+    
+    // --- Determine number of segments to allocate ---
+    int seg_count = 0;
+    
+    if (scenario == "onison") {
+      if (!has_effort)
+        Rcpp::stop("Onison scenario invalid without effort column");
+      
+      for (int i = 0; i < n_pt - 1; ++i) { // -1 makes sure there is a point to complete the segment
+        if (effort[idx[i]] == "OnEffort") seg_count++; 
+      }
+    } else {
+      seg_count = n_pt - 1; // one segment between each consecutive point
+    }
+    
+    // --- Preallocate numeric vectors ---
+    Rcpp::NumericVector x1(seg_count);
+    Rcpp::NumericVector y1(seg_count);
+    Rcpp::NumericVector x2(seg_count);
+    Rcpp::NumericVector y2(seg_count);
+    
+    // --- Fill them ---
+    int seg_index = 0;
+    for (int i = 0; i < n_pt - 1; ++i) { // n_pt in occasion
+      bool keep_seg = (scenario == "everything") ||
+        (scenario == "onison" && effort[idx[i]] == "OnEffort");
+      
+      if (keep_seg) {
+        x1[seg_index] = x[idx[i]]; // recall x is entire tracksdf, idx references rows in occ
+        y1[seg_index] = y[idx[i]];
+        x2[seg_index] = x[idx[i + 1]];
+        y2[seg_index] = y[idx[i + 1]];
+        seg_index++;
+      }
+    }
+    
+    // --- Construct DataFrame ---
+    Rcpp::List segs(4);
+    segs[0] = x1;
+    segs[1] = y1;
+    segs[2] = x2;
+    segs[3] = y2;
+    
+    segs.attr("names") = Rcpp::StringVector({"x1","y1","x2","y2"});
+    
+    out_list[k] = segs;
+    out_names[k] = std::to_string(track_id);
+  }
+  
+  out_list.attr("names") = out_names;
+  return out_list;
+}
+
 //----------------- Likelihood related functions -------------------------------
 
 // [[Rcpp::export]]
