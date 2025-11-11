@@ -114,6 +114,8 @@ double vec_max(Rcpp::NumericVector x) {
   return *it;
 }
 
+// ----- Functions for calculating tracklength effort ------
+
 // [[Rcpp::export]]
 
 Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf, 
@@ -218,6 +220,42 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   out_list.attr("names") = out_names;
   return out_list;
 }
+ 
+ // [[Rcpp::export]]
+ Rcpp::NumericMatrix create_grid_bboxes_C(Rcpp::DataFrame grid,
+                                             double spacing) {
+   
+   // Extract coordinates
+   Rcpp::NumericVector x = grid["x"];
+   Rcpp::NumericVector y = grid["y"];
+   
+   int n = x.size();
+   if (spacing <= 0) Rcpp::stop("spacing must be positive");
+   
+   double h = spacing / 2.0;
+   
+   // Prepare output matrix: columns = left, right, bottom, top
+   Rcpp::NumericMatrix bboxes(n, 4);
+   
+   for (int i = 0; i < n; ++i) {
+     bboxes(i,0) = x[i] - h; // left
+     bboxes(i,1) = x[i] + h; // right
+     bboxes(i,2) = y[i] - h; // bottom
+     bboxes(i,3) = y[i] + h; // top
+   }
+   
+   Rcpp::CharacterVector colnames(4);
+   colnames[0] = "left";
+   colnames[1] = "right";
+   colnames[2] = "bottom";
+   colnames[3] = "top";
+   
+   Rf_setAttrib(bboxes, R_NamesSymbol, colnames);
+   
+   return bboxes;
+ }
+ 
+ 
 
 //----------------- Likelihood related functions -------------------------------
 
