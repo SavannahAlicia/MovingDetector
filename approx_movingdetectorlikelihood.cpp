@@ -244,13 +244,18 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
      bboxes(i,3) = y[i] + h; // top
    }
    
+   Rcpp::CharacterVector rownames(bboxes.nrow()); 
    Rcpp::CharacterVector colnames(4);
    colnames[0] = "left";
    colnames[1] = "right";
    colnames[2] = "bottom";
    colnames[3] = "top";
    
-   Rf_setAttrib(bboxes, R_NamesSymbol, colnames);
+   Rcpp::List dimnames(2);
+   dimnames[0] = rownames; // row names
+   dimnames[1] = colnames; // column names
+   
+   Rf_setAttrib(bboxes, R_DimNamesSymbol, dimnames);
    
    return bboxes;
  }
