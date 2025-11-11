@@ -133,7 +133,7 @@ lengths_in_grid <- function(tracks_sp_lines, tracksinoc, grid_polygons){
     inters <-  sapply(X = grid_polygons$polygons, 
                       FUN = function(x){get_length(x, trackspl_to_use[[1]])})
   } else {
-    warning(paste("track length", paste0(tracksinoc, collapse = " "), "not equal to 1"))
+    warning(paste("number of tracks per occasion", paste0(tracksinoc, collapse = " "), "not equal to 1"))
     inters = rep(NA, length(grid_polygons$polygons))
   }
   return(inters)
