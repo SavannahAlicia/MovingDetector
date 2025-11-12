@@ -260,6 +260,115 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
    return bboxes;
  }
  
+ // [[Rcpp::export]]
+ double get_length_C(Rcpp::NumericVector line, 
+                              Rcpp::NumericVector box) {
+   
+   // Constants for region codes
+   const int INSIDE = 0; // 0000
+   const int LEFT   = 1; // 0001
+   const int RIGHT  = 2; // 0010
+   const int BOTTOM = 4; // 0100
+   const int TOP    = 8; // 1000
+   
+   // Extract coordinates
+   double x1 = line[0];
+   double y1 = line[1];
+   double x2 = line[2];
+   double y2 = line[3];
+   
+   double xmin = box[0];
+   double xmax = box[1];
+   double ymin = box[2];
+   double ymax = box[3];
+   
+   // Function to compute region code
+   auto computeCode = [&](double x, double y) {
+     int code = INSIDE;
+     if (x < xmin) {
+       code = code | LEFT;
+     }
+     if (x > xmax) {
+       code = code | RIGHT;
+     }
+     if (y < ymin) {
+       code = code | BOTTOM;
+     }
+     if (y > ymax) {
+       code = code | TOP;
+     }
+     return code;
+   };
+   
+   int code1 = computeCode(x1, y1);
+   int code2 = computeCode(x2, y2);
+   bool accept = false;
+   
+   while (true) {
+     if (code1 == 0 && code2 == 0) {
+       // Both points inside
+       accept = true;
+       break;
+     }
+     else if ((code1 & code2) != 0) { //bitwise comparison &
+       // Both points share an outside region
+       break;
+     }
+     else {
+       // Line needs clipping
+       int codeOut;
+       double x = 0.0;
+       double y = 0.0;
+       
+       if (code1 != 0) {
+         codeOut = code1;
+       } else {
+         codeOut = code2;
+       }
+       
+       // Find intersection point
+       if ((codeOut & TOP) != 0) {
+         x = x1 + (x2 - x1) * (ymax - y1) / (y2 - y1);
+         y = ymax;
+       } 
+       else if ((codeOut & BOTTOM) != 0) {
+         x = x1 + (x2 - x1) * (ymin - y1) / (y2 - y1);
+         y = ymin;
+       } 
+       else if ((codeOut & RIGHT) != 0) {
+         y = y1 + (y2 - y1) * (xmax - x1) / (x2 - x1);
+         x = xmax;
+       } 
+       else if ((codeOut & LEFT) != 0) {
+         y = y1 + (y2 - y1) * (xmin - x1) / (x2 - x1);
+         x = xmin;
+       }
+       
+       // Replace the point outside the box
+       if (codeOut == code1) {
+         x1 = x;
+         y1 = y;
+         code1 = computeCode(x1, y1);
+       } 
+       else {
+         x2 = x;
+         y2 = y;
+         code2 = computeCode(x2, y2);
+       }
+     }
+   }
+   
+   if (accept) {
+     // Compute the length of the clipped line segment
+     double dx = x2 - x1;
+     double dy = y2 - y1;
+     double length = std::sqrt(dx * dx + dy * dy);
+     return length;
+   } 
+   else {
+     return 0.0; // No part inside
+   }
+ }
 
 
 //----------------- Likelihood related functions -------------------------------
