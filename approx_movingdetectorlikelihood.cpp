@@ -152,6 +152,13 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   Rcpp::List out_list(n_occ);
   Rcpp::CharacterVector out_names(n_occ);
   
+  // Column names for numeric matrices
+  Rcpp::CharacterVector mat_colnames(4);
+  mat_colnames[0] = "x1";
+  mat_colnames[1] = "y1";
+  mat_colnames[2] = "x2";
+  mat_colnames[3] = "y2";
+  
   // Iterate over each unique track ID
   for (int k = 0; k < n_occ; ++k) {
     int track_id = uniq_occ[k];
@@ -184,10 +191,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
     }
     
     // --- Preallocate numeric vectors ---
-    Rcpp::NumericVector x1(seg_count);
-    Rcpp::NumericVector y1(seg_count);
-    Rcpp::NumericVector x2(seg_count);
-    Rcpp::NumericVector y2(seg_count);
+    Rcpp::NumericMatrix seg_mat(seg_count, 4);
     
     // --- Fill them ---
     int seg_index = 0;
@@ -196,24 +200,20 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
         (scenario == "onison" && effort[idx[i]] == "OnEffort");
       
       if (keep_seg) {
-        x1[seg_index] = x[idx[i]]; // recall x is entire tracksdf, idx references rows in occ
-        y1[seg_index] = y[idx[i]];
-        x2[seg_index] = x[idx[i + 1]];
-        y2[seg_index] = y[idx[i + 1]];
+        seg_mat(seg_index, 0) = x[idx[i]];       // x1
+        seg_mat(seg_index, 1) = y[idx[i]];       // y1
+        seg_mat(seg_index, 2) = x[idx[i + 1]];   // x2
+        seg_mat(seg_index, 3) = y[idx[i + 1]];   // y2
         seg_index++;
       }
     }
     
-    // --- Construct DataFrame ---
-    Rcpp::List segs(4);
-    segs[0] = x1;
-    segs[1] = y1;
-    segs[2] = x2;
-    segs[3] = y2;
+    Rcpp::List dimnames(2);
+    dimnames[0] = Rcpp::CharacterVector(seg_count); // empty row names
+    dimnames[1] = mat_colnames;                     // column names
+    Rf_setAttrib(seg_mat, R_DimNamesSymbol, dimnames);
     
-    segs.attr("names") = Rcpp::StringVector({"x1","y1","x2","y2"});
-    
-    out_list[k] = segs;
+    out_list[k] = seg_mat;
     out_names[k] = std::to_string(track_id);
   }
   
@@ -260,7 +260,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
    return bboxes;
  }
  
- 
+
 
 //----------------- Likelihood related functions -------------------------------
 
