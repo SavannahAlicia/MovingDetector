@@ -127,8 +127,9 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   // Check required columns
   if (std::find(colnames.begin(), colnames.end(), "x") == colnames.end() ||
       std::find(colnames.begin(), colnames.end(), "y") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "time") == colnames.end() ||
       std::find(colnames.begin(), colnames.end(), "occ") == colnames.end()) {
-    Rcpp::stop("tracksdf must contain columns: x, y, occ");
+    Rcpp::stop("tracksdf must contain columns: x, y, occ, time");
   }
   
   //Check if "effort" column exists
@@ -143,6 +144,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   Rcpp::NumericVector x = tracksdf["x"];
   Rcpp::NumericVector y = tracksdf["y"];
   Rcpp::IntegerVector occ = tracksdf["occ"];
+  Rcpp::NumericVector time = tracksdf["time"];
   
   // Find unique track IDs
   Rcpp::IntegerVector uniq_occ = sort_unique(occ);
@@ -153,11 +155,12 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   Rcpp::CharacterVector out_names(n_occ);
   
   // Column names for numeric matrices
-  Rcpp::CharacterVector mat_colnames(4);
+  Rcpp::CharacterVector mat_colnames(5);
   mat_colnames[0] = "x1";
   mat_colnames[1] = "y1";
   mat_colnames[2] = "x2";
   mat_colnames[3] = "y2";
+  mat_colnames[4] = "time";
   
   // Iterate over each unique track ID
   for (int k = 0; k < n_occ; ++k) {
@@ -204,6 +207,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
         seg_mat(seg_index, 1) = y[idx[i]];       // y1
         seg_mat(seg_index, 2) = x[idx[i + 1]];   // x2
         seg_mat(seg_index, 3) = y[idx[i + 1]];   // y2
+        seg_mat(seg_index, 4) = time[idk[i]];
         seg_index++;
       }
     }
@@ -369,7 +373,106 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
      return 0.0; // No part inside
    }
  }
+//#' Create individual use matrix
+//#' 
+//#' @param ch capture history matrix i x k x j of times of detection
+//#' @param trapcells polygons of grid cells of each trap
+//#' @param tracksdf dataframe of track locations, occ, and times
+//#' 
+//#' @return list of use matrices for each individual
+Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
+                          Rcpp::DataFrame mesh,
+                          double spacing,
+                          Rcpp::DataFrame tracksdf,
+                          std::string scenario = "everything"
+                                     ){
+  Rcpp::NumericVector use(ch.size());
+  Rcpp::IntegerVector newdims(3);
+  Rcpp::IntegerVector olddims = ch.attr("dim");
+  newdims[0] = olddims[0]; //i
+  newdims[1] = olddims[2]; //j
+  newdims[2] = olddims[1]; //k
+  use.attr("dim") = newdims;
+  //create tracklines
+  Rcpp::List lines = create_line_list_C(tracksdf, scenario);
+  
+  //create trap grid bboxes
+  Rcpp::NumericMatrix trap_cells = create_grid_bboxes_C(mesh, spacing);
 
+  auto indexify3D = [&](int i, 
+                        int j,
+                        int k,
+                        int I,
+                        int J) {
+    int index = i + I * j + I * J * k;
+
+    return index;
+  };
+  
+  Rcpp::IntegerVector occ  = tracksdf["occ"];
+  Rcpp::NumericVector time = tracksdf["time"];
+  
+  auto min_time = [&](int k) {
+    double minval = NA_REAL;
+    bool found = false;
+    for (int i = 0; i < occ.size(); i++) {
+      if (occ[i] == k) {
+        if (!found || time[i] < minval) {
+          minval = time[i];
+          found = true;
+        }
+      }
+    }
+    return minval;
+  };
+  
+  for (int i = 0; i < newdims[0]; ++i) {
+    for (int k = 0; k < newdims[2]; ++k) {
+      
+      //check if all ch[i,k,] are NA
+      bool i_det_k = FALSE;
+      double det_time_ik = NA_NUMERIC;
+      for (int j = 0; j < newdims[1]; ++j) {
+        indx3D = indexify3D(i, j, k, newdims[0], newdims[1]) //get vector index
+        if(ch[indx3D] != NA_NUMERIC) {
+          i_det_k = TRUE;
+          det_time_ik = min_time(k) + ch[indx3D];
+          break;
+        }
+      }
+      if(i_det_k) {
+        Rcpp::NumericMatrix linek = lines[k];
+        Rcpp:LogicalVector mask_tdf_k = (occ == k);
+        Rcpp::IntegerVector idx_tdf_k = Rcpp::seq(0, occ.size() - 1); // indexes rows of entire tracksdf
+        idx_tdf_k = idx_tdf_k[mask_tdf_k]; // subset to rows that are in this occasion
+        
+        for (step = 0; step < linek.nrow(); ++step) {
+          if ()
+        } else {
+          //if i not detected just useall[,k]
+        }
+    }
+  }
+}
+  
+//  use <- mclapply(as.list(1:dim(ch)[1]), FUN = function(i){
+//    apply(as.array(1:dim(ch)[2]), 1, function(k){
+//      trackoccdf <- tracksdf[tracksdf$occ == k,]
+//      if(!all(is.na(ch[i,k,]))){
+//#if i detected k, discard survey pts after detection in occasion k
+//        dettime <- min(trackoccdf$time) + ch[i,k,which(!is.na(ch[i,k,]))]
+//        trackoccdf <- trackoccdf[trackoccdf$time <= dettime,]
+//#add up length of trackline in each grid cell
+//        useik <- lengths_in_grid(create_line_spatlines(trackoccdf), k, trap_cells)
+//      } else {#if i wasn't detected in k, all traps used full amount, so skip subsetting
+//        useik <- useall[,k]
+//      }
+//#(if there are covariates, perhaps could create matrix for them here, but for now ignore)
+//    })
+//  }, mc.cores = 3)
+//  return(use)
+return use;
+}
 
 //----------------- Likelihood related functions -------------------------------
 
