@@ -381,9 +381,10 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
 //#' 
 //#' @return list of use matrices for each individual
 Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
-                          Rcpp::DataFrame mesh,
+                          Rcpp::DataFrame traps,
                           double spacing,
                           Rcpp::DataFrame tracksdf,
+                          Rcpp::NumericMatrix useall,
                           std::string scenario = "everything"
                                      ){
   Rcpp::NumericVector use(ch.size());
@@ -397,7 +398,7 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
   Rcpp::List lines = create_line_list_C(tracksdf, scenario);
   
   //create trap grid bboxes
-  Rcpp::NumericMatrix trap_cells = create_grid_bboxes_C(mesh, spacing);
+  Rcpp::NumericMatrix trap_cells = create_grid_bboxes_C(traps, spacing);
 
   auto indexify3D = [&](int i, 
                         int j,
@@ -428,31 +429,34 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
   
   for (int i = 0; i < newdims[0]; ++i) {
     for (int k = 0; k < newdims[2]; ++k) {
+      //create output 
+      Rcpp::NumericVector lengths_in_traps(newdims[1]);
       
       //check if all ch[i,k,] are NA
       bool i_det_k = FALSE;
-      double det_time_ik = NA_NUMERIC;
+      double det_time_ik = NA_REAL;
       for (int j = 0; j < newdims[1]; ++j) {
-        indx3D = indexify3D(i, j, k, newdims[0], newdims[1]) //get vector index
-        if(ch[indx3D] != NA_NUMERIC) {
+        int indx3D = indexify3D(i, j, k, newdims[0], newdims[1]); //get vector index
+        if(ch[indx3D] != NA_REAL) {
           i_det_k = TRUE;
           det_time_ik = min_time(k) + ch[indx3D];
+          Rcpp::NumericMatrix linek = lines[k];
+          Rcpp::NumericVector linetimes = linek.column(4);
+          
+          for (int step = 0; step < linek.nrow(); ++step) {
+            if (linetimes[step] <= det_time_ik) {
+              // now add this line length to total length for each trap
+              lengths_in_traps[j] =  lengths_in_traps[j] + get_length_C(linek[step], trap_cells.row(j));
+            }
+          }
           break;
         }
       }
-      if(i_det_k) {
-        Rcpp::NumericMatrix linek = lines[k];
-        Rcpp:LogicalVector mask_tdf_k = (occ == k);
-        Rcpp::IntegerVector idx_tdf_k = Rcpp::seq(0, occ.size() - 1); // indexes rows of entire tracksdf
-        idx_tdf_k = idx_tdf_k[mask_tdf_k]; // subset to rows that are in this occasion
-        
-        for (step = 0; step < linek.nrow(); ++step) {
-          if ()
-        } else {
-          //if i not detected just useall[,k]
-        }
-    }
-  }
+      if(i_det_k == FALSE){
+        //if i not detected just useall[,k]
+        lengths_in_traps = useall.column(k);
+      }
+    }//now just need to organize output
 }
   
 //  use <- mclapply(as.list(1:dim(ch)[1]), FUN = function(i){
