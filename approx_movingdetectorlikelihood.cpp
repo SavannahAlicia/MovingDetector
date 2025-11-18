@@ -5,6 +5,7 @@
 #include <RcppClock.h>
 #include <algorithm>
 #include <string>
+using namespace Rcpp;
 //----------------- Supporting functions ---------------------------------------
 // [[Rcpp::export]]
 Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
@@ -207,7 +208,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
         seg_mat(seg_index, 1) = y[idx[i]];       // y1
         seg_mat(seg_index, 2) = x[idx[i + 1]];   // x2
         seg_mat(seg_index, 3) = y[idx[i + 1]];   // y2
-        seg_mat(seg_index, 4) = time[idk[i]];
+        seg_mat(seg_index, 4) = time[idx[i]];
         seg_index++;
       }
     }
@@ -376,8 +377,10 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
 //#' Create individual use matrix
 //#' 
 //#' @param ch capture history matrix i x k x j of times of detection
-//#' @param trapcells polygons of grid cells of each trap
+//#' @param traps dataframe of trap x y
+//#' @param spacing is distance between traps
 //#' @param tracksdf dataframe of track locations, occ, and times
+//#' @param scenario string for effort scenario, passed to create_line_list_C
 //#' 
 //#' @return list of use matrices for each individual
 Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
@@ -416,7 +419,7 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
     double minval = NA_REAL;
     bool found = false;
     for (int i = 0; i < occ.size(); i++) {
-      if (occ[i] == k) {
+      if (occ[i] == occ[k]) {
         if (!found || time[i] < minval) {
           minval = time[i];
           found = true;
@@ -429,19 +432,22 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
   for (int k = 0; k < newdims[2]; ++k) {
     
     // setup effort for if i not detected in k
-    bool useallk_exists = FALSE;
+    bool useallk_exists = false;
     Rcpp::NumericVector useallk(newdims[1], 0.0);
+    
     
     // line segments for occasion k
     Rcpp::NumericMatrix linek = lines[k];
-    Rcpp::NumericVector linetimes = linek.column(4);
+    Rcpp::NumericVector linetimes = linek(_,4); 
+ 
+    double min_timek = min_time(k);
     
     for (int i = 0; i < newdims[0]; ++i) {
       //create output 
       // Rcpp::NumericVector lengths_in_traps(newdims[1]);
       
       //check if all ch[i,k,] are NA
-      //bool i_det_k = FALSE;
+      //bool i_det_k = false;
       double det_time_ik = NA_REAL;
       
       //this loop just searches ch for detection time
@@ -450,9 +456,9 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
         //get vector index for capture history
         int ix_ch = indexify3D(i, j, k, newdims[0], newdims[1]); 
         
-        if(ch[ix_ch] != NA_REAL) { //trap where detection occurs
+        if (!Rcpp::NumericVector::is_na(ch[ix_ch])){ //trap where detection occurs
           //i_det_k = TRUE;
-          det_time_ik = min_time(k) + ch[ix_ch];
+          det_time_ik = min_timek + ch[ix_ch];
           
           break;
         }
@@ -460,7 +466,7 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
       
       // if i not detected in k, check if useallk calculated
       if(Rcpp::NumericVector::is_na(det_time_ik)){
-        // i_det_k == FALSE
+        // i_det_k == false
         if(useallk_exists){
           
           for(int j = 0; j < newdims[1]; ++j){
@@ -478,7 +484,7 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
             
             for (int step = 0; step < linek.nrow(); ++step) {
               // now add this line length to total length for each trap
-              useallk[j] =  useallk[j] + get_length_C(linek[step], trap_cells.row(j));
+              useallk[j] =  useallk[j] + get_length_C(linek(step,_), trap_cells.row(j));
             }
             
             use[ix_use] = useallk[j];
@@ -498,7 +504,7 @@ Rcpp::NumericVector create_ind_use(Rcpp::NumericVector ch,
           for (int step = 0; step < linek.nrow(); ++step) {
             if (linetimes[step] <= det_time_ik) {
               // now add this line length to total length for each trap
-              use[ix_use] =  use[ix_use] + get_length_C(linek[step], trap_cells.row(j));
+              use[ix_use] =  use[ix_use] + get_length_C(linek(step,_), trap_cells.row(j));
             }
           }
         }
@@ -605,7 +611,7 @@ double
       for(int x = 0; x < meshx.length(); x++){
         Rcpp::NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
-          bool ikcaught = FALSE;
+          bool ikcaught = false;
           double sumtoj_ind_ijk;
           double hu_ind_ijk;
           double sumtoj_ind = 0;
@@ -728,7 +734,7 @@ double
       for(int x = 0; x < meshx.length(); x++){
         Rcpp::NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
-          bool ikcaught = FALSE;
+          bool ikcaught = false;
           int trapijk;
           Rcpp::NumericVector hu_js(traps.length());
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
