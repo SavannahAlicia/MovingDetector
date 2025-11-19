@@ -63,20 +63,15 @@ traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
 
 #create trapgrid (will break tracklines into trap grid, keeping times)
-trap_cells <- create_grid_polygons(traps, spacing = trapspacing)
+trap_cells <- create_grid_bboxes_C(traps, trapspacing)
 #all lines
-tracklines <- create_line_spatlines(tracksdf)
+tracklines <- create_line_list_C(tracksdf, scenario = "everything")
+
+emptych <- array(NA, dim = c(1, nocc, nrow(traps)))
+useallC <- create_ind_use_C(emptych, traps, trapspacing, tracksdf, scenario = "everything")
 
 #use for undetected inds
-getuse <- function(oc){
-  usecol <- lengths_in_grid(tracklines, oc, trap_cells)
-  return(usecol)
-}
-useall <- matrix(0, nr = nrow(trap_cells), nc = nocc)
-colnames(useall) <- 1:nocc
-useall[,c(1:ncol(useall))] <- do.call(cbind,
-                                      mclapply(X= as.list(1:ncol(useall)), 
-                                               FUN = getuse, mc.cores = 3))
+useall <- as.matrix(useallC[1,,])
 
 #calculate distance matrix for all trap cells and mesh cells
 dist_trapmesh <- apply(as.matrix(mesh), 1, function(meshm){
@@ -84,6 +79,7 @@ dist_trapmesh <- apply(as.matrix(mesh), 1, function(meshm){
     dist(rbind(trapj,
                meshm), method = "euclidean")
   }) })
+dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
 ggplot() +
   geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), 
