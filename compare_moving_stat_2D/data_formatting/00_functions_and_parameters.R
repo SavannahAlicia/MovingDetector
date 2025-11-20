@@ -16,8 +16,8 @@ lambda0 = .001
 sigma = 300
 beta1 <- -(1/40000)
 beta2 <- -2500
-beta3 <- 1.73
-flatD = 0.4
+beta3 <- 1.036
+flatD = 0.2
 
 nsims = 50
 set.seed(1994)
