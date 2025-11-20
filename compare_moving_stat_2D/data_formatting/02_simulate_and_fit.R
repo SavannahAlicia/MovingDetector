@@ -2,57 +2,75 @@
 ###-----------simulate data for moving and stationary detectors-----------------
 ###-------and fit model with stationary and moving detector---------------------
 
-sim_fit <- function(tracksdf, 
-                    traps,
-                    trapcells,
-                    dist_trapmesh,
-                    useall,
-                    lambda0, 
-                    sigma, 
-                    D_mesh, 
-                    beta1, 
-                    beta2,
-                    hazdenom, 
-                    mesh, 
-                    meshunit, #area or length
-                    Dmod = "~1"){
+simulate_popandcapthist <- function(traps,
+                                    tracksdf, 
+                                    lambda0,
+                                    sigma,
+                                    D_mesh,
+                                    mesh,
+                                    meshspacing,
+                                    hazdenom){
   start.time.sim <- Sys.time()
   #capthist dim(inds, traps)
-  capthist_full <- sim_capthist(pop = NULL, 
-                                traps, 
-                                tracksdf,
-                                lambda0, 
-                                sigma, 
-                                D_mesh,
-                                hazdenom, #for hazard rate
-                                mesh,
-                                meshunit) 
+  pop <- sim_pop_C(D_mesh, 
+                   as.matrix(mesh), 
+                   meshspacing)
+  dist_dat_pop <- calc_dist_matC(pop, 
+                                 as.matrix(tracksdf[,c("x","y")]))
+  
+  capthist_full <- sim_capthist_C(as.matrix(traps),
+                                  tracksdf, 
+                                  lambda0,
+                                  sigma,
+                                  D_mesh,
+                                  as.matrix(mesh),
+                                  meshspacing,
+                                  hazdenom,
+                                  pop,
+                                  dist_dat_pop,
+                                  report_probseenxk = F)
   capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
   
-  #in case mesh is df
-  mesh_mat <- as.matrix(mesh)
-  
   #standard scr likelihood
-  #occasions will be each survey (so for stationary, single trap per occasion)
   nocc <- length(unique(tracksdf$occ))
+  trapspacing <- sort(unique(traps$x))[2]- sort(unique(traps$x))[1]
   
   #use
-  induse_ls <- create_ind_use(capthist, trapcells, tracksdf)
-  induse <- aperm(
-    array(unlist(induse_ls), 
-          dim =c(nrow(traps), nocc, dim(capthist)[1])), 
-    c(3, 1, 2))
-  
+  induse <- create_ind_use_C(capthist, as.matrix(traps), trapspacing, tracksdf,
+                             scenario = "everything")
   
   #convert capthist to 1s and 0s
   capthist[is.na(capthist)] <- 0
   capthist[capthist!=0] <- 1
   
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
+  out_ls <- list(capthist = capthist,
+                 induse = induse,
+                 fit.time.sim = fit.time.sim)
+}
+
+fit_capthist <- function(dist_trapmesh,
+                    useall,
+                    lambda0, 
+                    sigma, 
+                    D_mesh, 
+                    beta1, 
+                    beta2,
+                    beta3,
+                    hazdenom, 
+                    mesh, 
+                    Dmod = "~1",
+                    capthistout){
+
+  capthist = capthistout$capthist
+  induse = capthistout$induse
+  
+  #in case mesh is df
+  mesh_mat <- as.matrix(mesh)
   
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
-    start0 <- c( #logit(lambda0), 
+    start0 <- c( 
       log(lambda0),
       log(sigma), log(D_mesh[1]))
     scaling_factors <- 10^round(log10(abs(start0)))
@@ -60,7 +78,7 @@ sim_fit <- function(tracksdf,
     
     stat_nll <- function(v_scaled ){
       v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1])
+      lambda0_ <- exp(v[1])
       sigma_ <- exp(v[2])
       D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -84,9 +102,9 @@ sim_fit <- function(tracksdf,
 
     
   }else if(Dmod == "~x^2"){  
-    start0 <- c(#logit(lambda0),
+    start0 <- c(
       log(lambda0),
-      log(sigma), beta1, beta2)
+      log(sigma), beta1, beta2, beta3)
     scaling_factors <- 10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
@@ -95,7 +113,7 @@ sim_fit <- function(tracksdf,
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)
+      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
@@ -107,7 +125,7 @@ sim_fit <- function(tracksdf,
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2)#exp(beta1*(mesh$x + beta2)^2)
+      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])#exp(beta1*(mesh$x + beta2)^2 + beta3)
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
@@ -156,6 +174,7 @@ sim_fit <- function(tracksdf,
               movdet_est = assemble_CIs(fit_md),
               statdet_time = fit.time.sd,
               movdet_time = fit.time.md,
-              sim_time = fit.time.sim)
+              sim_time = fit.time.sim,
+              n = dim(capthist)[1])
   return(out)
 }
