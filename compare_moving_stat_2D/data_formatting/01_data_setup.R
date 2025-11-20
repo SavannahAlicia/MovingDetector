@@ -74,11 +74,6 @@ useallC <- create_ind_use_C(emptych, traps, trapspacing, tracksdf, scenario = "e
 useall <- as.matrix(useallC[1,,])
 
 #calculate distance matrix for all trap cells and mesh cells
-dist_trapmesh <- apply(as.matrix(mesh), 1, function(meshm){
-  apply(as.matrix(traps), 1, function(trapj){
-    dist(rbind(trapj,
-               meshm), method = "euclidean")
-  }) })
 dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
 ggplot() +
