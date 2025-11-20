@@ -517,139 +517,6 @@ Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
   return use;
 }
 
-//----------------- Simulating capture histories -------------------------------
-
-// [[Rcpp::export]]
-Rcpp::NumericMatrix sim_pop_C( NumericVector D_mesh,
-                               NumericMatrix mesh,
-                               double meshspacing) {
-  // N ~ Poisson(sum(D_mesh))
-  double Dlambda = 0.0;
-  for (int i = 0; i < D_mesh.size(); ++i) {
-    Dlambda += D_mesh[i];
-  }
-  
-  int N = R::rpois(Dlambda);
-  
-  // sample mesh according to D_mesh
-  NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);
-  IntegerVector popmeshAC = Rcpp::sample(D_mesh.size(), N, true, meshprobs);
-  
-  // choose locations within each mesh cell uniformly
-  NumericMatrix pop(N,2);
-  for(int i = 0; i < N; ++i) {
-    double x = mesh(popmeshAC[i],1);
-    double y = mesh(popmeshAC[i],2);
-    pop(i,1) = R::runif(x - (meshspacing/2), x + (meshspacing/2));
-    pop(i,2) = R::runif(y - (meshspacing/2), y + (meshspacing/2));
-  }
-  return pop;
-}
-
-// [[Rcpp::export]]
-
-Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
-                             DataFrame tracksdf,
-                             double lambda0,
-                             double sigma,
-                             NumericVector D_mesh,
-                             NumericMatrix mesh,
-                             double meshspacing,
-                             double hazdenom,
-                             bool report_probseenxk = false,
-                             NumericMatrix pop = R_NilValue,
-                             NumericMatrix dist_dat_pop = R_NilValue
-){
-  IntegerVector occs = Rcpp::unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occasion"]));
-  int nocc = occs.size();
-  if(pop.isNULL()){
-  pop = sim_pop_C(D_mesh,
-                  mesh,
-                  meshspacing);
-  } 
-  int N = pop.nrow();
-  
-  IntegerVector dims = {N, nocc, traps.nrow()};
-  NumericVector ch(N * nocc * traps.nrow());
-  ch.attr("dim") = dims;
-  
-  NumericMatrix tracksxy(tracksdf.nrows(), 2);
-  tracksxy(_, 0) = tracksdf["x"];
-  tracksxy(_, 1) = tracksdf["y"];
-  NumericVector tracktimes = tracksdf["time"];
-  if(dist_dat_pop.isNULL()){
-    dist_dat_pop = calc_dist_matC(pop, tracksxy);
-  }
-  
-  //capthist loops
-  for (int i = 0; i < N; ++i){
-    for (int k = 0; k < nocc; ++k){
-      
-    }
-  }
-  //   capthist <- lapply(as.list(1:nrow(pop)), #for each individual
-  //                      FUN = function(i){
-  //                        lapply(as.list(unique(tracksdf$occ)),
-  //                               FUN = function(occk){
-  //                                 #prob individual is seen this occasion (survey)
-  //                                 trackoccdf <- tracksdf[tracksdf$occ == occk,]
-  //                                 begintimek <- min(trackoccdf$time)
-  //                                 #NOTE if you want a distance denominated hazard, use length diffs for hazdenom
-  //                                 #if you want rate per unit time, use time increment in seconds
-  //                                 increments <- #c(0, 
-  //                                   # difftime(trackoccdf$time[-1], 
-  //                                   #          trackoccdf$time[-nrow(trackoccdf)], 
-  //                                   #          unit = "secs"))
-  //                                   c(0, apply(as.array(1:(nrow(trackoccdf)-1)), 1, function(x){
-  //                                     sqrt((tracksdf[x, c("x")]-tracksdf[x+1, c("x")])^2 + (tracksdf[x, c("y")]-tracksdf[x+1, c("y")])^2)
-  //                                     }))
-  //                                 hazs <- apply(as.array(dist_dat_pop[i,tracksdf$occ == occk]),
-  //                                               1, FUN = function(d){
-  //                                                 hazdist_cpp(lambda0, sigma, d, hazdenom)
-  //                                               })
-  //                                 integ <- sum(hazs * (increments/hazdenom)) #hazard is per time incr, need how many increments (or if dist, per dist incr)
-  //                                 survk <- exp(-integ)
-  //                                 probseenxk <- 1 - survk 
-  //                                 if (report_probseenxk) { 
-  //                                   return(probseenxk)
-  //                                 } else {
-  //                                   #seenxk_bool <- rbinom(1,1, probseenxk)
-  //                                   #if (seenxk_bool){
-  //                                   survive_until_t <- exp(-1 * (cumsum(hazs * (increments/hazdenom))))
-  //                                   survive_t_inc <- exp(-1 * hazs * (increments/hazdenom))
-  //                                   seenfirstat_t <- survive_until_t[-length(survive_until_t)] * (1 - survive_t_inc[-1]) #really seen first in time increment that ends in t and begins at t-1
-  //                                   seenfirstatt <- c(0, seenfirstat_t)
-  //                                   #need to record time of detection at traps as defined in grid
-  //                                   det <- sample(x = c(1:(nrow(trackoccdf)+1)), size = 1, replace = T,  
-  //                                                 prob = c(seenfirstatt, survk))
-  //                                   capik <- rep((NA), nrow(traps))
-  //                                   if(det != (length(seenfirstatt) + 1)){ #if didn't survive detection
-  //                                     trapdet <- trackoccdf[det,"trapno"]
-  //                                     timedet <- difftime(trackoccdf[det, "time"], begintimek, units = "secs")
-  //                                     capik[trapdet] <- timedet
-  //                                   }
-  //                                   return(capik) 
-  //                                 }
-  //                                 
-  //                               })
-  //                      }) 
-  //   if(report_probseenxk){
-  //     capthist_array <- t(
-  //       array(unlist(capthist), 
-  //             dim = c(nocc,nrow(pop))) 
-  //     ) #ind by occasion
-  //   } else {
-  //     capthist_array <- aperm(
-  //       array(unlist(capthist), 
-  //             dim =c(nrow(traps), nocc,  nrow(pop))), 
-  //       c(3, 2, 1)) #ind x occ x traps
-  //     
-  //   }
-  return ch;
-}
-
-
-
 //----------------- Likelihood related functions -------------------------------
 
 // [[Rcpp::export]]
@@ -671,6 +538,142 @@ double hazdist_cpp(double lambda0,
   double haz  = g0; //log(1 - g0) * -1 *  1/timeincr ; //
   return haz;
 }
+
+//----------------- Simulating capture histories -------------------------------
+
+// [[Rcpp::export]]
+Rcpp::NumericMatrix sim_pop_C( NumericVector D_mesh,
+                               NumericMatrix mesh,
+                               double meshspacing) {
+  // N ~ Poisson(sum(D_mesh))
+  double Dlambda = 0.0;
+  for (int i = 0; i < D_mesh.size(); ++i) {
+    Dlambda += D_mesh[i];
+  }
+  
+  int N = R::rpois(Dlambda);
+  
+  // sample mesh according to D_mesh
+  NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);
+  IntegerVector Dmeshsample = seq(0, D_mesh.size()-1);
+  IntegerVector popmeshAC = Rcpp::sample(Dmeshsample, N, true, meshprobs);
+  
+  // choose locations within each mesh cell uniformly
+  NumericMatrix pop(N,2);
+  for(int i = 0; i < N; ++i) {
+    double x = mesh(popmeshAC[i],1);
+    double y = mesh(popmeshAC[i],2);
+    pop(i,0) = R::runif(x - (meshspacing/2), x + (meshspacing/2));
+    pop(i,1) = R::runif(y - (meshspacing/2), y + (meshspacing/2));
+  }
+  return pop;
+}
+
+// [[Rcpp::export]]
+
+Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
+                             DataFrame tracksdf,
+                             double lambda0,
+                             double sigma,
+                             NumericVector D_mesh,
+                             NumericMatrix mesh,
+                             double meshspacing,
+                             double hazdenom,
+                             //std::string scenario = "everything",
+                             bool report_probseenxk = false,
+                             NumericMatrix pop = R_NilValue,
+                             NumericMatrix dist_dat_pop = R_NilValue
+){
+  IntegerVector uniq_occs = sort_unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occasion"]));
+  int nocc = uniq_occs.size();
+  if(pop.isNULL()){
+  pop = sim_pop_C(D_mesh,
+                  mesh,
+                  meshspacing);
+  } 
+  int N = pop.nrow();
+  
+  IntegerVector dims = {N, nocc, traps.nrow()};
+  NumericVector ch(N * nocc * traps.nrow());
+  ch.attr("dim") = dims;
+  
+  NumericMatrix tracksxy(tracksdf.nrows(), 2);
+  tracksxy(_, 0) = tracksdf["x"];
+  tracksxy(_, 1) = tracksdf["y"];
+  NumericVector tracktimes = tracksdf["time"];
+  IntegerVector occ = tracksdf["occ"];
+  IntegerVector trapnos = tracksdf["trapno"];
+  
+  if(dist_dat_pop.isNULL()){
+    dist_dat_pop = calc_dist_matC(pop, tracksxy);
+  }
+  
+  //capthist loops
+  NumericMatrix probseen(N,nocc);
+   for (int k = 0; k < nocc; ++k){
+      int track_id = uniq_occs[k];
+      
+      // Indices for this occasion from tracksdf (of points, not segments)
+      LogicalVector mask = occ == track_id;
+      IntegerVector idx = Rcpp::seq(0, tracksdf.nrows() - 1); // indexes rows of entire tracksdf
+      idx = idx[mask]; // subsetted to rows that are in this occasion
+      int nsteps = idx.size();
+      // calculate 'increments' (step sizes along track, can be time or dist)
+      //if hazard is per unit distance
+      // calculate distance of line segments associated with tracksdf
+      // (currently no way to subset line segments by effort label)
+      // time denominated hazard not yet implemented
+      double begintime = vec_min(tracktimes[idx]);
+      NumericVector increments(nsteps);
+
+      for(int d = 1; d <  nsteps; d ++){ //first one is 0, so start at 1
+        int x = idx[d];
+        increments[d] = std::sqrt((tracksxy((x-1), 1) - tracksxy(x,1)) * (tracksxy((x-1), 1) - tracksxy(x,1)) +
+          (tracksxy((x-1),2) - tracksxy(x,2)) * (tracksxy((x-1),2) - tracksxy(x,2)));
+        
+      }
+      
+      for (int i = 0; i < N; ++i){
+        NumericVector hus(nsteps);
+        double cumhus = 0.0;
+        NumericVector seenfirstatt(nsteps + 1); //last entry is not seen any t
+        for(int e = 0; e < nsteps; e ++){
+          int x = idx[e]; //index of row in tracksdf
+          double d = dist_dat_pop(i,x);
+          double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
+          hus[e] = haz * increments[e];
+          double survive_until_tminus1 = exp(-cumhus);
+          cumhus += hus[e];
+          double survive_until_t = exp(-cumhus);
+          double survive_t_inc = exp(-hus[e]);
+          if(e == 0){
+            seenfirstatt[e] = 0;
+          } else{
+            seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc);
+          }
+        }
+        double integ = Rcpp::sum(hus);
+        double survk = exp(-integ);
+        probseen(i,k) = 1 - survk;
+        seenfirstatt[nsteps] = survk;
+        IntegerVector nstepsample = seq(0, nsteps); //length nsteps+1
+        int stepdet = Rcpp::sample(nstepsample, 1, false, seenfirstatt)[0];
+        if(stepdet != nsteps){
+          int trapdet = trapnos[idx[stepdet]];
+          double timedet = tracktimes[idx[stepdet]] - begintime;
+     
+          ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap
+        }
+    }
+  }
+  if(report_probseenxk){
+    return probseen;
+  } else {
+    return ch;
+  }
+
+}
+
 //#---------------------Moving Detector multi-catch LLK (approximated with traps)
 //-----------------Likelihood --------------------------------------------------
 
