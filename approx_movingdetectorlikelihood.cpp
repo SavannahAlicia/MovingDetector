@@ -9,7 +9,7 @@ using namespace Rcpp;
 //----------------- Supporting functions ---------------------------------------
 // [[Rcpp::export]]
 Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
-  Rcpp::NumericVector indices;
+  NumericVector indices;
   for(int i = 0; i < x.size(); ++i) {
     if(Rcpp::NumericVector::is_na(x[i])) {}else{
       indices.push_back(i); 
@@ -20,10 +20,10 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
 
 // [[Rcpp::export]]
 Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//traps (j) xy
-                                   Rcpp::NumericMatrix h //hrcs (i) xy
+                                   NumericMatrix h //hrcs (i) xy
                                      ) {
   // Distance matrix has i rows and j columns
-  Rcpp::NumericMatrix dist_mat(t.nrow(), h.nrow());
+  NumericMatrix dist_mat(t.nrow(), h.nrow());
   for(int i = 0; i < h.nrow(); ++i) {
     for(int j = 0; j < t.nrow(); ++j) {
       double dx = t(j,0) - h(i,0);
@@ -36,7 +36,7 @@ Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//traps (j) xy
 
 // [[Rcpp::export]]
 Rcpp::NumericVector seqC(int &first, int &last) {
-  Rcpp::NumericVector y(abs(last - first) + 1);
+  NumericVector y(abs(last - first) + 1);
   if (first < last) 
     std::iota(y.begin(), y.end(), first);
   else {
@@ -54,7 +54,7 @@ Rcpp::NumericMatrix cubeRowToNumericMatrix(arma::cube cube,
   int n_slices = cube.n_slices;
   
   // Create a NumericMatrix to store the row
-  Rcpp::NumericMatrix result(n_cols, n_slices);
+  NumericMatrix result(n_cols, n_slices);
   
   // Copy the row from the cube to the NumericMatrix
   for (int col = 0; col < n_cols; ++col) {
@@ -66,7 +66,7 @@ Rcpp::NumericMatrix cubeRowToNumericMatrix(arma::cube cube,
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericVector Sugar_colSums(const Rcpp::NumericMatrix x) {
+Rcpp::NumericVector Sugar_colSums(const NumericMatrix x) {
   return colSums(x);
 }
 
@@ -92,7 +92,7 @@ double sumC(Rcpp::NumericVector x) {
 // [[Rcpp::export]]
 Rcpp::NumericVector logvec(Rcpp::NumericVector x) {
   int n = x.size();
-  Rcpp::NumericVector newvec(n);
+  NumericVector newvec(n);
   for(int i = 0; i < n; i++){
     newvec(i) = log(x(i));
   }
@@ -102,7 +102,7 @@ Rcpp::NumericVector logvec(Rcpp::NumericVector x) {
 // [[Rcpp::export]]
 double vec_min(Rcpp::NumericVector x) {
   // Rcpp supports STL-style iterators
-  Rcpp::NumericVector::iterator it = std::min_element(x.begin(), x.end());
+  NumericVector::iterator it = std::min_element(x.begin(), x.end());
   // we want the value so dereference 
   return *it;
 }
@@ -110,7 +110,7 @@ double vec_min(Rcpp::NumericVector x) {
 // [[Rcpp::export]]
 double vec_max(Rcpp::NumericVector x) {
   // Rcpp supports STL-style iterators
-  Rcpp::NumericVector::iterator it = std::max_element(x.begin(), x.end());
+  NumericVector::iterator it = std::max_element(x.begin(), x.end());
   // we want the value so dereference 
   return *it;
 }
@@ -123,7 +123,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
                              std::string scenario = "everything") {
   
   // Check that required columns exist
-  Rcpp::CharacterVector colnames = tracksdf.names();
+  CharacterVector colnames = tracksdf.names();
   
   // Check required columns
   if (std::find(colnames.begin(), colnames.end(), "x") == colnames.end() ||
@@ -137,26 +137,26 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   bool has_effort = (std::find(colnames.begin(), colnames.end(), "effort") != colnames.end());
   
   // If "effort" exists, extract it
-  Rcpp::CharacterVector effort;
+  CharacterVector effort;
   if (has_effort) {
     effort = tracksdf["effort"];
   }
   
-  Rcpp::NumericVector x = tracksdf["x"];
-  Rcpp::NumericVector y = tracksdf["y"];
-  Rcpp::IntegerVector occ = tracksdf["occ"];
-  Rcpp::NumericVector time = tracksdf["time"];
+  NumericVector x = tracksdf["x"];
+  NumericVector y = tracksdf["y"];
+  IntegerVector occ = tracksdf["occ"];
+  NumericVector time = tracksdf["time"];
   
   // Find unique track IDs
-  Rcpp::IntegerVector uniq_occ = sort_unique(occ);
+  IntegerVector uniq_occ = sort_unique(occ);
   int n_occ = uniq_occ.size();
   
   // Initialize output
-  Rcpp::List out_list(n_occ);
-  Rcpp::CharacterVector out_names(n_occ);
+  List out_list(n_occ);
+  CharacterVector out_names(n_occ);
   
   // Column names for numeric matrices
-  Rcpp::CharacterVector mat_colnames(5);
+  CharacterVector mat_colnames(5);
   mat_colnames[0] = "x1";
   mat_colnames[1] = "y1";
   mat_colnames[2] = "x2";
@@ -168,8 +168,8 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
     int track_id = uniq_occ[k];
     
     // Indices for this occasion from tracksdf (of points, not segments)
-    Rcpp::LogicalVector mask = occ == track_id;
-    Rcpp::IntegerVector idx = Rcpp::seq(0, occ.size() - 1); // indexes rows of entire tracksdf
+    LogicalVector mask = occ == track_id;
+    IntegerVector idx = Rcpp::seq(0, occ.size() - 1); // indexes rows of entire tracksdf
     idx = idx[mask]; // subsetted to rows that are in this occasion
     
     // If there are less than two points in a track
@@ -195,7 +195,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
     }
     
     // --- Preallocate numeric vectors ---
-    Rcpp::NumericMatrix seg_mat(seg_count, 5);
+    NumericMatrix seg_mat(seg_count, 5);
     
     // --- Fill them ---
     int seg_index = 0;
@@ -213,8 +213,8 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
       }
     }
     
-    Rcpp::List dimnames(2);
-    dimnames[0] = Rcpp::CharacterVector(seg_count); // empty row names
+    List dimnames(2);
+    dimnames[0] = CharacterVector(seg_count); // empty row names
     dimnames[1] = mat_colnames;                     // column names
     Rf_setAttrib(seg_mat, R_DimNamesSymbol, dimnames);
     
@@ -227,12 +227,12 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
 }
  
  // [[Rcpp::export]]
- Rcpp::NumericMatrix create_grid_bboxes_C(Rcpp::DataFrame grid,
+ NumericMatrix create_grid_bboxes_C(Rcpp::DataFrame grid,
                                              double spacing) {
    
    // Extract coordinates
-   Rcpp::NumericVector x = grid["x"];
-   Rcpp::NumericVector y = grid["y"];
+   NumericVector x = grid["x"];
+   NumericVector y = grid["y"];
    
    int n = x.size();
    if (spacing <= 0) Rcpp::stop("spacing must be positive");
@@ -240,7 +240,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
    double h = spacing / 2.0;
    
    // Prepare output matrix: columns = left, right, bottom, top
-   Rcpp::NumericMatrix bboxes(n, 4);
+   NumericMatrix bboxes(n, 4);
    
    for (int i = 0; i < n; ++i) {
      bboxes(i,0) = x[i] - h; // left
@@ -249,14 +249,14 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
      bboxes(i,3) = y[i] + h; // top
    }
    
-   Rcpp::CharacterVector rownames(bboxes.nrow()); 
-   Rcpp::CharacterVector colnames(4);
+   CharacterVector rownames(bboxes.nrow()); 
+   CharacterVector colnames(4);
    colnames[0] = "left";
    colnames[1] = "right";
    colnames[2] = "bottom";
    colnames[3] = "top";
    
-   Rcpp::List dimnames(2);
+   List dimnames(2);
    dimnames[0] = rownames; // row names
    dimnames[1] = colnames; // column names
    
@@ -268,7 +268,7 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
  // [[Rcpp::export]]
  // Need to check error handling for vertical/horizontal lines
  double get_length_C(Rcpp::NumericVector line, 
-                              Rcpp::NumericVector box) {
+                              NumericVector box) {
    
    // Constants for region codes
    const int INSIDE = 0; // 0000
@@ -378,23 +378,23 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
 
 // [[Rcpp::export]]
 Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
-                                   Rcpp::DataFrame traps,
+                                   DataFrame traps,
                                    double spacing,
-                                   Rcpp::DataFrame tracksdf,
+                                   DataFrame tracksdf,
                                    std::string scenario = "everything"
 ){
-  Rcpp::NumericVector use(ch.size(), 0.0);
-  Rcpp::IntegerVector newdims(3);
-  Rcpp::IntegerVector olddims = ch.attr("dim");
+  NumericVector use(ch.size(), 0.0);
+  IntegerVector newdims(3);
+  IntegerVector olddims = ch.attr("dim");
   newdims[0] = olddims[0]; //i
   newdims[1] = olddims[2]; //j
   newdims[2] = olddims[1]; //k
   use.attr("dim") = newdims;
   //create tracklines
-  Rcpp::List lines = create_line_list_C(tracksdf, scenario);
+  List lines = create_line_list_C(tracksdf, scenario);
   
   //create trap grid bboxes
-  Rcpp::NumericMatrix trap_cells = create_grid_bboxes_C(traps, spacing);
+  NumericMatrix trap_cells = create_grid_bboxes_C(traps, spacing);
   
   auto indexify3D = [&](int i, 
                         int j,
@@ -406,8 +406,8 @@ Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
     return index;
   };
   
-  Rcpp::IntegerVector occ  = tracksdf["occ"];
-  Rcpp::NumericVector time = tracksdf["time"];
+  IntegerVector occ  = tracksdf["occ"];
+  NumericVector time = tracksdf["time"];
   
   auto min_time = [&](int k) {
     double minval = NA_REAL;
@@ -427,7 +427,7 @@ Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
     
     // setup effort for if i not detected in k
     bool useallk_exists = false;
-    Rcpp::NumericVector useallk(newdims[1], 0.0);
+    NumericVector useallk(newdims[1], 0.0);
     
     
     // line segments for occasion k
@@ -435,14 +435,14 @@ Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
       Rcpp::warning("Line %d has no length, all effort 0 for this occasion.", k);
     } else {
      
-     Rcpp::NumericMatrix linek = lines[k];
-      Rcpp::NumericVector linetimes = linek(_,4); 
+     NumericMatrix linek = lines[k];
+      NumericVector linetimes = linek(_,4); 
       
       double min_timek = min_time(k);
       
       for (int i = 0; i < newdims[0]; ++i) {
         //create output 
-        // Rcpp::NumericVector lengths_in_traps(newdims[1]);
+        // NumericVector lengths_in_traps(newdims[1]);
         
         //check if all ch[i,k,] are NA
         //bool i_det_k = false;
@@ -517,6 +517,139 @@ Rcpp::NumericVector create_ind_use_C(Rcpp::NumericVector ch,
   return use;
 }
 
+//----------------- Simulating capture histories -------------------------------
+
+// [[Rcpp::export]]
+Rcpp::NumericMatrix sim_pop_C( NumericVector D_mesh,
+                               NumericMatrix mesh,
+                               double meshspacing) {
+  // N ~ Poisson(sum(D_mesh))
+  double Dlambda = 0.0;
+  for (int i = 0; i < D_mesh.size(); ++i) {
+    Dlambda += D_mesh[i];
+  }
+  
+  int N = R::rpois(Dlambda);
+  
+  // sample mesh according to D_mesh
+  NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);
+  IntegerVector popmeshAC = Rcpp::sample(D_mesh.size(), N, true, meshprobs);
+  
+  // choose locations within each mesh cell uniformly
+  NumericMatrix pop(N,2);
+  for(int i = 0; i < N; ++i) {
+    double x = mesh(popmeshAC[i],1);
+    double y = mesh(popmeshAC[i],2);
+    pop(i,1) = R::runif(x - (meshspacing/2), x + (meshspacing/2));
+    pop(i,2) = R::runif(y - (meshspacing/2), y + (meshspacing/2));
+  }
+  return pop;
+}
+
+// [[Rcpp::export]]
+
+Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
+                             DataFrame tracksdf,
+                             double lambda0,
+                             double sigma,
+                             NumericVector D_mesh,
+                             NumericMatrix mesh,
+                             double meshspacing,
+                             double hazdenom,
+                             bool report_probseenxk = false,
+                             NumericMatrix pop = R_NilValue,
+                             NumericMatrix dist_dat_pop = R_NilValue
+){
+  IntegerVector occs = Rcpp::unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occasion"]));
+  int nocc = occs.size();
+  if(pop.isNULL()){
+  pop = sim_pop_C(D_mesh,
+                  mesh,
+                  meshspacing);
+  } 
+  int N = pop.nrow();
+  
+  IntegerVector dims = {N, nocc, traps.nrow()};
+  NumericVector ch(N * nocc * traps.nrow());
+  ch.attr("dim") = dims;
+  
+  NumericMatrix tracksxy(tracksdf.nrows(), 2);
+  tracksxy(_, 0) = tracksdf["x"];
+  tracksxy(_, 1) = tracksdf["y"];
+  NumericVector tracktimes = tracksdf["time"];
+  if(dist_dat_pop.isNULL()){
+    dist_dat_pop = calc_dist_matC(pop, tracksxy);
+  }
+  
+  //capthist loops
+  for (int i = 0; i < N; ++i){
+    for (int k = 0; k < nocc; ++k){
+      
+    }
+  }
+  //   capthist <- lapply(as.list(1:nrow(pop)), #for each individual
+  //                      FUN = function(i){
+  //                        lapply(as.list(unique(tracksdf$occ)),
+  //                               FUN = function(occk){
+  //                                 #prob individual is seen this occasion (survey)
+  //                                 trackoccdf <- tracksdf[tracksdf$occ == occk,]
+  //                                 begintimek <- min(trackoccdf$time)
+  //                                 #NOTE if you want a distance denominated hazard, use length diffs for hazdenom
+  //                                 #if you want rate per unit time, use time increment in seconds
+  //                                 increments <- #c(0, 
+  //                                   # difftime(trackoccdf$time[-1], 
+  //                                   #          trackoccdf$time[-nrow(trackoccdf)], 
+  //                                   #          unit = "secs"))
+  //                                   c(0, apply(as.array(1:(nrow(trackoccdf)-1)), 1, function(x){
+  //                                     sqrt((tracksdf[x, c("x")]-tracksdf[x+1, c("x")])^2 + (tracksdf[x, c("y")]-tracksdf[x+1, c("y")])^2)
+  //                                     }))
+  //                                 hazs <- apply(as.array(dist_dat_pop[i,tracksdf$occ == occk]),
+  //                                               1, FUN = function(d){
+  //                                                 hazdist_cpp(lambda0, sigma, d, hazdenom)
+  //                                               })
+  //                                 integ <- sum(hazs * (increments/hazdenom)) #hazard is per time incr, need how many increments (or if dist, per dist incr)
+  //                                 survk <- exp(-integ)
+  //                                 probseenxk <- 1 - survk 
+  //                                 if (report_probseenxk) { 
+  //                                   return(probseenxk)
+  //                                 } else {
+  //                                   #seenxk_bool <- rbinom(1,1, probseenxk)
+  //                                   #if (seenxk_bool){
+  //                                   survive_until_t <- exp(-1 * (cumsum(hazs * (increments/hazdenom))))
+  //                                   survive_t_inc <- exp(-1 * hazs * (increments/hazdenom))
+  //                                   seenfirstat_t <- survive_until_t[-length(survive_until_t)] * (1 - survive_t_inc[-1]) #really seen first in time increment that ends in t and begins at t-1
+  //                                   seenfirstatt <- c(0, seenfirstat_t)
+  //                                   #need to record time of detection at traps as defined in grid
+  //                                   det <- sample(x = c(1:(nrow(trackoccdf)+1)), size = 1, replace = T,  
+  //                                                 prob = c(seenfirstatt, survk))
+  //                                   capik <- rep((NA), nrow(traps))
+  //                                   if(det != (length(seenfirstatt) + 1)){ #if didn't survive detection
+  //                                     trapdet <- trackoccdf[det,"trapno"]
+  //                                     timedet <- difftime(trackoccdf[det, "time"], begintimek, units = "secs")
+  //                                     capik[trapdet] <- timedet
+  //                                   }
+  //                                   return(capik) 
+  //                                 }
+  //                                 
+  //                               })
+  //                      }) 
+  //   if(report_probseenxk){
+  //     capthist_array <- t(
+  //       array(unlist(capthist), 
+  //             dim = c(nocc,nrow(pop))) 
+  //     ) #ind by occasion
+  //   } else {
+  //     capthist_array <- aperm(
+  //       array(unlist(capthist), 
+  //             dim =c(nrow(traps), nocc,  nrow(pop))), 
+  //       c(3, 2, 1)) #ind x occ x traps
+  //     
+  //   }
+  return ch;
+}
+
+
+
 //----------------- Likelihood related functions -------------------------------
 
 // [[Rcpp::export]]
@@ -547,12 +680,12 @@ double
     double lambda0,
     double sigma, 
     int timeincr,
-    Rcpp::NumericVector D_mesh,
+    NumericVector D_mesh,
     arma::cube capthist,
-    Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
+    NumericMatrix usage, //traps by occ, could be calculated from indusage
     arma::cube indusage, // ind by traps by occ
-    Rcpp::NumericMatrix distmat, //traps x mesh 
-    Rcpp::NumericMatrix mesh, //first column x, second y
+    NumericMatrix distmat, //traps x mesh 
+    NumericMatrix mesh, //first column x, second y
     bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
@@ -560,15 +693,15 @@ double
     clock.tick("setup");
     int one = 1;
     int captrap = capthist.n_slices;
-    Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
+    NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
     int capocc = capthist.n_cols;
-    Rcpp::NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
+    NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
     //calculate mesh area (note this is for a rectangular mesh grid, will need to
     //be recalculated for irregular shaped mesh)
-    Rcpp::NumericVector meshx = mesh.column(0);
-    Rcpp::NumericVector meshy = mesh.column(1);
-    Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-    Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
+    NumericVector meshx = mesh.column(0);
+    NumericVector meshy = mesh.column(1);
+    NumericVector meshxsorted = Rcpp::sort_unique(meshx);
+    NumericVector meshysorted = Rcpp::sort_unique(meshy);
     double mesharea;
     if(linear){
       mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km     
@@ -578,13 +711,13 @@ double
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
-    Rcpp::NumericMatrix notseen_mk(meshx.length(), occs.size());
-    Rcpp::NumericVector Dx_pdotxs(meshx.length());
+    NumericMatrix notseen_mk(meshx.length(), occs.size());
+    NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
       //Rcpp::NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < occs.size(); occk++){
-        Rcpp::NumericVector hu_eachtrap((traps.size()));
+        NumericVector hu_eachtrap((traps.size()));
         for(int trapj = 0; trapj < traps.size(); trapj++){
           if(usage(trapj, occk) == 0){
             hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
@@ -605,11 +738,11 @@ double
     //rest of likelihood
     clock.tick("loopllk");
     double n = capthist.n_rows;
-    Rcpp::NumericVector integral_eachi(n);
+    NumericVector integral_eachi(n);
     for(int i = 0; i < n; i++){
-      Rcpp::NumericVector DKprod_eachx(meshx.length());
+      NumericVector DKprod_eachx(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
-        Rcpp::NumericVector probcapthist_eachocc(occs.length());
+        NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = false;
           double sumtoj_ind_ijk;
@@ -650,12 +783,12 @@ double
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
-    Rcpp::NumericVector ns(n);
+    NumericVector ns(n);
     ns = seqC(one, n_int);
-    Rcpp::NumericVector logns(n);
+    NumericVector logns(n);
     logns = log(ns);
     double lognfact = sum(logns);
-    Rcpp::NumericVector logint = logvec(integral_eachi);
+    NumericVector logint = logvec(integral_eachi);
     double sumlogint = sumC(logint);
     double out = -1 * (-lambdan - lognfact + sumlogint);
     clock.tock("wholeenchilada");
@@ -671,11 +804,11 @@ double
     double lambda0,
     double sigma, 
     int timeincr,
-    Rcpp::NumericVector D_mesh,
+    NumericVector D_mesh,
     arma::cube capthist,
-    Rcpp::NumericMatrix usage, //traps by occ, could be calculated from indusage
-    Rcpp::NumericMatrix distmat, //traps x mesh 
-    Rcpp::NumericMatrix mesh, //first column x, second y
+    NumericMatrix usage, //traps by occ, could be calculated from indusage
+    NumericMatrix distmat, //traps x mesh 
+    NumericMatrix mesh, //first column x, second y
     bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
@@ -683,15 +816,15 @@ double
     clock.tick("setup");
     int one = 1;
     int captrap = capthist.n_slices;
-    Rcpp::NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
+    NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
     int capocc = capthist.n_cols;
-    Rcpp::NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
+    NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
     //calculate mesh area (note this is for a rectangular mesh grid, will need to
     //be recalculated for irregular shaped mesh)
-    Rcpp::NumericVector meshx = mesh.column(0);
-    Rcpp::NumericVector meshy = mesh.column(1);
-    Rcpp::NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-    Rcpp::NumericVector meshysorted = Rcpp::sort_unique(meshy);
+    NumericVector meshx = mesh.column(0);
+    NumericVector meshy = mesh.column(1);
+    NumericVector meshxsorted = Rcpp::sort_unique(meshx);
+    NumericVector meshysorted = Rcpp::sort_unique(meshy);
     double mesharea;
     if(linear){
       mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km
@@ -701,12 +834,12 @@ double
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
-    Rcpp::NumericVector Dx_pdotxs(meshx.length());
+    NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      Rcpp::NumericVector notseen_eachocc((occs.size()));
+      NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < occs.size(); occk++){
-        Rcpp::NumericVector notseen_eachtrap((traps.size()));
+        NumericVector notseen_eachtrap((traps.size()));
         for(int trapj = 0; trapj < traps.size(); trapj++){
           if(usage(trapj, occk) == 0){
             notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
@@ -728,15 +861,15 @@ double
     //rest of likelihood
     clock.tick("loopllk");
     double n = capthist.n_rows;
-    Rcpp::NumericVector integral_eachi(n);
+    NumericVector integral_eachi(n);
     for(int i = 0; i < n; i++){
-      Rcpp::NumericVector DKprod_eachx(meshx.length());
+      NumericVector DKprod_eachx(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
-        Rcpp::NumericVector probcapthist_eachocc(occs.length());
+        NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = false;
           int trapijk;
-          Rcpp::NumericVector hu_js(traps.length());
+          NumericVector hu_js(traps.length());
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
               hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);//hazard times usage for each trap. 
@@ -766,12 +899,12 @@ double
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
-    Rcpp::NumericVector ns(n);
+    NumericVector ns(n);
     ns = seqC(one, n_int);
-    Rcpp::NumericVector logns(n);
+    NumericVector logns(n);
     logns = log(ns);
     double lognfact = sum(logns);
-    Rcpp::NumericVector logint = logvec(integral_eachi);
+    NumericVector logint = logvec(integral_eachi);
     double sumlogint = sumC(logint);
     double out = -1 * (-lambdan - lognfact + sumlogint);
     clock.tock("wholeenchilada");
