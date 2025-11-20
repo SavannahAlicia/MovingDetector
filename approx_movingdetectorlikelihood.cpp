@@ -570,7 +570,8 @@ NumericMatrix sim_pop_C( NumericVector D_mesh,
 }
 
 // [[Rcpp::export]]
-NumericVector sim_capthist_C(NumericMatrix traps,
+NumericVector
+sim_capthist_C(NumericMatrix traps,
                              DataFrame tracksdf,
                              double lambda0,
                              double sigma,
@@ -623,6 +624,7 @@ NumericVector sim_capthist_C(NumericMatrix traps,
   IntegerVector probseendims = {N, nocc};
   probseen.attr("dim") = probseendims;
    for (int k = 0; k < nocc; ++k){
+
       int track_id = uniq_occs[k];
 
       // Indices for this occasion from tracksdf (of points, not segments)
@@ -643,8 +645,9 @@ NumericVector sim_capthist_C(NumericMatrix traps,
 
       for(int d = 1; d <  nsteps; d ++){ //first one is 0, so start at 1
         int x = idx[d];
-        increments[d] = std::sqrt((tracksxy((x-1), 1) - tracksxy(x,1)) * (tracksxy((x-1), 1) - tracksxy(x,1)) +
-          (tracksxy((x-1),2) - tracksxy(x,2)) * (tracksxy((x-1),2) - tracksxy(x,2)));
+        int xbefore = idx[d-1];
+        increments[d] = std::sqrt((tracksxy(xbefore, 0) - tracksxy(x,0)) * (tracksxy(xbefore, 0) - tracksxy(x,0)) +
+          (tracksxy(xbefore,1) - tracksxy(x,1)) * (tracksxy(xbefore,1) - tracksxy(x,1)));
 
       }
 
@@ -657,6 +660,9 @@ NumericVector sim_capthist_C(NumericMatrix traps,
           double d = dist_dat_pop(i,x);
           double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
           hus[e] = haz * increments[e];
+          if(hus[e] < 0){
+            Rcpp::stop("Negative hazard * effort");
+          }
           double survive_until_tminus1 = exp(-cumhus);
           cumhus += hus[e];
          // double survive_until_t = exp(-cumhus);
@@ -670,14 +676,21 @@ NumericVector sim_capthist_C(NumericMatrix traps,
         double integ = Rcpp::sum(hus);
         double survk = exp(-integ);
         probseen[i + k * N] = 1 - survk;
-        seenfirstatt[nsteps] = survk;
-        IntegerVector nstepsample = seq(0, nsteps); //length nsteps+1
-        int stepdet = Rcpp::sample(nstepsample, 1, false, seenfirstatt)[0];
-        if(stepdet != nsteps){
-          int trapdet = trapnos[idx[stepdet]];
-          double timedet = tracktimes[idx[stepdet]] - begintime;
-
-          ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap
+        if(!report_probseenxk){
+          seenfirstatt[nsteps] = survk;
+          IntegerVector nstepsample = seq(0, nsteps); //length nsteps+1
+          int stepdet = Rcpp::sample(nstepsample, 1, false, seenfirstatt)[0];
+          if(stepdet < nsteps){
+            int trapdet = trapnos[idx[stepdet]] - 1; //trapno column is index based 1 in R
+            if(trapdet < 0 || trapdet >= traps.nrow()) {
+              Rcpp::stop("trapdet index out of range: %d (max allowed %d)", trapdet, traps.nrow()-1);
+            }
+            
+            double timedet = tracktimes[idx[stepdet]] - begintime;
+            
+            ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap, ixkxj 
+          } 
+          
         }
     }
   }
@@ -686,7 +699,6 @@ NumericVector sim_capthist_C(NumericMatrix traps,
   } else {
     return ch;
   }
-
 }
 
 //#---------------------Moving Detector multi-catch LLK (approximated with traps)
