@@ -542,7 +542,7 @@ double hazdist_cpp(double lambda0,
 //----------------- Simulating capture histories -------------------------------
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix sim_pop_C( NumericVector D_mesh,
+NumericMatrix sim_pop_C( NumericVector D_mesh,
                                NumericMatrix mesh,
                                double meshspacing) {
   // N ~ Poisson(sum(D_mesh))
@@ -558,66 +558,81 @@ Rcpp::NumericMatrix sim_pop_C( NumericVector D_mesh,
   IntegerVector Dmeshsample = seq(0, D_mesh.size()-1);
   IntegerVector popmeshAC = Rcpp::sample(Dmeshsample, N, true, meshprobs);
   
-  // choose locations within each mesh cell uniformly
-  NumericMatrix pop(N,2);
-  for(int i = 0; i < N; ++i) {
-    double x = mesh(popmeshAC[i],1);
-    double y = mesh(popmeshAC[i],2);
-    pop(i,0) = R::runif(x - (meshspacing/2), x + (meshspacing/2));
-    pop(i,1) = R::runif(y - (meshspacing/2), y + (meshspacing/2));
-  }
+   // choose locations within each mesh cell uniformly
+   NumericMatrix pop(N,2);
+   for(int i = 0; i < N; ++i) {
+     double x = mesh(popmeshAC[i],0);
+     double y = mesh(popmeshAC[i],1);
+     pop(i,0) = R::runif(x - (meshspacing/2), x + (meshspacing/2));
+     pop(i,1) = R::runif(y - (meshspacing/2), y + (meshspacing/2));
+   }
   return pop;
 }
 
 // [[Rcpp::export]]
-
-Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
+NumericVector sim_capthist_C(NumericMatrix traps,
                              DataFrame tracksdf,
                              double lambda0,
                              double sigma,
                              NumericVector D_mesh,
                              NumericMatrix mesh,
                              double meshspacing,
-                             double hazdenom,
-                             //std::string scenario = "everything",
-                             bool report_probseenxk = false,
-                             NumericMatrix pop = R_NilValue,
-                             NumericMatrix dist_dat_pop = R_NilValue
+                             int hazdenom,
+                             NumericMatrix pop,
+                             NumericMatrix dist_dat_pop,
+                             bool report_probseenxk = false
 ){
-  IntegerVector uniq_occs = sort_unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occasion"]));
-  int nocc = uniq_occs.size();
-  if(pop.isNULL()){
-  pop = sim_pop_C(D_mesh,
-                  mesh,
-                  meshspacing);
-  } 
-  int N = pop.nrow();
+  if(D_mesh.size() == 0) Rcpp::stop("D_mesh cannot be empty or NULL");
+  if(mesh.nrow() == 0) Rcpp::stop("mesh cannot be empty");
+  if(pop.nrow() != dist_dat_pop.nrow()) Rcpp::stop("dist_dat_pop dimension does not match pop");
+  if(tracksdf.nrows() != dist_dat_pop.ncol()) Rcpp::stop("dist_dat_pop ncol does not match tracksdf nrow");
   
-  IntegerVector dims = {N, nocc, traps.nrow()};
-  NumericVector ch(N * nocc * traps.nrow());
-  ch.attr("dim") = dims;
+  // Check that required columns exist
+  CharacterVector colnames = tracksdf.names();
   
-  NumericMatrix tracksxy(tracksdf.nrows(), 2);
-  tracksxy(_, 0) = tracksdf["x"];
-  tracksxy(_, 1) = tracksdf["y"];
+  // Check required columns
+  if (std::find(colnames.begin(), colnames.end(), "x") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "y") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "time") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "trapno") == colnames.end() ||
+      std::find(colnames.begin(), colnames.end(), "occ") == colnames.end()) {
+    Rcpp::stop("tracksdf must contain columns: x, y, occ, time");
+  }
+  
+  NumericVector x = tracksdf["x"];
+  NumericVector y = tracksdf["y"];
   NumericVector tracktimes = tracksdf["time"];
   IntegerVector occ = tracksdf["occ"];
   IntegerVector trapnos = tracksdf["trapno"];
   
-  if(dist_dat_pop.isNULL()){
-    dist_dat_pop = calc_dist_matC(pop, tracksxy);
-  }
+  IntegerVector uniq_occs = sort_unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occ"]));
+  int nocc = uniq_occs.size();
   
+  int N = pop.nrow();
+
+  IntegerVector dims = {N, nocc, traps.nrow()};
+  NumericVector ch(N * nocc * traps.nrow());
+  ch.attr("dim") = dims;
+
+  NumericMatrix tracksxy(tracksdf.nrows(), 2);
+  tracksxy(_, 0) = x;
+  tracksxy(_, 1) = y;
+
   //capthist loops
-  NumericMatrix probseen(N,nocc);
+  NumericVector probseen(N * nocc);
+  IntegerVector probseendims = {N, nocc};
+  probseen.attr("dim") = probseendims;
    for (int k = 0; k < nocc; ++k){
       int track_id = uniq_occs[k];
-      
+
       // Indices for this occasion from tracksdf (of points, not segments)
       LogicalVector mask = occ == track_id;
       IntegerVector idx = Rcpp::seq(0, tracksdf.nrows() - 1); // indexes rows of entire tracksdf
       idx = idx[mask]; // subsetted to rows that are in this occasion
       int nsteps = idx.size();
+      if(nsteps < 2){
+        Rcpp::warning("Occ %d has less than 2 increments", k);
+      }
       // calculate 'increments' (step sizes along track, can be time or dist)
       //if hazard is per unit distance
       // calculate distance of line segments associated with tracksdf
@@ -630,9 +645,9 @@ Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
         int x = idx[d];
         increments[d] = std::sqrt((tracksxy((x-1), 1) - tracksxy(x,1)) * (tracksxy((x-1), 1) - tracksxy(x,1)) +
           (tracksxy((x-1),2) - tracksxy(x,2)) * (tracksxy((x-1),2) - tracksxy(x,2)));
-        
+
       }
-      
+
       for (int i = 0; i < N; ++i){
         NumericVector hus(nsteps);
         double cumhus = 0.0;
@@ -644,7 +659,7 @@ Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
           hus[e] = haz * increments[e];
           double survive_until_tminus1 = exp(-cumhus);
           cumhus += hus[e];
-          double survive_until_t = exp(-cumhus);
+         // double survive_until_t = exp(-cumhus);
           double survive_t_inc = exp(-hus[e]);
           if(e == 0){
             seenfirstatt[e] = 0;
@@ -654,14 +669,14 @@ Rcpp::NumericVector sim_capthist_C(Rcpp::NumericMatrix traps,
         }
         double integ = Rcpp::sum(hus);
         double survk = exp(-integ);
-        probseen(i,k) = 1 - survk;
+        probseen[i + k * N] = 1 - survk;
         seenfirstatt[nsteps] = survk;
         IntegerVector nstepsample = seq(0, nsteps); //length nsteps+1
         int stepdet = Rcpp::sample(nstepsample, 1, false, seenfirstatt)[0];
         if(stepdet != nsteps){
           int trapdet = trapnos[idx[stepdet]];
           double timedet = tracktimes[idx[stepdet]] - begintime;
-     
+
           ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap
         }
     }
@@ -914,3 +929,7 @@ double
     clock.stop("approxstatllktimes");
     return(out);
   }
+
+
+
+
