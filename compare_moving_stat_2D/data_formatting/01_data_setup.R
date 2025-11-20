@@ -38,7 +38,7 @@ nocc <- length(unique(tracksdf$occ))
 meshspacing = tracksteplength * 5
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 5*sigma, spacing = meshspacing)
 D_mesh <- rep(flatD, nrow(mesh))
-D_mesh_q <- exp(beta1*(mesh$x + beta2)^2)
+D_mesh_q <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
