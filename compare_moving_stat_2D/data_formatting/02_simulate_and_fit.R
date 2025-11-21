@@ -36,11 +36,17 @@ simulate_popandcapthist <- function(traps,
                                   pop,
                                   dist_dat_pop,
                                   report_probseenxk = F)
-  capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
   
   #standard scr likelihood
   nocc <- length(unique(tracksdf$occ))
   trapspacing <- sort(unique(traps$x))[2]- sort(unique(traps$x))[1]
+  
+  if(length(which(apply((!is.na(capthist_full)), 1, sum)>0)) == 0){
+    warning("Empty capture history.")
+    capthist <- array(NA, dim = c(1, nocc, nrow(traps)))
+  } else {
+    capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
+  }
   
   #use
   induse <- create_ind_use_C(capthist, as.matrix(traps), trapspacing, tracksdf,
@@ -181,7 +187,6 @@ fit_capthist <- function(dist_trapmesh,
               movdet_est = assemble_CIs(fit_md),
               statdet_time = fit.time.sd,
               movdet_time = fit.time.md,
-              sim_time = fit.time.sim,
               n = dim(capthist)[1])
   return(out)
 }
