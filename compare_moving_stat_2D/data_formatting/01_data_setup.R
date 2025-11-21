@@ -27,8 +27,18 @@ tracksdf <- rbind(
                         by = trackint)),
   data.frame(occ = 4,
              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 2000, 
-             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
+             y = 1250, 
+             time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
+                        by = trackint)),
+  data.frame(occ = 5,
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+             y = 1500, 
+             time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
+                        by = trackint)),
+  data.frame(occ = 6,
+             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+             y = 1750, 
+             time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))
 )
 tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
@@ -36,7 +46,7 @@ nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
 meshspacing = tracksteplength * 5
-mesh <- make.mask(tracksdf[,c("x","y")], buffer = 5*sigma, spacing = meshspacing)
+mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 D_mesh <- rep(flatD, nrow(mesh))
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 
@@ -76,15 +86,51 @@ useall <- as.matrix(useallC[1,,])
 #calculate distance matrix for all trap cells and mesh cells
 dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
-ggplot() +
+layoutplot <- ggplot() +
   geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), 
              mapping = aes(x = x, y = y, fill = D)) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
              size = 3,shape = "+", color= "white") +
-  scale_fill_viridis_c() +
+  scale_fill_viridis_c()
+layoutplot +
   #xlim(1000, 4000) +
   geom_point(data.frame(x = traps$x,
                         y = traps$y),
              mapping = aes(x = x, y = y), shape = 21, , color = "pink", fill = "red", alpha = .7, size = 2) +
   theme_bw()
 
+# visualize a capture history
+testpop <- sim_pop_C(D_mesh_q, 
+                     as.matrix(mesh), 
+                     meshspacing)
+testdist_dat_pop <- calc_dist_matC(testpop, 
+                               as.matrix(tracksdf[,c("x","y")]))
+
+testcapthist_full <- sim_capthist_C(as.matrix(traps),
+                                tracksdf, 
+                                lambda0,
+                                sigma,
+                                D_mesh,
+                                as.matrix(mesh),
+                                meshspacing,
+                                hazdenom,
+                                testpop,
+                                testdist_dat_pop,
+                                report_probseenxk = F)
+popdf <- data.frame(x = testpop[,1],
+                    y = testpop[,2],
+                    totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))}))
+
+layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, color = totdets), size = 3) +
+  scale_color_viridis_c(option = "magma")
+
+layoutplot +   
+  geom_point(data.frame(x = traps$x,
+                                     y = traps$y,
+                                     dets = apply(testcapthist_full, 3, function(j){sum(!is.na(j))})),
+                          mapping = aes(x = x, y = y, fill = dets, color = dets), 
+              size = 3) +
+  scale_color_viridis_c(option = "magma")
+
+  
+    
