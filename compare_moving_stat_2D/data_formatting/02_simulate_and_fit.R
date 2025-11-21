@@ -15,6 +15,13 @@ simulate_popandcapthist <- function(traps,
   pop <- sim_pop_C(D_mesh, 
                    as.matrix(mesh), 
                    meshspacing)
+  if(is.null(dim(pop))){
+    stop("No population simulated, try larger density.")
+  } else if(nrow(pop) < 2){
+    warning("Only one individual simulated.")
+  } else if(nrow(pop) <20) {
+    warning("Less than 20 individuals simualted.")
+  }
   dist_dat_pop <- calc_dist_matC(pop, 
                                  as.matrix(tracksdf[,c("x","y")]))
   
