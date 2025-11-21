@@ -532,14 +532,15 @@ double halfnormdet_cpp(double lambda0,
 double hazdist_cpp(double lambda0,
                    double sigma,
                    double d,
-                   int timeincr) {
+                   int haz_denom) {
   double g0 = halfnormdet_cpp(lambda0, sigma, d);
-  //timeincr is the unit for hazard rate (could be time or distance (eg meters))
-  double haz  = g0; //log(1 - g0) * -1 *  1/timeincr ; //
+  //haz_denom is the unit for hazard rate (could be time or distance (eg meters))
+  double haz  = g0; //log(1 - g0) * -1 *  1/haz_denom ; //
   return haz;
 }
 
 //----------------- Simulating capture histories -------------------------------
+// (still need these functions for linear meshes)
 
 // [[Rcpp::export]]
 NumericMatrix sim_pop_C( NumericVector D_mesh,
@@ -550,8 +551,8 @@ NumericMatrix sim_pop_C( NumericVector D_mesh,
   for (int i = 0; i < D_mesh.size(); ++i) {
     Dlambda += D_mesh[i];
   }
-  
-  int N = R::rpois(Dlambda);
+  double mesharea = meshspacing * meshspacing/ 1000000; //square kms
+  int N = R::rpois(Dlambda * mesharea);
   
   // sample mesh according to D_mesh
   NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);
@@ -612,7 +613,7 @@ sim_capthist_C(NumericMatrix traps,
   int N = pop.nrow();
 
   IntegerVector dims = {N, nocc, traps.nrow()};
-  NumericVector ch(N * nocc * traps.nrow());
+  NumericVector ch(N * nocc * traps.nrow(), NA_REAL); //needs to filled with NA
   ch.attr("dim") = dims;
 
   NumericMatrix tracksxy(tracksdf.nrows(), 2);
@@ -709,7 +710,7 @@ double
   negloglikelihood_moving_cpp( //add log link 
     double lambda0,
     double sigma, 
-    int timeincr,
+    int haz_denom,
     NumericVector D_mesh,
     arma::cube capthist,
     NumericMatrix usage, //traps by occ, could be calculated from indusage
@@ -753,7 +754,7 @@ double
             hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
           } else {
             double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-            hu_eachtrap(trapj) = hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr); //survival
+            hu_eachtrap(trapj) = hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * (usage(trapj, occk)/haz_denom); //survival
           }
         }
         notseen_mk(m,occk) = exp(-sum(hu_eachtrap)); 
@@ -781,17 +782,17 @@ double
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
             //hazard for ind at trap
-            double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (indusage(i, trapj, occk)/timeincr);//hazard times individual usage for each trap. 
+            double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (indusage(i, trapj, occk)/haz_denom);//hazard times individual usage for each trap. 
             
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught
-              //if(indusage(i,trapj,occk) <= timeincr){
+              //if(indusage(i,trapj,occk) <= haz_denom){
                 //do what i've been doing
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                 sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
               //} else { //else survive up to current trap - hazdenom and don't survive an interval of hazdenom
-              //  hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * timeincr; //hu for the last timeincr in this trap
-              //  sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * ((indusage(i, trapj, occk) - timeincr)/timeincr)); //survive up to last time increment in this trap
+              //  hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * haz_denom; //hu for the last haz_denom in this trap
+              //  sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * ((indusage(i, trapj, occk) - haz_denom)/haz_denom)); //survive up to last time increment in this trap
             //  }
               break; //don't need to keep summing hazard after detection
             }
@@ -833,7 +834,7 @@ double
   negloglikelihood_stationary_cpp( //add log link 
     double lambda0,
     double sigma, 
-    int timeincr,
+    int haz_denom,
     NumericVector D_mesh,
     arma::cube capthist,
     NumericMatrix usage, //traps by occ, could be calculated from indusage
@@ -875,7 +876,7 @@ double
             notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
           } else {
             double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-            notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, timeincr) * (usage(trapj, occk)/timeincr)); //survival
+            notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * (usage(trapj, occk)/haz_denom)); //survival
           }
         }
         double notseenalltraps = product(notseen_eachtrap);
@@ -902,7 +903,7 @@ double
           NumericVector hu_js(traps.length());
           for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
             double captik = capthist(i, occk, trapj);
-              hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), timeincr) * (usage(trapj, occk)/timeincr);//hazard times usage for each trap. 
+              hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (usage(trapj, occk)/haz_denom);//hazard times usage for each trap. 
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught and which trap caught it
               trapijk = trapj;
