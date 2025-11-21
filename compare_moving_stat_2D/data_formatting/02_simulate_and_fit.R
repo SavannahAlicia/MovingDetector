@@ -72,11 +72,13 @@ fit_capthist <- function(dist_trapmesh,
                     beta3,
                     hazdenom, 
                     mesh, 
-                    Dmod = "~1",
-                    capthistout){
+                    capthistout,
+                    Dmod = "~1"
+                    ){
 
   capthist = capthistout$capthist
   induse = capthistout$induse
+  fit.time.sim = capthistout$fit.time.sim
   
   #in case mesh is df
   mesh_mat <- as.matrix(mesh)
@@ -187,6 +189,44 @@ fit_capthist <- function(dist_trapmesh,
               movdet_est = assemble_CIs(fit_md),
               statdet_time = fit.time.sd,
               movdet_time = fit.time.md,
+              sim_time = fit.time.sim,
               n = dim(capthist)[1])
+  return(out)
+}
+
+sim_fit <- function(traps,
+                    tracksdf, 
+                    mesh, 
+                    meshspacing,
+                    dist_trapmesh,
+                    useall,
+                    lambda0, 
+                    sigma, 
+                    D_mesh, 
+                    beta1, 
+                    beta2,
+                    beta3,
+                    hazdenom, 
+                    Dmod = "~1"){
+  capthistout <- simulate_popandcapthist(traps,
+                                      tracksdf, 
+                                      lambda0,
+                                      sigma,
+                                      D_mesh,
+                                      mesh,
+                                      meshspacing,
+                                      hazdenom)
+  out <- fit_capthist(dist_trapmesh,
+                                  useall,
+                                  lambda0, 
+                                  sigma, 
+                                  D_mesh, 
+                                  beta1, 
+                                  beta2,
+                                  beta3,
+                                  hazdenom, 
+                                  mesh, 
+                                  capthistout,
+                                  Dmod = "~1")
   return(out)
 }
