@@ -73,8 +73,11 @@ fit_capthist <- function(dist_trapmesh,
                     hazdenom, 
                     mesh, 
                     capthistout,
-                    Dmod = "~1"
+                    Dmod 
                     ){
+  if(!Dmod %in% c("~1", "~x^2")){
+    stop("Dmod must be specified ~1 or ~x^2")
+  }
 
   capthist = capthistout$capthist
   induse = capthistout$induse
@@ -168,7 +171,7 @@ fit_capthist <- function(dist_trapmesh,
   if (Dmod == "~1"){
     outnames <- c("lambda0", "sigma", "D")
   } else if(Dmod == "~x^2"){
-    outnames <- c("lambda0", "sigma", "beta1", "beta2")
+    outnames <- c("lambda0", "sigma", "beta1", "beta2", "beta3")
   }
   assemble_CIs <- function(fit){
     fisher_info <- MASS::ginv(fit$hessian)
@@ -207,7 +210,7 @@ sim_fit <- function(traps,
                     beta2,
                     beta3,
                     hazdenom, 
-                    Dmod = "~1"){
+                    Dmod){
   capthistout <- simulate_popandcapthist(traps,
                                       tracksdf, 
                                       lambda0,
@@ -227,6 +230,6 @@ sim_fit <- function(traps,
                                   hazdenom, 
                                   mesh, 
                                   capthistout,
-                                  Dmod = "~1")
+                                  Dmod)
   return(out)
 }
