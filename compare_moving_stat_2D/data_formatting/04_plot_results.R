@@ -35,7 +35,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     }))
     move_outs <-  do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
       df <- sim_fits_out[[x]]$movdet_est
-      df$sim = rep(x,nrow(sim_fits_out[[1]]$statdet_est))
+      df$sim = rep(x,nrow(sim_fits_out[[1]]$movdet_est))
       return(df)
     }))
     
