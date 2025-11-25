@@ -3,7 +3,7 @@ library(dplyr)
 
 create_plots <- function(sim_fits_out, Dmodel = "variable",
                          plotcols = c("cornflowerblue", "goldenrod", "black"),
-                         linesize = .3, output = "plots"){
+                         linesize = .3, output){
   ###------------------------compare computation time-----------------------------
   
   times <- do.call(rbind, lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
@@ -50,7 +50,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                 median = median(value),
                 meanupper = quantile(value, probs = .975), 
                 meanlower = quantile(value, probs = .025),
-                meansd = mean(sd))
+                meansd = mean(sd, na.rm = T))
     
     out <- list(all_outs= all_outs, all_outs2 =all_outs2)
   }
@@ -67,11 +67,11 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     geom_density(all_outs[all_outs$name == "lambda0",], 
                  mapping = aes(x = exp(value)*1000, #per km instead of m
                                col = model), size = linesize) +
-    geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-                             data.frame(name = "lambda0", model = "true", 
-                                        mean = log(lambda0))), 
-               aes(xintercept = exp(c(mean))*1000,
-                   col = model), size = linesize) +
+     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
+                              data.frame(name = "lambda0", model = "true", 
+                                         mean = log(lambda0))), 
+                aes(xintercept = exp(c(mean))*1000,
+                    col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
                aes(xintercept = exp(c(meanlower))*1000, 
                    col = model), 
@@ -80,7 +80,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                aes(xintercept = exp(c(meanupper))*1000, 
                    col = model),
                linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
+    #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
     ylab("Frequency") + 
     #xlim(.004,.006) +
@@ -98,17 +98,17 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   lambda0precisionplot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = invlogit(upper)- invlogit(lower), col = model),
+                 mapping = aes(x = exp(upper)- exp(lower), col = model),
                  size = linesize) +
     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
                              data.frame(name = "lambda0", model = "true", 
                                         mean = logit(lambda0))), 
-               aes(xintercept = invlogit(c(mean)), col = model), size = linesize) +
+               aes(xintercept = exp(c(mean)), col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanlower)), col = model), 
+               aes(xintercept = exp(c(meanlower)), col = model), 
                linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = invlogit(c(meanupper)), col = model),
+               aes(xintercept = exp(c(meanupper)), col = model),
                linetype = "dashed", size = linesize) +
     geom_vline(xintercept = lambda0, size = linesize, col = "black") +
     xlab(expression("\u03bb"[0])) +
@@ -146,6 +146,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
+    scale_x_continuous(limits = c(0, max(all_outs2[all_outs2$name == "sigma","meanupper"])*1.1)) +
     xlab("\u03C3") +
     ylab("Frequency") +
     theme_classic() +
@@ -196,41 +197,73 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
   
+  beta3plot <- ggplot() +
+    geom_density(all_outs[all_outs$name == "beta3",],
+                 mapping = aes(x = value, col = model), size = linesize) +
+    geom_vline(data = all_outs2[all_outs2$name == "beta3",], 
+               aes(xintercept = c(mean), col = model), size = linesize) +
+    geom_vline(data = all_outs2[all_outs2$name == "beta3",], 
+               aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+    geom_vline(data = all_outs2[all_outs2$name == "beta3",],
+               aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
+    geom_vline(xintercept = beta3) +
+    scale_color_manual(values = plotcols) +
+    xlab("beta3") +
+    ylab("Frequency") +
+    theme_classic() +
+    theme(axis.title = element_text(size = 10),
+          axis.text.y = element_blank(),
+          legend.position = "none",
+          legend.title = element_text(size = 20),
+          legend.text = element_text(size = 20))
+  
   meshstep <- meshspacing/10
   if(Dmodel == "variable"){
     D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), meshstep),3),
                             y = rep(rep(mesh$y[1], length(seq(min(mesh$x), max(mesh$x), meshstep))),3),
-                            trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), meshstep) + beta2)^2), 3),
+                            trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), meshstep) + beta2)^2 + beta3), 3),
                             stationarydets = c(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                           all_outs2$name == "beta1", "mean"]) * 
                                                      (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                         as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "mean"]))^2),
+                                                                               all_outs2$name == "beta2", "mean"]))^2 +
+                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "beta3", "mean"])),
                                                exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                           all_outs2$name == "beta1", "meanupper"]) * 
                                                      (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                         as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "meanupper"]))^2),
+                                                                               all_outs2$name == "beta2", "meanupper"]))^2 +
+                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "beta3", "meanupper"])),
                                                exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                           all_outs2$name == "beta1", "meanlower"]) * 
                                                      (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                         as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "meanlower"]))^2)),
+                                                                               all_outs2$name == "beta2", "meanlower"]))^2 +
+                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "beta3", "meanlower"]))),
                             movingdets = c(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                       all_outs2$name == "beta1", "mean"]) * 
                                                  (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                     as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "mean"]))^2),
+                                                                           all_outs2$name == "beta2", "mean"]))^2 +
+                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                        all_outs2$name == "beta3", "mean"])),
                                            exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                       all_outs2$name == "beta1", "meanupper"]) * 
                                                  (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                     as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "meanupper"]))^2),
+                                                                           all_outs2$name == "beta2", "meanupper"]))^2 +
+                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                        all_outs2$name == "beta3", "meanupper"])),
                                            exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                       all_outs2$name == "beta1", "meanlower"]) * 
                                                  (seq(min(mesh$x), max(mesh$x), meshstep) + 
                                                     as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "meanlower"]))^2)),
+                                                                           all_outs2$name == "beta2", "meanlower"]))^2 +
+                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                        all_outs2$name == "beta3", "meanlower"]))),
                             quantile = c(rep("mean", length(seq(min(mesh$x), max(mesh$x), meshstep))),
                                          rep("2.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))),
                                          rep("97.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))))
@@ -343,8 +376,8 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
 all_sim_fits_q <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/variable_dens.Rds")
 all_sim_fits <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/flat_dens.Rds")
 
-vpl <- create_plots(all_sim_fits_q, Dmodel = "variable")
-fpl <- create_plots(all_sim_fits, Dmodel = "flat")
+vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
+fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/variable_moving_2D.png",
        plot = vpl,
        width = 169,

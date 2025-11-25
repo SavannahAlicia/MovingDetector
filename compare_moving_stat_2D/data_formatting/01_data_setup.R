@@ -6,7 +6,9 @@
 #each trackline is a series of points with x, y, and time
 trackxmin = 1500
 trackxmax = 3500
-tracksteplength = 125/5
+trapspacing = 125
+tracksteplength = trapspacing/2
+
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
 tracksdf <- rbind(
@@ -45,7 +47,7 @@ tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = tracksteplength * 5
+meshspacing = trapspacing
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 D_mesh <- rep(flatD, nrow(mesh))
 D_mesh_q <- exp(beta1*(mesh$x + beta2)^2 + beta3)
@@ -53,7 +55,7 @@ D_mesh_q <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 #trap grid
-trapspacing = meshspacing
+
 xgr <- seq(min(tracksdf$x)-(.5*trapspacing), max(tracksdf$x)+(.5*trapspacing), by = trapspacing)
 ygr <- seq(min(tracksdf$y), max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
@@ -102,7 +104,7 @@ layoutplot +
 # visualize a capture history
 testpop <- sim_pop_C(D_mesh_q, 
                      as.matrix(mesh), 
-                     meshspacing)
+                     meshspacing^2)
 testdist_dat_pop <- calc_dist_matC(testpop, 
                                as.matrix(tracksdf[,c("x","y")]))
 

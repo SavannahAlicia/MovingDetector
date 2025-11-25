@@ -14,7 +14,7 @@ simulate_popandcapthist <- function(traps,
   #capthist dim(inds, traps)
   pop <- sim_pop_C(D_mesh, 
                    as.matrix(mesh), 
-                   meshspacing)
+                   meshspacing^2)
   if(is.null(dim(pop))){
     stop("No population simulated, try larger density.")
   } else if(nrow(pop) < 2){
@@ -127,7 +127,7 @@ fit_capthist <- function(dist_trapmesh,
     start <- start0/scaling_factors
     
     #quadratic density function
-    stat_nll <- function(v_scaled ){
+    stat_nll <- function(v_scaled){
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])

@@ -545,14 +545,14 @@ double hazdist_cpp(double lambda0,
 // [[Rcpp::export]]
 NumericMatrix sim_pop_C( NumericVector D_mesh,
                                NumericMatrix mesh,
-                               double meshspacing) {
+                               double mesharea) {
   // N ~ Poisson(sum(D_mesh))
   double Dlambda = 0.0;
   for (int i = 0; i < D_mesh.size(); ++i) {
     Dlambda += D_mesh[i];
   }
-  double mesharea = meshspacing * meshspacing/ 1000000; //square kms
-  int N = R::rpois(Dlambda * mesharea);
+
+  int N = R::rpois(Dlambda * mesharea);  //square ms
   
   // sample mesh according to D_mesh
   NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);
@@ -735,9 +735,9 @@ double
     NumericVector meshysorted = Rcpp::sort_unique(meshy);
     double mesharea;
     if(linear){
-      mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km     
+      mesharea = (meshxsorted(2) - meshxsorted(1)); //m     
     } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/1000000; //km^2
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1))); //m^2
     }
     clock.tock("setup");
     //begin for loops for lambdan calculation
@@ -858,9 +858,9 @@ double
     NumericVector meshysorted = Rcpp::sort_unique(meshy);
     double mesharea;
     if(linear){
-      mesharea = (meshxsorted(2) - meshxsorted(1))/1000; //km
+      mesharea = (meshxsorted(2) - meshxsorted(1)); //m
     } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1)))/1000000; //km^2 instead of ha
+      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1))); //m^2 instead of ha
     }
     clock.tock("setup");
     //begin for loops for lambdan calculation

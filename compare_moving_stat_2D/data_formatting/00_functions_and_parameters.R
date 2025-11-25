@@ -12,12 +12,12 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
 #--------------------------------------true parameters -------------------------
-lambda0 = .001
-sigma = 300
+lambda0 = .008 #expected number of detections per m of trackline at AC
+sigma = 400
 beta1 <- -(1/40000)
 beta2 <- -2500
-beta3 <- 4.843736 #ensures that sum of Dmesh = sum Dmeshq
-flatD = 12 #per sqr km
+beta3 <- -8.971774 #ensures that sum of Dmesh = sum Dmeshq
+flatD = 12/1000000 #per sqr m
 
 nsims = 50
 set.seed(1994)
