@@ -104,7 +104,7 @@ layoutplot +
 # visualize a capture history
 testpop <- sim_pop_C(D_mesh_q, 
                      as.matrix(mesh), 
-                     meshspacing^2)
+                     meshspacing)
 testdist_dat_pop <- calc_dist_matC(testpop, 
                                as.matrix(tracksdf[,c("x","y")]))
 

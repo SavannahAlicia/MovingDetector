@@ -545,14 +545,14 @@ double hazdist_cpp(double lambda0,
 // [[Rcpp::export]]
 NumericMatrix sim_pop_C( NumericVector D_mesh,
                                NumericMatrix mesh,
-                               double mesharea) {
+                               double meshspacing) {
   // N ~ Poisson(sum(D_mesh))
   double Dlambda = 0.0;
   for (int i = 0; i < D_mesh.size(); ++i) {
     Dlambda += D_mesh[i];
   }
 
-  int N = R::rpois(Dlambda * mesharea);  //square ms
+  int N = R::rpois(Dlambda * meshspacing * meshspacing);  //square ms
   
   // sample mesh according to D_mesh
   NumericVector meshprobs = D_mesh/Rcpp::sum(D_mesh);

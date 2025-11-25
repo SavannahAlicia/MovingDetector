@@ -14,7 +14,7 @@ simulate_popandcapthist <- function(traps,
   #capthist dim(inds, traps)
   pop <- sim_pop_C(D_mesh, 
                    as.matrix(mesh), 
-                   meshspacing^2)
+                   meshspacing)
   if(is.null(dim(pop))){
     stop("No population simulated, try larger density.")
   } else if(nrow(pop) < 2){
