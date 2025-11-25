@@ -646,7 +646,7 @@ sim_capthist_C(NumericMatrix traps,
 
       for(int d = 1; d <  nsteps; d ++){ //first one is 0, so start at 1
         int x = idx[d];
-        int xbefore = idx[d-1];
+        int xbefore = idx[d-1]; 
         increments[d] = std::sqrt((tracksxy(xbefore, 0) - tracksxy(x,0)) * (tracksxy(xbefore, 0) - tracksxy(x,0)) +
           (tracksxy(xbefore,1) - tracksxy(x,1)) * (tracksxy(xbefore,1) - tracksxy(x,1)));
 
@@ -662,20 +662,16 @@ sim_capthist_C(NumericMatrix traps,
           double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
           hus[e] = haz * increments[e];
           if(hus[e] < 0){
-            Rcpp::stop("Negative hazard * effort");
+            Rcpp::stop("Error: negative hazard * effort");
           }
           double survive_until_tminus1 = exp(-cumhus);
           cumhus += hus[e];
          // double survive_until_t = exp(-cumhus);
           double survive_t_inc = exp(-hus[e]);
-          if(e == 0){
-            seenfirstatt[e] = 0;
-          } else{
-            seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc);
-          }
+          seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc); //zero for e = 0
+          
         }
-        double integ = Rcpp::sum(hus);
-        double survk = exp(-integ);
+        double survk = exp(-cumhus);
         probseen[i + k * N] = 1 - survk;
         if(!report_probseenxk){
           seenfirstatt[nsteps] = survk;
