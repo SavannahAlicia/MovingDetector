@@ -156,12 +156,13 @@ Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf,
   CharacterVector out_names(n_occ);
   
   // Column names for numeric matrices
-  CharacterVector mat_colnames(5);
+  CharacterVector mat_colnames(6);
   mat_colnames[0] = "x1";
   mat_colnames[1] = "y1";
   mat_colnames[2] = "x2";
   mat_colnames[3] = "y2";
   mat_colnames[4] = "time";
+  mat_colnames[5] = "timeend";
   
   // Iterate over each unique track ID
   for (int k = 0; k < n_occ; ++k) {
