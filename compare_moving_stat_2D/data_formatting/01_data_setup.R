@@ -49,8 +49,8 @@ nocc <- length(unique(tracksdf$occ))
 #mesh grid
 meshspacing = trapspacing
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
-D_mesh <- rep(flatD, nrow(mesh))
-D_mesh_q <- exp(beta1*(mesh$x + beta2)^2 + beta3)
+D_mesh_f <- rep(flatD, nrow(mesh))
+D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
@@ -89,7 +89,7 @@ useall <- as.matrix(useallC[1,,])
 dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
 layoutplot <- ggplot() +
-  geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), 
+  geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
              mapping = aes(x = x, y = y, fill = D)) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
              size = 3,shape = "+", color= "white") +
@@ -102,7 +102,7 @@ layoutplot +
   theme_bw()
 
 # visualize a capture history
-testpop <- sim_pop_C(D_mesh_q, 
+testpop <- sim_pop_C(D_mesh_v, 
                      as.matrix(mesh), 
                      meshspacing)
 testdist_dat_pop <- calc_dist_matC(testpop, 
@@ -112,7 +112,7 @@ testcapthist_full <- sim_capthist_C(as.matrix(traps),
                                 tracksdf, 
                                 lambda0,
                                 sigma,
-                                D_mesh,
+                                D_mesh_v,
                                 as.matrix(mesh),
                                 meshspacing,
                                 hazdenom,

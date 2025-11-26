@@ -20,7 +20,7 @@ beta2 <- -2500
 beta3 <- -8.971774 #ensures that sum of Dmesh = sum Dmeshq
 flatD = 12/1000000 #per sqr m
 
-nsims = 500
+nsims = 50
 set.seed(1994)
 
 

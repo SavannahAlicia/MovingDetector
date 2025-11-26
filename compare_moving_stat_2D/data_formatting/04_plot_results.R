@@ -321,38 +321,38 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   Dplot <- 
     ggplot() + 
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x/1000, y = value, col = name,
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x/1000, y = value*1000000, col = name,
                                                                                      linewidth = name)) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x/1000, y = value, col = name), linetype = "dashed", size = linesize) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x/1000, y = value, col = name), linetype = "dashed", size = linesize) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x/1000, y = value*1000000, col = name), linetype = "dashed", size = linesize) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x/1000, y = value*1000000, col = name), linetype = "dashed", size = linesize) +
     scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
                        name = "") +
     scale_linewidth_manual(values = c(linesize*3, linesize*3, linesize), 
                            labels = c("Moving", "Stationary", "True"), 
-                           name = "") +
-    #ylim(0,.5) +
-    xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
-    ylab("AC density") +
-    xlab("x") +
-    theme_classic() +
-    guides(linewidth = "none") +
-    theme(axis.title = element_text(size = 10),
-          axis.text = element_text(size = 10),
-          legend.title = element_text(size = 10),
-          legend.text = element_text(size = 10))
+                           name = "") #+
+    # #ylim(0,.5) +
+    # xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
+    # ylab("AC density") +
+    # xlab("x") +
+    # theme_classic() +
+    # guides(linewidth = "none") +
+    # theme(axis.title = element_text(size = 10),
+    #       axis.text = element_text(size = 10),
+    #       legend.title = element_text(size = 10),
+    #       legend.text = element_text(size = 10))
   
   if (Dmodel == "variable"){
     out = grid.arrange(
       grobs = list(lambda0plot, sigmaplot, 
                    beta1plot, beta2plot,
                    Dplot,
-                   timeplot),
+                   beta3plot, timeplot),
       widths = c(1,1),
       heights = c(1,1,1,1),
       layout_matrix = rbind(c(1,2),
                             c(3,4),
                             5,
-                            6))
+                            c(6, 7)))
   }
   if(Dmodel == "flat"){
     out = grid.arrange(
