@@ -7,7 +7,7 @@
 trackxmin = 1500
 trackxmax = 3500
 trapspacing = 125
-tracksteplength = trapspacing/2
+tracksteplength = trapspacing/5
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
@@ -119,9 +119,36 @@ testcapthist_full <- sim_capthist_C(as.matrix(traps),
                                 testpop,
                                 testdist_dat_pop,
                                 report_probseenxk = F)
+testcapthist <- testcapthist_full[which(apply((!is.na(testcapthist_full)), 1, sum)>0),,]
+testinduse <- create_ind_use_C(testcapthist_full, as.matrix(traps),
+                               trapspacing, tracksdf, scenario = "everything")
+
+tocck = sample(nocc,1)
+tindi = sample(nrow(testpop),1)
+ggplot() + 
+  scale_fill_viridis_c()+
+  geom_point(data.frame(x = traps$x,
+                        y = traps$y,
+                        induse1 = testinduse[tindi,,tocck]),
+             mapping = aes(x = x ,y = y, fill = induse1),
+                      shape = 21, size = 2) +
+  new_scale_fill() +
+  geom_point(data.frame(x = testpop[,1],
+                        y = testpop[,2],
+                        detocci = apply(testcapthist_full[,tocck,], 1, sum, na.rm = T)>0,
+                        interest = seq(1:nrow(testpop)) == tindi
+  ), mapping = aes(x = x, y = y, fill = detocci, color = interest), shape = 21, stroke = 1.5) +
+  scale_color_manual(values = c("transparent", "red")) +
+  scale_fill_discrete() +
+  geom_point(data.frame(x = traps$x[which(!is.na(testcapthist_full[tindi,tocck,]))], 
+                        y = traps$y[which(!is.na(testcapthist_full[tindi,tocck,]))]
+                        ), mapping = aes(x = x, y = y), color = "red", shape = 1,
+             stroke = 1.5) 
+
 popdf <- data.frame(x = testpop[,1],
                     y = testpop[,2],
-                    totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))}))
+                    totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))})
+                    )
 
 layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, color = totdets), size = 3) +
   scale_color_viridis_c(option = "magma")

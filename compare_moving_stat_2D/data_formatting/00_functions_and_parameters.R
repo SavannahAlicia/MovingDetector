@@ -6,6 +6,7 @@ library(ggplot2)
 library(sp)
 library(sf)
 library(gridExtra)
+library(ggnewscale)
 library(dplyr)
 setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
@@ -19,7 +20,7 @@ beta2 <- -2500
 beta3 <- -8.971774 #ensures that sum of Dmesh = sum Dmeshq
 flatD = 12/1000000 #per sqr m
 
-nsims = 50
+nsims = 500
 set.seed(1994)
 
 

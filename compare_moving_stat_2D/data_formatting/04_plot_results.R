@@ -146,7 +146,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_x_continuous(limits = c(0, max(all_outs2[all_outs2$name == "sigma","meanupper"])*1.1)) +
+    scale_x_continuous(limits = c(0, exp(min(all_outs2[all_outs2$name == "sigma","mean"]))*3/1000)) +
     xlab("\u03C3") +
     ylab("Frequency") +
     theme_classic() +
