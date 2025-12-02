@@ -9,6 +9,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   times <- do.call(rbind, lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
     stattime = as.numeric(sim_fits_out[[x]]$statdet_time)
     movetime = as.numeric(sim_fits_out[[x]]$movdet_time)
+    #should add something to exclude times from failed Hessians
     return(data.frame(stat = stattime, move = movetime))
   }))
   
@@ -30,12 +31,31 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     
     stat_outs <- do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
       df <- sim_fits_out[[x]]$statdet_est
-      df$sim = rep(x,nrow(sim_fits_out[[1]]$statdet_est))
+      trueN = sim_fits_out[[x]]$n
+
+      if(any(is.na(df))) {
+        df <- df %>% 
+          mutate(across(-name, ~NA)) #don't include results where hessian failed
+      }
+      df$sim = rep(x,nrow(df))
+      df$value = as.numeric(df$value)
+      df$upper = as.numeric(df$upper)
+      df$lower = as.numeric(df$lower)
       return(df)
     }))
     move_outs <-  do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
       df <- sim_fits_out[[x]]$movdet_est
-      df$sim = rep(x,nrow(sim_fits_out[[1]]$movdet_est))
+      trueN = sim_fits_out[[x]]$n
+  
+      if(any(is.na(df))) {
+        df <- df %>% 
+          mutate(across(-name, ~NA)) #don't include results where hessian failed
+      }
+      df$sim = rep(x,nrow(df))
+      
+      df$value = as.numeric(df$value)
+      df$upper = as.numeric(df$upper)
+      df$lower = as.numeric(df$lower)
       return(df)
     }))
     
@@ -46,11 +66,10 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     
     all_outs2 <- all_outs %>%
       group_by(name, model) %>%
-      summarize(mean = mean(value), 
-                median = median(value),
-                meanupper = quantile(value, probs = .975), 
-                meanlower = quantile(value, probs = .025),
-                meansd = mean(sd, na.rm = T))
+      summarize(mean = mean(value, na.rm = T), 
+                median = median(value, na.rm = T),
+                meanupper = quantile(value, probs = .975, na.rm = T), 
+                meanlower = quantile(value, probs = .025, na.rm = T))
     
     out <- list(all_outs= all_outs, all_outs2 =all_outs2)
   }
@@ -81,7 +100,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                    col = model),
                linetype = "dashed", size = linesize) +
     #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
-    xlab(expression("\u03bb"[0])) +
+    xlab(expression(paste("\u03bb"[0], " (dets/km)"))) +
     ylab("Frequency") + 
     #xlim(.004,.006) +
     scale_color_manual(name = "",
@@ -146,13 +165,13 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_x_continuous(limits = c(0, exp(min(all_outs2[all_outs2$name == "sigma","mean"]))*3/1000)) +
-    xlab("\u03C3") +
+   # scale_x_continuous(limits = c(0, exp(min(all_outs2[all_outs2$name == "sigma","mean"]))*3/1000)) +
+    xlab("\u03C3 (km)") +
     ylab("Frequency") +
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           legend.position = "none",
-          axis.title.y = element_blank(),
+          
           axis.text.y = element_blank())
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
@@ -173,6 +192,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           axis.text.y = element_blank(),
+          axis.title.y = element_blank(),
           legend.position = "none",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
@@ -193,6 +213,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           axis.text.y = element_blank(),
+          axis.title.y = element_blank(),
           legend.position = "none",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
@@ -213,6 +234,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           axis.text.y = element_blank(),
+          axis.title.y = element_blank(),
           legend.position = "none",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
@@ -318,7 +340,11 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   
   D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
+  Ndat <- D_plotdatlong %>%
+    group_by(quantile, name) %>%
+    summarise(N = sum(value, na.rm = T) * meshspacing^2)
   
+
   Dplot <- 
     ggplot() + 
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x/1000, y = value*1000000, col = name,
@@ -329,17 +355,17 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                        name = "") +
     scale_linewidth_manual(values = c(linesize*3, linesize*3, linesize), 
                            labels = c("Moving", "Stationary", "True"), 
-                           name = "") #+
-    # #ylim(0,.5) +
-    # xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
-    # ylab("AC density") +
-    # xlab("x") +
-    # theme_classic() +
-    # guides(linewidth = "none") +
-    # theme(axis.title = element_text(size = 10),
-    #       axis.text = element_text(size = 10),
-    #       legend.title = element_text(size = 10),
-    #       legend.text = element_text(size = 10))
+                           name = "") +
+    #ylim(0,.5) +
+    xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
+    ylab("AC density") +
+    xlab("x") +
+    theme_classic() +
+    guides(linewidth = "none") +
+    theme(axis.title = element_text(size = 10),
+          axis.text = element_text(size = 10),
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 10))
   
   if (Dmodel == "variable"){
     out = grid.arrange(
@@ -349,10 +375,10 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                    beta3plot, timeplot),
       widths = c(1,1),
       heights = c(1,1,1,1),
-      layout_matrix = rbind(c(1,2),
-                            c(3,4),
-                            5,
-                            c(6, 7)))
+      layout_matrix = rbind(c(1,3),
+                            c(2,4),
+                            c(7, 6),
+                            5))
   }
   if(Dmodel == "flat"){
     out = grid.arrange(
@@ -362,9 +388,9 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                    timeplot),
       widths = c(1,1),
       heights = c(1,1,1),
-      layout_matrix = rbind(c(1,2),
-                            3,
-                            4))
+      layout_matrix = rbind(c(1,3),
+                            
+                            c(2,4)))
   }
   if(output == "plots"){
     return(out)
