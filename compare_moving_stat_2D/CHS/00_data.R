@@ -60,9 +60,11 @@ tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1,
                        time = tracks$t) #time right now only determines order, not relative time
 #note SIghting 1 in survey 710 (occasion 4) happens immediately, and the two trackpts aren't labelled on effort
 tracksdf[which(tracksdf$occ == 4 & tracksdf$time < 101),"effort"] <- "OnEffort"
+saveRDS(tracksdf, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/tracksdf.Rds")
+
+
 nocc <- length(unique(tracksdf$occ))
 dx = 2000
-
 
 #-------------Subset capthist -------------------------------------------------
 capthist <- subset(capthist, occasions = oldoccs)
@@ -71,7 +73,11 @@ sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x
 traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
 trapscr <- traps
 usage(trapscr) <- usage(traps)[which(rowSums(usage(traps)[,c(oldoccs)])>0),c(oldoccs)]
+saveRDS(usage(trapscr), "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")
+
 distmatscr <- distmat[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
+saveRDS(distmatscr, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/distmat_trapmesh.Rds")
+
 #-------------Times of detections ----------------------------------------------
 #need to identify time from survey start that each individual is detected in each survey for induse
 sightwn <- sightwn[which(sightwn$SurveyNumber %in% surveys &
@@ -137,9 +143,12 @@ cht <- apply(as.array(unique(sight_single$ID)), 1,
 
 ch_t <- aperm(array(cht, dim = c(nrow(traps), nocc, length(unique(sight_single$ID)))),
               c(3,2,1))
+saveRDS(ch_t, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/ch_t.Rds")
 
 induse <- create_ind_use_C(ch_t, trapscr, 2000, tracksdf, scenario = "onison")
+saveRDS(induse, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/induse.Rds")
 #convert capthist back to 1s and 0s
 ch_10 <- ch_t
 ch_10[is.na(ch_10)] <- 0
 ch_10[ch_10!=0] <- 1
+saveRDS(ch_10, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/ch.Rds")
