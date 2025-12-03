@@ -183,7 +183,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   ACDstatplot <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
             linewidth = .1, alpha = 1) +
-    geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[subarea_stat,], 
+    geom_tile(data.frame(x = mesh$x, y = mesh$y, D = denssurf_stat)[subarea_stat,]
+              , 
               mapping = aes(x = x, y =y, fill = D)) +
     #geom_point(data = mesh, mapping = aes(x = x, y = y)) +
     geom_point(data = trapscr, mapping = aes(x = x, y =y), color = "white", shape = "+") +

@@ -49,7 +49,7 @@ knots_soap2 <- data.frame( x = c(
     3648506, 
     3647732, 3638444, 3653279))
 
-ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/soapfilmsetup.png", sep = ""),
+ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/soapfilmsetup.png", sep = ""),
        plot = grid.arrange(
          grobs = list(  ggplot() +
                           geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
