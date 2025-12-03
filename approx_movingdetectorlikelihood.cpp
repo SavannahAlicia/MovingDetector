@@ -120,7 +120,7 @@ double vec_max(Rcpp::NumericVector x) {
 // [[Rcpp::export]]
 
 Rcpp::List create_line_list_C(Rcpp::DataFrame tracksdf, 
-                             std::string scenario = "everything") {
+                             std::string scenario) {
   
   // Check that required columns exist
   CharacterVector colnames = tracksdf.names();
@@ -383,7 +383,7 @@ arma::cube create_ind_use_C(arma::cube ch,
                                    DataFrame traps,
                                    double spacing,
                                    DataFrame tracksdf,
-                                   std::string scenario = "everything"
+                                   std::string scenario
 ){
   int N = ch.n_rows; //first dim
   int J = ch.n_slices; //third dim of ch is traps
@@ -419,7 +419,7 @@ arma::cube create_ind_use_C(arma::cube ch,
       }
       NumericVector linetimes = linek(_,4); //time of first pt in line
       
-      double min_timek = vec_min(linetimes);
+     // double min_timek = vec_min(linetimes);
       
       for (int i = 0; i < N; ++i) {
         
@@ -433,7 +433,7 @@ arma::cube create_ind_use_C(arma::cube ch,
           
           if (!Rcpp::NumericVector::is_na(ch(i,k,j))){ //trap where detection occurs
             //i_det_k = TRUE;
-            det_time_ik = min_timek + ch(i,k,j);
+            det_time_ik =  ch(i,k,j);
             
             break;
           }
@@ -618,7 +618,7 @@ sim_capthist_C(NumericMatrix traps,
       // calculate distance of line segments associated with tracksdf
       // (currently no way to subset line segments by effort label)
       // time denominated hazard not yet implemented
-      double begintime = vec_min(tracktimes[idx]);
+     // double begintime = vec_min(tracktimes[idx]);
       NumericVector increments(nsteps);
 
       for(int d = 1; d <  nsteps; d ++){ //first one is 0, so start at 1
@@ -660,7 +660,7 @@ sim_capthist_C(NumericMatrix traps,
               Rcpp::stop("trapdet index out of range: %d (max allowed %d)", trapdet, traps.nrow()-1);
             }
             
-            double timedet = tracktimes[idx[stepdet]] - begintime;
+            double timedet = tracktimes[idx[stepdet]];// - begintime;
             
             ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap, ixkxj 
           } 
