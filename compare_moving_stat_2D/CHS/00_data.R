@@ -72,6 +72,8 @@ sight <- sight[sight$survey %in% surveys,]
 sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x)})
 traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
 trapscr <- traps
+saveRDS(trapscr, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/traps.Rds")
+
 usage(trapscr) <- usage(traps)[which(rowSums(usage(traps)[,c(oldoccs)])>0),c(oldoccs)]
 saveRDS(usage(trapscr), "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")
 
