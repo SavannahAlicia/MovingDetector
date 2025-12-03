@@ -171,7 +171,7 @@ AICs <- apply(as.array(1:length(myfits)), 1, function(i){
 
   movL <- negloglikelihood_moving_cpp(lambda0 = exp(myfits[[i]]$movdet_est$value[parloc$lambda0]), 
                                       sigma = exp(myfits[[i]]$movdet_est$value[parloc$sigma]),  
-                              timeincr = 1, 
+                              haz_denom  = 1, 
                               D_mesh = exp(Xmats[[i]] %*% myfits[[i]]$movdet_est$value[parloc$D]),
                               capthist= ch_10, 
                               usage = usage(trapscr),
@@ -180,7 +180,7 @@ AICs <- apply(as.array(1:length(myfits)), 1, function(i){
                               mesh = as.matrix(scrmesh))
   statL <- negloglikelihood_stationary_cpp(lambda0 = exp(myfits[[i]]$movdet_est$value[parloc$lambda0]), 
                                            sigma = exp(myfits[[i]]$movdet_est$value[parloc$sigma]),  
-                                           timeincr = 1, 
+                                           haz_denom = 1, 
                                            D_mesh = exp(Xmats[[i]] %*% myfits[[i]]$movdet_est$value[parloc$D]),
                                            capthist= ch_10, 
                                            usage = usage(trapscr),
