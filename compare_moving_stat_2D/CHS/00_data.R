@@ -60,6 +60,23 @@ tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1,
                        time = tracks$t) #time right now only determines order, not relative time
 #note SIghting 1 in survey 710 (occasion 4) happens immediately, and the two trackpts aren't labelled on effort
 tracksdf[which(tracksdf$occ == 4 & tracksdf$time < 101),"effort"] <- "OnEffort"
+
+traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
+trapscr <- traps
+saveRDS(trapscr, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/traps.Rds")
+
+# allocate track records to grid
+trapno <- rep(0, nrow(tracksdf))
+for (tr in 1:length(trapno)) {
+  cat(tr, " / ", length(trapno), "\r")
+  d <- sqrt((tracksdf[tr, ]$x - traps[, 1])^2 + (tracksdf[tr, ]$y - traps[, 2])^2)
+  dmin <- min(d)
+  trapno[tr] <- which.min(d)
+}
+
+# pick out possible traps as used cells
+un <- sort(unique(trapno))
+tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, FUN = function(x){which(un == trapno[x])})
 saveRDS(tracksdf, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/tracksdf.Rds")
 
 
@@ -70,9 +87,6 @@ dx = 2000
 capthist <- subset(capthist, occasions = oldoccs)
 sight <- sight[sight$survey %in% surveys,]
 sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x)})
-traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
-trapscr <- traps
-saveRDS(trapscr, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/traps.Rds")
 
 usage(trapscr) <- usage(traps)[which(rowSums(usage(traps)[,c(oldoccs)])>0),c(oldoccs)]
 saveRDS(usage(trapscr), "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")

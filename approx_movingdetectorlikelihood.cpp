@@ -570,7 +570,7 @@ sim_capthist_C(NumericMatrix traps,
       std::find(colnames.begin(), colnames.end(), "time") == colnames.end() ||
       std::find(colnames.begin(), colnames.end(), "trapno") == colnames.end() ||
       std::find(colnames.begin(), colnames.end(), "occ") == colnames.end()) {
-    Rcpp::stop("tracksdf must contain columns: x, y, occ, time");
+    Rcpp::stop("tracksdf must contain columns: x, y, occ, time, trapno");
   }
   
   NumericVector x = tracksdf["x"];
