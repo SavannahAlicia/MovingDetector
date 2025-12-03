@@ -437,8 +437,8 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
 all_sim_fits_q <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/variable_dens.Rds")
 all_sim_fits <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/flat_dens.Rds")
 
-vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
-fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
+vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plots")
+fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plots")
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/variable_moving_2D.png",
        plot = vpl,
        width = 169,
@@ -454,7 +454,7 @@ ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/si
 
 ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/setup.png",
        plot = ggplot() +
-         geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_q), 
+         geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
                      mapping = aes(x = x, y = y, fill = D)) +
          geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
                     size = 1.5,shape = "+", color= "white") +
