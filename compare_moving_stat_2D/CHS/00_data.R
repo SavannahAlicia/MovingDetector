@@ -88,7 +88,10 @@ capthist <- subset(capthist, occasions = oldoccs)
 sight <- sight[sight$survey %in% surveys,]
 sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x)})
 
-usage(trapscr) <- usage(traps)[which(rowSums(usage(traps)[,c(oldoccs)])>0),c(oldoccs)]
+emptych <- array(NA, dim = c(1, nocc, nrow(traps)))
+useallC <- create_ind_use_C(emptych, traps, dx, tracksdf, scenario = "onison")
+useall <- as.matrix(useallC[1,,])
+usage(trapscr) <- useall
 saveRDS(usage(trapscr), "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")
 
 distmatscr <- distmat[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
