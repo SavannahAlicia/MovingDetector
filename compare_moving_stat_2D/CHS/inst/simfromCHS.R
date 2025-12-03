@@ -15,7 +15,7 @@ mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
 meshspacing <- 2000
 hazdenom <- 1
 dist_trapmesh <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/distmat_trapmesh.Rds")
-
+useall <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")
 #-------------- Read in functions --------------------
 
 Rcpp::sourceCpp("~/Documents/UniStAndrews/MovingDetector/approx_movingdetectorlikelihood.cpp")
@@ -85,9 +85,7 @@ fit_capthist <- function(dist_trapmesh,
                          lambda0, 
                          sigma, 
                          D_mesh, 
-                         beta1, 
-                         beta2,
-                         beta3,
+                         Xmat,
                          hazdenom, 
                          mesh, 
                          capthistout
@@ -185,9 +183,7 @@ sim_fit <- function(traps,
                     lambda0, 
                     sigma, 
                     D_mesh, 
-                    beta1, 
-                    beta2,
-                    beta3,
+                    Xmat,
                     hazdenom){
   capthistout <- simulate_popandcapthist(traps,
                                          tracksdf, 
@@ -202,9 +198,7 @@ sim_fit <- function(traps,
                       lambda0, 
                       sigma, 
                       D_mesh, 
-                      beta1, 
-                      beta2,
-                      beta3,
+                      Xmat,
                       hazdenom, 
                       mesh, 
                       capthistout)
@@ -213,7 +207,7 @@ sim_fit <- function(traps,
 
 
 #--------------- Do some simulations ----------------
-nsims = 50 
+nsims = 6
 start.time.all_q <- Sys.time()
 all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                            FUN = function(sim){
@@ -224,11 +218,12 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                                             dist_trapmesh,
                                             useall,
                                             lambda0, sigma, D_mesh, 
-                                            beta1, beta2, beta3,
-                                            hazdenom, 
-                                            Dmod = "~x^2"))
+                                            Xmat,
+                                            hazdenom))
                            },
                            mc.cores = 6
 )
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 print(tot.time.all_q)
+
+
