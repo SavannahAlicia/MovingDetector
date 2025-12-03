@@ -5,15 +5,24 @@
 Xmat <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/Xmats.Rds")[2][[1]]
 fit <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 6).Rds")
 #use fitted values from moving detector model 
-lambda0 <- exp(fit$movdet_est$value[7])
-sigma <- exp(fit$movdet_est$value[8])
-D_mesh <- exp(Xmat %*% fit$movdet_est$value[1:6])
+lambda0_stat <- exp(fit$statdet_est$value[7])
+sigma_stat <- exp(fit$statdet_est$value[8])
+Ds_stat <- fit$statdet_est$value[1:6]
+D_mesh_stat <- exp(Xmat %*% Ds_stat)
+sum(D_mesh_stat)* 1000000 * 4
+
+lambda0_move <- exp(fit$movdet_est$value[7])
+sigma_move <- exp(fit$movdet_est$value[8])
+Ds_move <- fit$movdet_est$value[1:6]
+D_mesh_move <- exp(Xmat %*% Ds_move)
+sum(D_mesh_move) * 1000000 * 4
 
 traps <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/traps.Rds")
 tracksdf <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/tracksdf.Rds")
-mesh <- readRDS("data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
+mesh <- readRDS("~/Documents/UniStAndrews/Dolphins/Charleston/data/onison/all_occasions/meshscr_NSbuff_2000.Rds")
 meshspacing <- 2000
 hazdenom <- 1
+trans.c <- readRDS("~/Documents/UniStAndrews/Dolphins/Charleston/data/onison/all_occasions/transition_geoc_2000.Rds")
 dist_trapmesh <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/distmat_trapmesh.Rds")
 useall <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/useall.Rds")
 #-------------- Read in functions --------------------
@@ -40,8 +49,9 @@ simulate_popandcapthist <- function(traps,
   } else if(nrow(pop) <20) {
     warning("Less than 20 individuals simualted.")
   }
-  dist_dat_pop <- calc_dist_matC(pop, 
-                                 as.matrix(tracksdf[,c("x","y")]))
+  dist_dat_pop <- #calc_dist_matC(pop, 
+                  #               as.matrix(tracksdf[,c("x","y")]))
+    costDistance(trans.c, as.matrix(pop), as.matrix(tracksdf[,c("x","y")]))
   
   capthist_full <- sim_capthist_C(as.matrix(traps),
                                   tracksdf, 
@@ -77,8 +87,43 @@ simulate_popandcapthist <- function(traps,
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
   out_ls <- list(capthist = capthist,
                  induse = induse,
-                 fit.time.sim = fit.time.sim)
+                 fit.time.sim = fit.time.sim,
+                 pop = pop,
+                 capthistfull = capthist_full)
 }
+
+#------ visualize simulated population and ch
+lpoly <- readRDS("~/Documents/UniStAndrews/Dolphins/Charleston/data/all_scenarios/larger_poly.Rds")
+capthistout <- simulate_popandcapthist(traps, tracksdf, lambda0_move, sigma_move, 
+                              D_mesh_move, as.matrix(mesh), meshspacing, 1)
+expop <- capthistout$pop
+exchf <- capthistout$capthistfull
+exchf[is.na(exchf)] <- 0
+exchf[exchf!=0] <- 1
+
+ggplot() + 
+  
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 1) +
+  geom_tile(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_move), 
+            mapping = aes(x = x, y =y, fill = D)) +
+  scale_color_viridis_c(option = "magma") +
+  geom_point(data = traps, mapping = aes(x = x, y =y), color = "white", shape = "+") +
+  geom_point(data = data.frame( x = expop[,1], y = expop[,2], dets = apply(exchf, 1, sum)),
+             mapping = aes(x = x, y = y, color = dets)) +
+  geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
+          linewidth = .1, alpha = 0.3) +
+  coord_sf(xlim = c(min(mesh$x), max(mesh$x)), 
+           ylim = c(min(mesh$y), max(mesh$y))) +
+  ggtitle("") +
+  theme_bw()+
+  theme(
+        axis.title = element_blank())
+
+
+
+#-----
+
 
 fit_capthist <- function(dist_trapmesh,
                          useall,
@@ -90,7 +135,6 @@ fit_capthist <- function(dist_trapmesh,
                          mesh, 
                          capthistout
 ){
-
   
   capthist = capthistout$capthist
   induse = capthistout$induse
