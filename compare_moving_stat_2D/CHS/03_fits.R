@@ -151,6 +151,7 @@ fit_smooth <- function(f, startother = NULL, addtl_name = ""){
 Xmats <- lapply(as.list(1:5), get_X_mat)
 Xmats[[6]] <- get_X_mat(f = 6, knots = knots_soap)
 Xmats[[7]] <- get_X_mat(f = 6, knots = knots_soap2)
+saveRDS(Xmats, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/Xmats.Rds")
 
 myfits <- lapply(as.list(1:5), fit_smooth)
 myfits[[6]] <- fit_smooth(6, startother = 4)
