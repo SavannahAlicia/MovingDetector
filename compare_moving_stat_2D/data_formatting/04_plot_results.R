@@ -62,7 +62,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
                                                               nrow(stat_outs)))),
                       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
-    all_outs$sd <- (((all_outs$upper)- (all_outs$value))/1.96)
+    #all_outs$sd <- (((all_outs$upper)- (all_outs$value))/1.96)
     
     all_outs2 <- all_outs %>%
       group_by(name, model) %>%
@@ -71,11 +71,123 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                 meanupper = quantile(value, probs = .975, na.rm = T), 
                 meanlower = quantile(value, probs = .025, na.rm = T))
     
-    out <- list(all_outs= all_outs, all_outs2 =all_outs2)
+    if (Dmodel == "variable"){
+      
+      meshstep = meshspacing/10
+      newmeshxs = seq(min(mesh$x), max(mesh$x), meshstep)
+      #calculate D for meshx (row) and estimated betas (column)
+      statDdat <- apply(as.array(1:nsims), 1, function(sim){
+        apply(as.array(newmeshxs), 1, function(x){
+          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]
+          D = exp(betas[1] * (x + betas[2])^2 + betas[3])
+          return(D)
+        })
+      })
+      moveDdat <- apply(as.array(1:nsims), 1, function(sim){
+        apply(as.array(newmeshxs), 1, function(x){
+          betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
+          D = exp(betas[1] * (x + betas[2])^2 + betas[3])
+          return(D)
+        })
+      }) 
+
+      #dataframe with x, y, trueD, stationarydets, movingdets, quantile columns
+      D_plotdat <- data.frame(x = rep(newmeshxs,3),
+                              trueD = rep(exp(beta1 * (newmeshxs + beta2) ^2 + beta3), 3),
+                              stationarydets = c(rowMeans(statDdat),
+                                                 apply(statDdat, 1, function(x) quantile(x, probs = .025)),
+                                                 apply(statDdat, 1, function(x) quantile(x, probs = .975))
+                                                 ),
+                              movingdets = c(rowMeans(moveDdat),
+                                             apply(moveDdat, 1, function(x) quantile(x, probs = .025)),
+                                             apply(moveDdat, 1, function(x) quantile(x, probs = .975))
+                                             ),
+                              quantile = c(rep("mean", length(newmeshxs)),
+                                           rep("2.5%",length(newmeshxs)),
+                                           rep("97.5%",length(newmeshxs)))
+      )
+      #mean and quantiles for sum D
+      moveNdat <- apply(as.array(1:nsims), 1, function(sim){
+        N = sum(apply(as.array(mesh$x), 1, function(x){
+          betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
+          D = exp(betas[1] * (x + betas[2])^2 + betas[3]) 
+          return(D)
+        }) * meshspacing^2)
+      })
+      statNdat <- apply(as.array(1:nsims), 1, function(sim){
+        N = sum(apply(as.array(mesh$x), 1, function(x){
+          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]
+          D = exp(betas[1] * (x + betas[2])^2 + betas[3]) 
+          return(D)
+        }) * meshspacing^2)
+      })
+      Nplotdat <- data.frame(model = rep(c("True", "Moving", "Stationary"), 3),
+                             quantile = c("mean", "mean", "mean",
+                                          "2.5%", "2.5%", "2.5%",
+                                          "97.5%", "97.5%", "97.5%"),
+                             value = c(sum(exp(beta1 * (mesh$x + beta2) ^2 + beta3) * meshspacing^2),
+                                       mean(moveNdat), 
+                                       mean(statNdat),
+                                       NA,
+                                       quantile(moveNdat, probs = 0.025),
+                                       quantile(statNdat, probs = 0.025),
+                                       NA,
+                                       quantile(moveNdat, probs = 0.975),
+                                       quantile(statNdat, probs = 0.975))
+                             )
+    } else if(Dmodel == "flat"){
+      D_plotdat <- data.frame(x = rep(mesh$x, 3),
+                              y = rep(mesh$y, 3),
+                              trueD = rep(D_mesh_f, 3),
+                              stationarydets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                                 rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "D", "meanupper"])), nrow(mesh)),
+                                                 rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                                                all_outs2$name == "D", "meanlower"])), nrow(mesh))),
+                              movingdets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                            all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                             rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                            all_outs2$name == "D", "meanupper"])), nrow(mesh)),
+                                             rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                                            all_outs2$name == "D", "meanlower"])), nrow(mesh)) 
+                              ),
+                              quantile = c(rep("mean", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
+      )
+      
+      Nplotdat <- data.frame(model = rep(c("True", "Moving", "Stationary"), 3),
+                             quantile = c("mean", "mean", "mean",
+                                          "2.5%", "2.5%", "2.5%",
+                                          "97.5%", "97.5%", "97.5%"),
+                             value = c(flatD * nrow(mesh) * meshspacing^2,
+                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                        all_outs2$name == "D", "mean"]))* nrow(mesh) * meshspacing^2, 
+                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                        all_outs2$name == "D", "mean"]))* nrow(mesh) * meshspacing^2,
+                                       NA,
+                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                        all_outs2$name == "D", "meanlower"]))* nrow(mesh) * meshspacing^2, 
+                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                        all_outs2$name == "D", "meanlower"]))* nrow(mesh) * meshspacing^2,
+                                       NA,
+                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
+                                                        all_outs2$name == "D", "meanupper"]))* nrow(mesh) * meshspacing^2, 
+                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
+                                                        all_outs2$name == "D", "meanupper"]))* nrow(mesh) * meshspacing^2)
+                             )
+    }
+
+
+    out <- list(all_outs = all_outs, 
+                all_outs2 = all_outs2,
+                D_plotdat = D_plotdat,
+                Nplotdat = Nplotdat)
   }
   plotdat <- make_plot_dat(sim_fits_out)
   all_outs <- plotdat$all_outs
   all_outs2 <- plotdat$all_outs2
+  D_plotdat <- plotdat$D_plotdat
+  Nplotdat <- plotdat$Nplotdat
   
   ###--------------------------compare precision -------------------------------
   
@@ -239,81 +351,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
   
-  meshstep <- meshspacing/10
-  if(Dmodel == "variable"){
-    D_plotdat <- data.frame(x = rep(seq(min(mesh$x), max(mesh$x), meshstep),3),
-                            y = rep(rep(mesh$y[1], length(seq(min(mesh$x), max(mesh$x), meshstep))),3),
-                            trueD = rep(exp(beta1*(seq(min(mesh$x), max(mesh$x), meshstep) + beta2)^2 + beta3), 3),
-                            stationarydets = c(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                          all_outs2$name == "beta1", "mean"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "mean"]))^2 +
-                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                                all_outs2$name == "beta3", "mean"])),
-                                               exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                          all_outs2$name == "beta1", "meanupper"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "meanupper"]))^2 +
-                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                                all_outs2$name == "beta3", "meanupper"])),
-                                               exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                          all_outs2$name == "beta1", "meanlower"]) * 
-                                                     (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                        as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                               all_outs2$name == "beta2", "meanlower"]))^2 +
-                                                     as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                                all_outs2$name == "beta3", "meanlower"]))),
-                            movingdets = c(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                      all_outs2$name == "beta1", "mean"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "mean"]))^2 +
-                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                        all_outs2$name == "beta3", "mean"])),
-                                           exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                      all_outs2$name == "beta1", "meanupper"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "meanupper"]))^2 +
-                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                        all_outs2$name == "beta3", "meanupper"])),
-                                           exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                      all_outs2$name == "beta1", "meanlower"]) * 
-                                                 (seq(min(mesh$x), max(mesh$x), meshstep) + 
-                                                    as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                           all_outs2$name == "beta2", "meanlower"]))^2 +
-                                                 as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                        all_outs2$name == "beta3", "meanlower"]))),
-                            quantile = c(rep("mean", length(seq(min(mesh$x), max(mesh$x), meshstep))),
-                                         rep("2.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))),
-                                         rep("97.5%",length(seq(min(mesh$x), max(mesh$x), meshstep))))
-    )
-    
-  } else if(Dmodel == "flat"){
-    D_plotdat <- data.frame(x = rep(mesh$x, 3),
-                            y = rep(mesh$y, 3),
-                            trueD = rep(D_mesh, 3),
-                            stationarydets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                              all_outs2$name == "D", "mean"])), nrow(mesh)),
-                                               rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                              all_outs2$name == "D", "meanupper"])), nrow(mesh)),
-                                               rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                              all_outs2$name == "D", "meanlower"])), nrow(mesh))),
-                            movingdets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                          all_outs2$name == "D", "mean"])), nrow(mesh)),
-                                           rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                          all_outs2$name == "D", "meanupper"])), nrow(mesh)),
-                                           rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                          all_outs2$name == "D", "meanlower"])), nrow(mesh)) 
-                            ),
-                            quantile = c(rep("mean", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
-    )
-    
-  } else {
-    stop("Please specify 'flat' or 'variable' for Dmodel")
-  }
+
   # 
   # ggplot() + 
   #   geom_tile(data = D_plotdat[,c(1,2,3)], aes(x = x, y= y, fill = trueD)) +
@@ -340,9 +378,6 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   
   D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
-  Ndat <- D_plotdatlong %>%
-    group_by(quantile, name) %>%
-    summarise(N = sum(value, na.rm = T) * meshspacing^2)
   
 
   Dplot <- 
