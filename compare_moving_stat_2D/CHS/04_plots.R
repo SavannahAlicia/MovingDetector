@@ -1,11 +1,11 @@
 
 create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   
-  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))#*100 returns in km^2  now
+  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*1000000 #returns in m^2  now
   abund_stat <- sum(denssurf_stat) * 4
   lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
-  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))#*100
+  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*1000000
   abund_move <- sum(denssurf_move) * 4
   lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
   sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
@@ -143,7 +143,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
           axis.line = element_blank(),
           panel.border = element_blank())
   
-  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/", label, "relpdet.png", sep = ""),
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "relpdet.png", sep = ""),
          plot = grid.arrange(
            grobs = list(pdetstatplot, pdetmovplot, pdetdiffplot,
                         pdetlegendplot, pdetdifflegendplot),
@@ -301,7 +301,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
           panel.border = element_blank())
   
   
-  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/", label, "ACDplot.png", sep = ""),
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "ACDplot.png", sep = ""),
          plot = grid.arrange(
            grobs = list(ACDstatplot, ACDmovplot, ACDdiffplot,
                         ACDlegendplot, ACDdifflegendplot),
@@ -444,7 +444,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
           axis.line = element_blank(),
           panel.border = element_blank())
   
-  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/", label, "animDplot.png", sep = ""),
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "animDplot.png", sep = ""),
          plot = grid.arrange(
            grobs = list(animDstat, animDmov, animDdiff,
                         animDlegend, animDdifflegend),
@@ -498,7 +498,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
                       labels = c("Moving", "Stationary")) +
     theme_bw()
   
-  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/", label, "detplot.png", sep = ""),
+  ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "detplot.png", sep = ""),
          plot = detfctplot,
          width = 169,
          height = 169*.7,
@@ -535,13 +535,14 @@ cumdist_n <- plyr::round_any(tracksdf$cumdist, 2000)
 tracksdf$arrowbool[which(cumdist_n[-1] != cumdist_n[-nrow(tracksdf)])] <- T
 
 #visualize track direction
-tracklines_ls <- create_line_spatlines(tracksdf, tracksdfcolname = "occ")
+tracklines_ls <- create_line_list_C(tracksdf, scenario = "onison")
 
 plotsurv <- function(occi){
   survplot <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
             linewidth = .1, alpha = 0.3) +
-    geom_sf(st_as_sf(tracklines_ls[[occi]]), mapping = aes()
+    geom_segment(tracklines_ls[[occi]], mapping = aes(x = x1, y = y1,
+                                                      xend = x2, yend = y2)
     ) +
     geom_segment(data = tracksdf[which(tracksdf$occ == occi & 
                                          tracksdf$effort == "OnEffort" &
@@ -574,7 +575,7 @@ surv4 <- plotsurv(4)
 surv5 <- plotsurv(5)
 surv6 <- plotsurv(6)
 
-ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/surveydirection.png", sep = ""),
+ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/surveydirection.png", sep = ""),
        plot = 
          grid.arrange(
            grobs = list(surv1, surv2, surv3,
@@ -691,7 +692,7 @@ ipt <- baseplot +
         plot.title=element_text(margin = margin(l = 4, b = -15)))
 
 
-ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS_results/capthistsummary.png", sep = ""),
+ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/capthistsummary.png", sep = ""),
        plot = grid.arrange(
          grobs = list(dpi, tpi, ipt),
          widths = c(1,1),
