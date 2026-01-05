@@ -4,8 +4,8 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-trackxmin = 1500
-trackxmax = 3500
+trackxmin = 500
+trackxmax = 4500
 trapspacing = 125
 tracksteplength = trapspacing/5
 
@@ -48,7 +48,7 @@ nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
 meshspacing = trapspacing
-mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
+mesh <- make.mask(tracksdf[,c("x","y")], buffer = 4*sigma, spacing = meshspacing)
 D_mesh_f <- rep(flatD, nrow(mesh))
 D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 

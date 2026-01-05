@@ -39,7 +39,14 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
 tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
 
-saveRDS(all_sim_fits_q, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/variable_dens.Rds")
-saveRDS(all_sim_fits, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/flat_dens.Rds")
+#directory names
+dirstart <- paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/",
+                  "l", lambda0,
+                  "D", round(sum(D_mesh_f)*meshspacing^2),
+                  "/",
+                  sep = "")
+
+saveRDS(all_sim_fits_q, "variable_dens.Rds")
+saveRDS(all_sim_fits, "flat_dens.Rds")
 
 

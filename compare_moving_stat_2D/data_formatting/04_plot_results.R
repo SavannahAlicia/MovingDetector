@@ -434,25 +434,25 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
 }
 
-all_sim_fits_q <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/variable_dens.Rds")
-all_sim_fits <- readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/flat_dens.Rds")
+all_sim_fits_q <- readRDS(paste(dirstart, "variable_dens.Rds", sep = ""))
+all_sim_fits <- readRDS(paste(dirstart, "flat_dens.Rds", sep = ""))
 
 vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plots")
 fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plots")
-ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/variable_moving_2D.png",
+ggsave(file = paste(dirstart, "plots/variable_moving_2D.png", sep = ""),
        plot = vpl,
        width = 169,
        height = 169*(1/2)*(4/3),
        units = c("mm"),
        dpi = 300)
-ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/flat_moving_2D.png",
+ggsave(file = paste(dirstart, "plots/flat_moving_2D.png", sep = ""),
        plot = fpl,
        width = 169,
        height = 169*(1/2),
        units = c("mm"),
        dpi = 300)
 
-ggsave(file = "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/simulation_results/plots/setup.png",
+ggsave(file = paste(dirstart, "plots/setup.png", sep = ""),
        plot = ggplot() +
          geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
                      mapping = aes(x = x, y = y, fill = D)) +
