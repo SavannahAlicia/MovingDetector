@@ -40,7 +40,7 @@ tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
 
 #directory names
-dirstart <- paste("~/compare_moving_stat_2D/simulation_results/",
+dirstart <- paste("/compare_moving_stat_2D/simulation_results/",
                   "l", lambda0,
                   "D", round(sum(D_mesh_f)*meshspacing^2),
                   "/",
