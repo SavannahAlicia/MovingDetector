@@ -479,54 +479,54 @@ ggsave(file = paste(dirstart, "plots/setup.png", sep = ""),
        units = c("mm"),
        dpi = 300)
 
-plotdat_q <-create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
-all_outs_q <- plotdat_q$all_outs
-c(t.test(all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd, 
-       all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd,
-       paired = T, alternative = "less")$p.value,
-t.test(all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd, 
-       all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd,
-       paired = T, alternative = "less")$p.value,
-t.test(all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd, 
-       all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd, 
-       paired = T, alternative = "less")$p.value,
-t.test(all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd, 
-       all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd, 
-       paired = T, alternative = "less")$p.value
-)
-c(
-  mean((all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd^2-
-          all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2),
-  mean((all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd^2-
-          all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2),
-  mean((all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd^2-
-          all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2),
-  mean((all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd^2-
-          all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)
-  
-)
-
-
-
-plotdat_1 <-create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
-all_outs_1 <- plotdat_1$all_outs
-c(t.test(all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd, 
-       all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd,
-       paired = T, alternative = "less")$p.value,
-t.test(all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd, 
-       all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd,
-       paired = T, alternative = "less")$p.value,
-t.test(all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd, 
-       all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd, 
-       paired = T, alternative = "less")$p.value
-)
-
-c(
-  mean((all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd^2-
-          all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2),
-  mean((all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd^2-
-          all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2),
-  mean((all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd^2-
-          all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)
-)
-
+# plotdat_q <-create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
+# all_outs_q <- plotdat_q$all_outs
+# c(t.test(all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd, 
+#        all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd,
+#        paired = T, alternative = "less")$p.value,
+# t.test(all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd, 
+#        all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd,
+#        paired = T, alternative = "less")$p.value,
+# t.test(all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd, 
+#        all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd, 
+#        paired = T, alternative = "less")$p.value,
+# t.test(all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd, 
+#        all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd, 
+#        paired = T, alternative = "less")$p.value
+# )
+# c(
+#   mean((all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd^2-
+#           all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2),
+#   mean((all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd^2-
+#           all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2),
+#   mean((all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd^2-
+#           all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2),
+#   mean((all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd^2-
+#           all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)
+#   
+# )
+# 
+# 
+# 
+# plotdat_1 <-create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
+# all_outs_1 <- plotdat_1$all_outs
+# c(t.test(all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd, 
+#        all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd,
+#        paired = T, alternative = "less")$p.value,
+# t.test(all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd, 
+#        all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd,
+#        paired = T, alternative = "less")$p.value,
+# t.test(all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd, 
+#        all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd, 
+#        paired = T, alternative = "less")$p.value
+# )
+# 
+# c(
+#   mean((all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd^2-
+#           all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2),
+#   mean((all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd^2-
+#           all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2),
+#   mean((all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd^2-
+#           all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)
+# )
+# 
