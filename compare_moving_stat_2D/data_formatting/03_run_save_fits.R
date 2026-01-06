@@ -46,7 +46,12 @@ dirstart <- paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2
                   "/",
                   sep = "")
 
-saveRDS(all_sim_fits_q, "variable_dens.Rds")
-saveRDS(all_sim_fits, "flat_dens.Rds")
+# Check and create the directory
+if (!dir.exists(dirstart)) {
+  dir.create(dirstart, recursive = TRUE)
+}
+
+saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
+saveRDS(all_sim_fits, paste(dirstart, "flat_dens.Rds", sep = ""))
 
 
