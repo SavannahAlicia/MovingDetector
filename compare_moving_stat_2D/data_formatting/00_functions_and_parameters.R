@@ -18,9 +18,9 @@ sigma = 300
 beta1 <- -(1/40000)
 beta2 <- -2500
 beta3 <- 0 #THIS WILL CHANGE in 01_data_setup to scale total abundance 
-flatD = 12/1000000 #per sqr m
+flatD = 15/1000000 #per sqr m
 
-nsims = 2#50
+nsims = 10#50
 set.seed(1994)
 
 
