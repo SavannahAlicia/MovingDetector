@@ -8,7 +8,7 @@ library(sf)
 library(gridExtra)
 library(ggnewscale)
 library(dplyr)
-setwd("~/Documents/UniStAndrews/MovingDetector")
+#setwd("~/Documents/UniStAndrews/MovingDetector")
 Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 
 
