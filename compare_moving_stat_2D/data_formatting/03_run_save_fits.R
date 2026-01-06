@@ -14,7 +14,7 @@ all_sim_fits_q <- mclapply(X = as.list(1:nsims),
                                             hazdenom, 
                                             Dmod = "~x^2"))
                            },
-                           mc.cores = 6
+                           mc.cores = 30
 )
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 print(tot.time.all_q)
@@ -34,7 +34,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
                                            hazdenom,
                                            Dmod = "~1"))
                           },
-                          mc.cores = 6
+                          mc.cores = 30
 )
 tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
