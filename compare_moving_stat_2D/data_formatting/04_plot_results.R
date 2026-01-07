@@ -434,6 +434,11 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
 }
 
+# Check and create the directory
+if (!dir.exists(paste(dirstart, "/plots", sep = ""))) {
+  dir.create(paste(dirstart, "/plots", sep = ""), recursive = TRUE)
+}
+
 all_sim_fits_q <- readRDS(paste(dirstart, "variable_dens.Rds", sep = ""))
 all_sim_fits <- readRDS(paste(dirstart, "flat_dens.Rds", sep = ""))
 
