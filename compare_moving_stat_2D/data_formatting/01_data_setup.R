@@ -6,7 +6,7 @@
 #each trackline is a series of points with x, y, and time
 trackxmin = 1500
 trackxmax = 3500
-trapspacing = 100
+trapspacing = 25
 tracksteplength = trapspacing/5
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
