@@ -4,76 +4,38 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-trackxmin = 1500
-trackxmax = 3500
-trapspacing = 50
+ntrapsish = 100
+trackxmin = 1400
+trapspacing = sigma
+trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
 tracksteplength = trapspacing/5
+
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
-tracksdf <- rbind(
-  data.frame(occ = 1,
+tracksdf <- data.frame(occ = 1,
              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 1300, 
+             y = trackxmin, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-  data.frame(occ = 2,
-             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 1400, 
-             time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-   data.frame(occ = 3,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1500, 
-              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-   data.frame(occ = 4,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1600, 
-              time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-   data.frame(occ = 5,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1300, 
-              time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-   data.frame(occ = 6,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1400, 
-              time = seq(ymd_hms("2024-01-02 0:00:00"), (ymd_hms("2024-01-02 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-  data.frame(occ = 7,
-             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 1500, 
-             time = seq(ymd_hms("2024-01-03 0:00:00"), (ymd_hms("2024-01-03 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-  data.frame(occ = 8,
-             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 1600, 
-             time = seq(ymd_hms("2024-01-03 0:00:00"), (ymd_hms("2024-01-03 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-  data.frame(occ = 9,
-             x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = 1300, 
-             time = seq(ymd_hms("2024-01-03 0:00:00"), (ymd_hms("2024-01-03 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-   data.frame(occ = 10,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1400, 
-              time = seq(ymd_hms("2024-01-04 0:00:00"), (ymd_hms("2024-01-04 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-   data.frame(occ = 11,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1500, 
-              time = seq(ymd_hms("2024-01-04 0:00:00"), (ymd_hms("2024-01-04 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint)),
-   data.frame(occ = 12,
-              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-              y = 1600, 
-              time = seq(ymd_hms("2024-01-04 0:00:00"), (ymd_hms("2024-01-04 0:00:00") + (tracksteps)*trackint), 
-                         by = trackint))
-)
-tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
+                        by = trackint))
+nexttrack <- tracksdf
+for(i in 2:round(sqrt(ntrapsish))){ #total, so including existing df
+  nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
+  nexttrack[,"occ"] <- nexttrack[,"occ"] + 1
+  tracksdf <- rbind(tracksdf, nexttrack)
+}
+
+df2 <- tracksdf
+for(i in 2:round(sqrt(ntrapsish))){
+  rep <- 1
+  df2$occ <- df2$occ + (4*rep)
+  df2$time <- df2$time + 24*60*60
+  tracksdf <- rbind(tracksdf, df2)
+  rep <- rep + 1
+}
+
+
+#tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
