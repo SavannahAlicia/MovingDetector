@@ -22,7 +22,7 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
 Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//traps (j) xy
                                    NumericMatrix h //hrcs (i) xy
                                      ) {
-  // Distance matrix has i rows and j columns
+  // Distance matrix has j rows and i columns
   NumericMatrix dist_mat(t.nrow(), h.nrow());
   for(int i = 0; i < h.nrow(); ++i) {
     for(int j = 0; j < t.nrow(); ++j) {

@@ -85,6 +85,17 @@ D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 beta3 <- log(sum(D_mesh_f)/sum(D_mesh_v))
 D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 
+#directory names
+dirstart <- paste("compare_moving_stat_2D/simulation_results/",
+                  "l", lambda0,
+                  "D", round(sum(D_mesh_f)*meshspacing^2),
+                  "/",
+                  sep = "")
+
+# Check and create the directory
+if (!dir.exists(dirstart)) {
+  dir.create(dirstart, recursive = TRUE)
+}
 
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 

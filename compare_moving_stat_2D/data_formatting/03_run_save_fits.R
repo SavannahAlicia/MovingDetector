@@ -39,17 +39,7 @@ all_sim_fits <- mclapply(X = as.list(1:nsims),
 tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
 
-#directory names
-dirstart <- paste("compare_moving_stat_2D/simulation_results/",
-                  "l", lambda0,
-                  "D", round(sum(D_mesh_f)*meshspacing^2),
-                  "/",
-                  sep = "")
 
-# Check and create the directory
-if (!dir.exists(dirstart)) {
-  dir.create(dirstart, recursive = TRUE)
-}
 
 saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
 saveRDS(all_sim_fits, paste(dirstart, "flat_dens.Rds", sep = ""))
