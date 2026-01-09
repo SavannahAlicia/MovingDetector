@@ -4,7 +4,7 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 100
+ntrapsish = 49
 trackxmin = 1400
 trapspacing = sigma
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
@@ -39,7 +39,7 @@ for(i in 2:round(sqrt(ntrapsish))){
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = trapspacing
+meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 D_mesh_f <- rep(flatD, nrow(mesh))
 if(beta3 != 0){ #for running script standalone
