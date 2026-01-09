@@ -28,7 +28,7 @@ for(i in 2:round(sqrt(ntrapsish))){ #total, so including existing df
 df2 <- tracksdf
 for(i in 2:round(sqrt(ntrapsish))){
   rep <- 1
-  df2$occ <- df2$occ + (4*rep)
+  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)
   df2$time <- df2$time + 24*60*60
   tracksdf <- rbind(tracksdf, df2)
   rep <- rep + 1
@@ -42,6 +42,9 @@ nocc <- length(unique(tracksdf$occ))
 meshspacing = trapspacing
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 D_mesh_f <- rep(flatD, nrow(mesh))
+if(beta3 != 0){ #for running script standalone
+  beta3 = 0
+}
 D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 #rescale Dmeshv 
 beta3 <- log(sum(D_mesh_f)/sum(D_mesh_v))
@@ -99,13 +102,17 @@ layoutplot <- ggplot() +
   geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
              mapping = aes(x = x, y = y, fill = D)) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
-             size = 3,shape = "+", color= "white") +
+             size = 3,shape = "+", color= "white"
+             ) +
   scale_fill_viridis_c()
 layoutplot +
   #xlim(1000, 4000) +
   geom_point(data.frame(x = traps$x,
                         y = traps$y),
-             mapping = aes(x = x, y = y), shape = 21, , color = "pink", fill = "red", alpha = .7, size = 2) +
+             mapping = aes(x = x, y = y), 
+             shape = 21, color = "pink", 
+             fill = "red", 
+             alpha = .7, size = 2) +
   theme_bw()
 
 # visualize a capture history
