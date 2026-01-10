@@ -91,7 +91,7 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c( 
       log(lambda0),
       log(sigma), log(D_mesh[1]))
-    scaling_factors <- 10^round(log10(abs(start0)))
+    scaling_factors <- rep(1, length(start0))# 10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
     stat_nll <- function(v_scaled ){
@@ -123,7 +123,7 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c(
       log(lambda0),
       log(sigma), beta1, beta2, beta3)
-    scaling_factors <- 10^round(log10(abs(start0)))
+    scaling_factors <- rep(1, length(start0))#10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
     #quadratic density function
