@@ -4,7 +4,7 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 81
+ntrapsish = 49
 trackxmin = 1400
 trapspacing = sigma
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
