@@ -174,17 +174,9 @@ fit_capthist <- function(dist_trapmesh,
     outnames <- c("lambda0", "sigma", "beta1", "beta2", "beta3")
   }
   assemble_CIs <- function(fit){
-    prop_sigma <- tryCatch(
-      #fisher_info <- MASS::ginv(fit$hessian)
-      #prop_sigma <- sqrt(diag(fisher_info))
-      #prop_sigma <- diag(prop_sigma)
-      diag(sqrt(diag(MASS::ginv(fit$hessian)))),
-      error = function(e){
-        message("Hessian issue", e$message)
-        structure(NA, error = e$message)
-      }
-    )
-
+    fisher_info <- MASS::ginv(fit$hessian)
+    prop_sigma <- sqrt(diag(fisher_info))
+    prop_sigma <- diag(prop_sigma)
     upper <- fit$par+1.96*prop_sigma
     lower <- fit$par-1.96*prop_sigma
     interval <- data.frame(name = outnames,
