@@ -79,21 +79,26 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
       statDdat <- apply(as.array(1:nsims), 1, function(sim){
         apply(as.array(newmeshxs), 1, function(x){
           betas = sim_fits_out[[sim]]$statdet_est$value[3:5]
-          D = exp(betas[1] * (x + betas[2])^2 + betas[3])
+          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
+            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
           return(D)
         })
       })
       moveDdat <- apply(as.array(1:nsims), 1, function(sim){
         apply(as.array(newmeshxs), 1, function(x){
           betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
-          D = exp(betas[1] * (x + betas[2])^2 + betas[3])
+          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
+            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
           return(D)
         })
       }) 
 
       #dataframe with x, y, trueD, stationarydets, movingdets, quantile columns
       D_plotdat <- data.frame(x = rep(newmeshxs,3),
-                              trueD = rep(exp(beta1 * (newmeshxs + beta2) ^2 + beta3), 3),
+                              trueD = rep(
+                                          N * exp(beta1*(newmeshxs + beta2)^2) / 
+            (sum(exp(beta1*(newmeshxs + beta2)^2)) * meshspacing^2), 
+                                          3),
                               stationarydets = c(rowMeans(statDdat),
                                                  apply(statDdat, 1, function(x) quantile(x, probs = .025)),
                                                  apply(statDdat, 1, function(x) quantile(x, probs = .975))
@@ -110,14 +115,16 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
       moveNdat <- apply(as.array(1:nsims), 1, function(sim){
         N = sum(apply(as.array(mesh$x), 1, function(x){
           betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
-          D = exp(betas[1] * (x + betas[2])^2 + betas[3]) 
+          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
+            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
           return(D)
         }) * meshspacing^2)
       })
       statNdat <- apply(as.array(1:nsims), 1, function(sim){
         N = sum(apply(as.array(mesh$x), 1, function(x){
-          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]
-          D = exp(betas[1] * (x + betas[2])^2 + betas[3]) 
+          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]      
+          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
+            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
           return(D)
         }) * meshspacing^2)
       })
@@ -125,7 +132,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                              quantile = c("mean", "mean", "mean",
                                           "2.5%", "2.5%", "2.5%",
                                           "97.5%", "97.5%", "97.5%"),
-                             value = c(sum(exp(beta1 * (mesh$x + beta2) ^2 + beta3) * meshspacing^2),
+                             value = c(N,
                                        mean(moveNdat), 
                                        mean(statNdat),
                                        NA,
@@ -331,17 +338,17 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
           legend.text = element_text(size = 20))
   
   beta3plot <- ggplot() +
-    geom_density(all_outs[all_outs$name == "beta3",],
+    geom_density(all_outs[all_outs$name == "N",],
                  mapping = aes(x = value, col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta3",], 
+    geom_vline(data = all_outs2[all_outs2$name == "N",], 
                aes(xintercept = c(mean), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta3",], 
+    geom_vline(data = all_outs2[all_outs2$name == "N",], 
                aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta3",],
+    geom_vline(data = all_outs2[all_outs2$name == "N",],
                aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = beta3) +
+    geom_vline(xintercept = N) +
     scale_color_manual(values = plotcols) +
-    xlab("beta3") +
+    xlab("N") +
     ylab("Frequency") +
     theme_classic() +
     theme(axis.title = element_text(size = 10),

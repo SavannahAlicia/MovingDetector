@@ -4,7 +4,7 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 49
+ntrapsish = 98/2 #it'll be the first number since there's two types of tracks
 trackxmin = 1400
 trapspacing = sigma
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
@@ -13,22 +13,28 @@ tracksteplength = trapspacing/5
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
-tracksdf <- data.frame(occ = 1,
+tracksdf <- rbind(data.frame(occ = 1,
              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
              y = trackxmin, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint))
+                        by = trackint)),
+             data.frame(occ = 2,
+                        x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+                        y = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1)-900, 
+                        time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
+                                   by = trackint))
+             )
 nexttrack <- tracksdf
 for(i in 2:round(sqrt(ntrapsish))){ #total, so including existing df
   nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
-  nexttrack[,"occ"] <- nexttrack[,"occ"] + 1
+  nexttrack[,"occ"] <- nexttrack[,"occ"] + 2
   tracksdf <- rbind(tracksdf, nexttrack)
 }
 
 df2 <- tracksdf
 for(i in 2:round(sqrt(ntrapsish))){
   rep <- 1
-  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)
+  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)*2
   df2$time <- df2$time + 24*60*60
   tracksdf <- rbind(tracksdf, df2)
   rep <- rep + 1
@@ -41,33 +47,19 @@ nocc <- length(unique(tracksdf$occ))
 #mesh grid
 meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
+eta <- beta1*(mesh$x + beta2)^2
+Z   <- sum(exp(eta)) * meshspacing^2
+D_mesh_v   <- N * exp(eta) / Z
+flatD <- N/(nrow(mesh) * meshspacing^2)
 D_mesh_f <- rep(flatD, nrow(mesh))
-if(beta3 != 0){ #for running script standalone
-  beta3 = 0
-}
-D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
-#rescale Dmeshv 
-beta3 <- log(sum(D_mesh_f)/sum(D_mesh_v))
-D_mesh_v <- exp(beta1*(mesh$x + beta2)^2 + beta3)
 
-#directory names
-dirstart <- paste("compare_moving_stat_2D/simulation_results/",
-                  "l", lambda0,
-                  "D", round(sum(D_mesh_f)*meshspacing^2),
-                  "/",
-                  sep = "")
-
-# Check and create the directory
-if (!dir.exists(dirstart)) {
-  dir.create(dirstart, recursive = TRUE)
-}
 
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 #trap grid
 
-xgr <- seq(min(tracksdf$x)-(.5*trapspacing), max(tracksdf$x)+(.5*trapspacing), by = trapspacing)
-ygr <- seq(min(tracksdf$y), max(tracksdf$y), by = trapspacing)
+xgr <- seq(min(tracksdf$x)-(0.5 * trapspacing), max(tracksdf$x), by = trapspacing)
+ygr <- seq(min(tracksdf$y)-(0.5 * trapspacing), max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
 # allocate track records to grid
 trapno <- rep(0, nrow(tracksdf))
@@ -164,7 +156,9 @@ popdf <- data.frame(x = testpop[,1],
                     totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))})
                     )
 
-layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, color = totdets), size = 3) +
+layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, 
+                                             color = totdets), 
+                        size = 3) +
   scale_color_viridis_c(option = "magma")
 
 layoutplot +   

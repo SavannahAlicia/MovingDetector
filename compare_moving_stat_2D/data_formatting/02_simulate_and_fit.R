@@ -69,7 +69,7 @@ fit_capthist <- function(dist_trapmesh,
                     D_mesh, 
                     beta1, 
                     beta2,
-                    beta3,
+                    N,
                     hazdenom, 
                     mesh, 
                     capthistout,
@@ -122,7 +122,7 @@ fit_capthist <- function(dist_trapmesh,
   }else if(Dmod == "~x^2"){  
     start0 <- c(
       log(lambda0),
-      log(sigma), beta1, beta2, beta3)
+      log(sigma), beta1, beta2, log(N))
     scaling_factors <- 10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
@@ -131,7 +131,9 @@ fit_capthist <- function(dist_trapmesh,
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])
+      eta <- v[3]*(mesh_mat[,1] + v[4])^2
+      Z   <- sum(exp(eta)) * meshspacing^2
+      D_mesh_  <- exp(v[5]) * exp(eta) / Z
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
@@ -143,7 +145,9 @@ fit_capthist <- function(dist_trapmesh,
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])#invlogit(v[1])
       sigma_ <- exp(v[2])
-      D_mesh_ <- exp(v[3]*(mesh_mat[,1] + v[4])^2 + v[5])#exp(beta1*(mesh$x + beta2)^2 + beta3)
+      eta <- v[3]*(mesh_mat[,1] + v[4])^2
+      Z   <- sum(exp(eta)) * meshspacing^2
+      D_mesh_ <- exp(v[5]) * exp(eta) / Z
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
@@ -171,7 +175,7 @@ fit_capthist <- function(dist_trapmesh,
   if (Dmod == "~1"){
     outnames <- c("lambda0", "sigma", "D")
   } else if(Dmod == "~x^2"){
-    outnames <- c("lambda0", "sigma", "beta1", "beta2", "beta3")
+    outnames <- c("lambda0", "sigma", "beta1", "beta2", "N")
   }
   assemble_CIs <- function(fit){
     fisher_info <- MASS::ginv(fit$hessian)
@@ -208,7 +212,7 @@ sim_fit <- function(traps,
                     D_mesh, 
                     beta1, 
                     beta2,
-                    beta3,
+                    N,
                     hazdenom, 
                     Dmod){
   capthistout <- simulate_popandcapthist(traps,
@@ -226,7 +230,7 @@ sim_fit <- function(traps,
                                   D_mesh, 
                                   beta1, 
                                   beta2,
-                                  beta3,
+                                  N,
                                   hazdenom, 
                                   mesh, 
                                   capthistout,

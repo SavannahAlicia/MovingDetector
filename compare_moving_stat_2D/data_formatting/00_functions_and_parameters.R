@@ -15,12 +15,24 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .08 #expected number of detections per m of trackline at AC
 sigma = 200
-beta1 <- -(1/40000)
-beta2 <- -2500
-beta3 <- 0 #THIS WILL CHANGE in 01_data_setup to scale total abundance 
-flatD = 45/1000000 #per sqr m
+N <- 250
+beta1 <- -3e-6
+beta2 <- -2400
+
 
 nsims = 30#50
 set.seed(1994)
 
+
+#directory names
+dirstart <- paste("compare_moving_stat_2D/simulation_results/",
+                  "l", lambda0,
+                  "D", round(sum(D_mesh_f)*meshspacing^2),
+                  "/",
+                  sep = "")
+
+# Check and create the directory
+if (!dir.exists(dirstart)) {
+  dir.create(dirstart, recursive = TRUE)
+}
 
