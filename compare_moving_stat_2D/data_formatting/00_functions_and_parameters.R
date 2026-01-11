@@ -15,7 +15,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .08 #expected number of detections per m of trackline at AC
 sigma = 200
-N <- 250
+N <- 90
 beta1 <- -3e-6
 beta2 <- -2400
 
@@ -27,7 +27,7 @@ set.seed(1994)
 #directory names
 dirstart <- paste("compare_moving_stat_2D/simulation_results/",
                   "l", lambda0,
-                  "D", round(sum(D_mesh_f)*meshspacing^2),
+                  "D", N,
                   "/",
                   sep = "")
 
