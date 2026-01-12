@@ -152,12 +152,13 @@ fit_capthist <- function(dist_trapmesh,
       
       eta <- v[3]*(mesh_mat[,1] + v[4])^2
       if (any(!is.finite(eta))) return(1e12)
-      if (any(!is.finite(exp(eta)))) return(1e12)
+      exp_eta <- exp(eta)
+      if (any(!is.finite(exp_eta))) return(1e12)
       
-      Z   <- sum(exp(eta)) * meshspacing^2
+      Z   <- sum(exp_eta) * meshspacing^2
       if (!is.finite(Z) || Z <= 0) return(1e12)
       
-      D_mesh_  <- exp(v[5]) * exp(eta) / Z
+      D_mesh_  <- exp(v[5]) * exp_eta / Z
       if (any(!is.finite(D_mesh_))) return(1e12)
       
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -178,12 +179,13 @@ fit_capthist <- function(dist_trapmesh,
       
       eta <- v[3]*(mesh_mat[,1] + v[4])^2
       if (any(!is.finite(eta))) return(1e12)
-      if (any(!is.finite(exp(eta)))) return(1e12)
+      exp_eta <- exp(eta)
+      if (any(!is.finite(exp_eta))) return(1e12)
       
-      Z   <- sum(exp(eta)) * meshspacing^2
+      Z   <- sum(exp_eta) * meshspacing^2
       if (!is.finite(Z) || Z <= 0) return(1e12)
       
-      D_mesh_ <- exp(v[5]) * exp(eta) / Z
+      D_mesh_ <- exp(v[5]) * exp_eta / Z
       if (any(!is.finite(D_mesh_))) return(1e12)
       
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
