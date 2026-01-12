@@ -37,8 +37,11 @@ all_sim_fits_q <- parLapply(cl, 1:nsims, function(sim) {
             hazdenom, 
             Dmod = "~x^2")
   }, error = function(e) {
-    message("Simulation ", sim, " failed: ", e$message)
-    return(NULL)
+    list(
+      ok = FALSE,
+      sim = sim,
+      error = conditionMessage(e)
+    )
   })
 })
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
@@ -55,9 +58,12 @@ all_sim_fits <- parLapply(cl, 1:nsims, function(sim) {
             hazdenom,
             Dmod = "~1")
   }, error = function(e) {
-    message("Simulation ", sim, " failed: ", e$message)
-    return(NULL)
-  })
+    list(
+      ok = FALSE,
+      sim = sim,
+      error = conditionMessage(e)
+    )
+    })
 })
 tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
