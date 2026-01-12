@@ -5,6 +5,17 @@ cl <- makeCluster(ncores)
 # Load packages on workers
 clusterEvalQ(cl, 
              {library(Rcpp)
+               library(RcppArmadillo)
+               library(RcppClock)
+               library(secr)
+               library(lubridate)
+               library(parallel)
+               library(ggplot2)
+               library(sp)
+               library(sf)
+               library(gridExtra)
+               library(ggnewscale)
+               library(dplyr)
              sourceCpp("approx_movingdetectorlikelihood.cpp")})
 
 # Export all objects/functions needed by sim_fit
