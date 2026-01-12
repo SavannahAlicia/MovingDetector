@@ -160,16 +160,18 @@ fit_capthist <- function(dist_trapmesh,
   fit_sd <- optim(par = start,
                   fn = stat_nll,
                   hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
-  fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
-                                      method.args = list(eps = 1e-5, d = 1e-3, r = 3))
+  
+ # fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
+   #                                   method.args = list(eps = 1e-5, d = 1e-3, r = 3))
   fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
   
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                   fn = nll,
                   hessian = F, method = "Nelder-Mead")
-  fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
-                                      method.args = list(eps = 1e-6, d = 1e-4, r = 4))
+  
+ # fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
+  #                                    method.args = list(eps = 1e-6, d = 1e-4, r = 4))
   fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
   
   if (Dmod == "~1"){
@@ -178,9 +180,9 @@ fit_capthist <- function(dist_trapmesh,
     outnames <- c("lambda0", "sigma", "beta1", "beta2", "N")
   }
   assemble_CIs <- function(fit){
-    fisher_info <- MASS::ginv(fit$hessian)
-    prop_sigma <- sqrt(diag(fisher_info))
-    prop_sigma <- diag(prop_sigma)
+    fisher_info <- NA #MASS::ginv(fit$hessian)
+    prop_sigma <- NA#sqrt(diag(fisher_info))
+    prop_sigma <- NA#diag(prop_sigma)
     upper <- fit$par+1.96*prop_sigma
     lower <- fit$par-1.96*prop_sigma
     interval <- data.frame(name = outnames,
