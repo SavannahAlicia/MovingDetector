@@ -69,6 +69,8 @@ tot.time.all1 <- difftime(Sys.time(), start.time.all1, units = "secs")
 print(tot.time.all1)
 
 stopCluster(cl)
+errors <- Filter(function(x) is.list(x) && identical(x$ok, FALSE), all_sim_fits_q)
+errors
 
 
 saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
