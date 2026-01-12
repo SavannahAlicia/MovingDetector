@@ -31,7 +31,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     
     stat_outs <- do.call(rbind,lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
       df <- sim_fits_out[[x]]$statdet_est
-      trueN = sim_fits_out[[x]]$n
+      trueN = sim_fits_out[[x]]$n #just detected inds though
 
       if(any(is.na(df))) {
         df <- df %>% 

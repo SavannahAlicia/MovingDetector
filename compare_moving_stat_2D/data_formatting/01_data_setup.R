@@ -4,7 +4,7 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 98/2 #it'll be the first number since there's two types of tracks
+ntrapsish = 81#98/2 #it'll be the first number if there's two types of tracks
 trackxmin = 1400
 trapspacing = sigma
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
@@ -17,24 +17,25 @@ tracksdf <- rbind(data.frame(occ = 1,
              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
              y = trackxmin, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                        by = trackint)),
-             data.frame(occ = 2,
-                        x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-                        y = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1)-900, 
-                        time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                                   by = trackint))
+                        by = trackint))#,
+            # data.frame(occ = 2,
+            #            x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
+            #            y = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1)-900, 
+            #            time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
+            #                       by = trackint))
              )
+uniquetracktypes <- length(unique(tracksdf$occ))
 nexttrack <- tracksdf
 for(i in 2:round(sqrt(ntrapsish))){ #total, so including existing df
   nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
-  nexttrack[,"occ"] <- nexttrack[,"occ"] + 2
+  nexttrack[,"occ"] <- nexttrack[,"occ"] + uniquetracktypes
   tracksdf <- rbind(tracksdf, nexttrack)
 }
 
 df2 <- tracksdf
 for(i in 2:round(sqrt(ntrapsish))){
   rep <- 1
-  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)*2
+  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)*uniquetracktypes
   df2$time <- df2$time + 24*60*60
   tracksdf <- rbind(tracksdf, df2)
   rep <- rep + 1
@@ -59,7 +60,8 @@ hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 #trap grid
 
 xgr <- seq(min(tracksdf$x)-(0.5 * trapspacing), max(tracksdf$x), by = trapspacing)
-ygr <- seq(min(tracksdf$y)-(0.5 * trapspacing), max(tracksdf$y), by = trapspacing)
+ygr <- seq(min(tracksdf$y),#-(0.5 * trapspacing),
+           max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
 # allocate track records to grid
 trapno <- rep(0, nrow(tracksdf))
