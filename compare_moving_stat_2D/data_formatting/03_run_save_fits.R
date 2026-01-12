@@ -3,7 +3,9 @@ ncores <- 30
 cl <- makeCluster(ncores)
 
 # Load packages on workers
-clusterEvalQ(cl, library(Rcpp))
+clusterEvalQ(cl, 
+             {library(Rcpp)
+             sourceCpp("approx_movingdetectorlikelihood.cpp")})
 
 # Export all objects/functions needed by sim_fit
 clusterExport(cl, varlist = c(
