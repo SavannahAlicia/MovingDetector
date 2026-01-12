@@ -91,30 +91,45 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c( 
       log(lambda0),
       log(sigma), log(D_mesh[1]))
-    scaling_factors <- 10^round(log10(abs(start0)))
+    scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
     stat_nll <- function(v_scaled ){
       v <- v_scaled * scaling_factors 
       lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
       sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
       D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat)
+      if (!is.finite(out)) return(1e12)
+      
       return(out)
     }
     #moving detector likelihood
     nll <- function(v_scaled ){
       v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1]) #logit link?
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
       sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
       D_mesh_ <- rep(exp(v[3]), nrow(mesh))
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat)
+      if (!is.finite(out)) return(1e12)
       return(out)
     }
 
@@ -123,35 +138,59 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c(
       log(lambda0),
       log(sigma), beta1, beta2, log(N))
-    scaling_factors <- 10^round(log10(abs(start0)))
+    scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
     #quadratic density function
     stat_nll <- function(v_scaled){
       v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1])
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
       sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
       eta <- v[3]*(mesh_mat[,1] + v[4])^2
+      if (any(!is.finite(eta))) return(1e12)
+      if (any(!is.finite(exp(eta)))) return(1e12)
+      
       Z   <- sum(exp(eta)) * meshspacing^2
+      if (!is.finite(Z) || Z <= 0) return(1e12)
+      
       D_mesh_  <- exp(v[5]) * exp(eta) / Z
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat)
+      if (!is.finite(out)) return(1e12)
       return(out)
     }
     #moving detector likelihood
     nll <- function(v_scaled){
       v <- v_scaled * scaling_factors 
-      lambda0_ <- exp(v[1])#invlogit(v[1])
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
       sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
       eta <- v[3]*(mesh_mat[,1] + v[4])^2
+      if (any(!is.finite(eta))) return(1e12)
+      if (any(!is.finite(exp(eta)))) return(1e12)
+      
       Z   <- sum(exp(eta)) * meshspacing^2
+      if (!is.finite(Z) || Z <= 0) return(1e12)
+      
       D_mesh_ <- exp(v[5]) * exp(eta) / Z
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat)
+      if (!is.finite(out)) return(1e12)
       return(out)
     }
   }  
