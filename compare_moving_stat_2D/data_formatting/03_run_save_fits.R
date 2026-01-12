@@ -71,7 +71,7 @@ print(tot.time.all1)
 stopCluster(cl)
 errors <- Filter(function(x) is.list(x) && identical(x$ok, FALSE), all_sim_fits_q)
 errors
-
+print(errors)
 
 saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
 saveRDS(all_sim_fits, paste(dirstart, "flat_dens.Rds", sep = ""))
