@@ -22,8 +22,7 @@ simulate_popandcapthist <- function(traps,
   } else if(nrow(pop) <20) {
     warning("Less than 20 individuals simualted.")
   }
-  dist_dat_pop <- calc_dist_matC(pop, 
-                                 as.matrix(tracksdf[,c("x","y")]))
+  
   
   capthist_full <- sim_capthist_C(as.matrix(traps),
                                   tracksdf, 
@@ -34,7 +33,7 @@ simulate_popandcapthist <- function(traps,
                                   meshspacing,
                                   hazdenom,
                                   pop,
-                                  dist_dat_pop,
+                                  dist_dat_pop = NULL,
                                   report_probseenxk = F)
   
   #standard scr likelihood
@@ -109,7 +108,6 @@ fit_capthist <- function(dist_trapmesh,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat)
-      if (!is.finite(out)) return(1e12)
       
       return(out)
     }
@@ -129,7 +127,6 @@ fit_capthist <- function(dist_trapmesh,
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat)
-      if (!is.finite(out)) return(1e12)
       return(out)
     }
 
@@ -165,7 +162,6 @@ fit_capthist <- function(dist_trapmesh,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
                                              dist_trapmesh, mesh_mat)
-      if (!is.finite(out)) return(1e12)
       return(out)
     }
     #moving detector likelihood
@@ -192,7 +188,6 @@ fit_capthist <- function(dist_trapmesh,
                                          hazdenom, D_mesh_,
                                          capthist, useall,
                                          induse, dist_trapmesh, mesh_mat)
-      if (!is.finite(out)) return(1e12)
       return(out)
     }
   }  

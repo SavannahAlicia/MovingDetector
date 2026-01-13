@@ -8,7 +8,7 @@ ntrapsish = 81#98/2 #it'll be the first number if there's two types of tracks
 trackxmin = 1400
 trapspacing = sigma
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
-tracksteplength = trapspacing/5
+tracksteplength = trapspacing/16
 
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
