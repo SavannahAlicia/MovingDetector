@@ -817,15 +817,23 @@ double
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
             probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));
-          }else{
+          } else {
             probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
+          }
+          //sanity check for if P(ch = 1) = 0 but was detected
+          if(probcapthist_eachocc(occk) <= 0){
+            Rcpp::Rcout << "Zero probability for individual " << i
+                        << ", occasion " << occk
+                        << ", mesh point " << x << std::endl;
+            probcapthist_eachocc(occk) = 1e-16;
           }
         }
         double probcapthist_alloccs = product(probcapthist_eachocc);
         DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
       }
-      double DKprod_sum = sumC(DKprod_eachx) + 1e-16;
+      double DKprod_sum = sumC(DKprod_eachx);
       integral_eachi(i) = DKprod_sum * mesharea;
+      integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
@@ -932,9 +940,16 @@ double
              //prob that trap j made the detection given i was detected in k
              probcapthist_eachocc(occk) = exp(log(hu_js(trapijk))-log(sum_hujs))   * (1 - exp(-sum_hujs)); 
            }
-          }else{
+          } else {
             //prob i wasn't detected in k
             probcapthist_eachocc(occk) = exp(-sum_hujs) ; //survived all traps
+          }
+          //sanity check for if P(ch = 1) = 0 but was detected
+          if(probcapthist_eachocc(occk) <= 0){
+            Rcpp::Rcout << "Zero probability for individual " << i
+                        << ", occasion " << occk
+                        << ", mesh point " << x << std::endl;
+            probcapthist_eachocc(occk) = 1e-16;
           }
         }
         double probcapthist_alloccs = product(probcapthist_eachocc);
@@ -942,6 +957,7 @@ double
       }
       double DKprod_sum = sumC(DKprod_eachx);
       integral_eachi(i) = DKprod_sum * mesharea;
+      integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
