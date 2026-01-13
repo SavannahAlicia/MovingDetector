@@ -19,19 +19,19 @@ Rcpp::NumericVector which_is_not_na(Rcpp::NumericVector x) {
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//traps (j) xy
-                                   NumericMatrix h //hrcs (i) xy
+Rcpp::NumericMatrix calc_dist_matC(Rcpp::NumericMatrix t,//first pts (i) xy
+                                   NumericMatrix h //second pts (j) xy
                                      ) {
-  // Distance matrix has j rows and i columns
+  // Distance matrix has i rows and j columns
   NumericMatrix dist_mat(t.nrow(), h.nrow());
-  for(int i = 0; i < h.nrow(); ++i) {
-    for(int j = 0; j < t.nrow(); ++j) {
-      double dx = t(j,0) - h(i,0);
-      double dy = t(j, 1) - h(i, 1);
-      dist_mat(j,i) = std::sqrt(dx * dx + dy * dy);
+  for(int j = 0; j < h.nrow(); ++j) {
+    for(int i = 0; i < t.nrow(); ++i) {
+      double dx = t(i,0) - h(j,0);
+      double dy = t(i, 1) - h(j, 1);
+      dist_mat(i,j) = std::sqrt(dx * dx + dy * dy);
     }
   }
-  return dist_mat; // t by h
+  return dist_mat; // [i, j] = distance(pt i, pt j)
 }
 
 // [[Rcpp::export]]
@@ -553,13 +553,23 @@ sim_capthist_C(NumericMatrix traps,
                              double meshspacing,
                              int hazdenom,
                              NumericMatrix pop,
-                             NumericMatrix dist_dat_pop,
+                             Nullable<NumericMatrix> dist_dat_pop = R_NilValue,
                              bool report_probseenxk = false
 ){
+  //dist_dat_pop needs to be distances to midpoints of increments if precalculated
+  bool recalc_distdatpop = false;
+  NumericMatrix dist_dat_pop_r;
+  if(dist_dat_pop.isNotNull()){
+    dist_dat_pop_r = NumericMatrix(dist_dat_pop);
+  } else {
+    dist_dat_pop_r = NumericMatrix(pop.nrow(), tracksdf.nrows());
+    recalc_distdatpop = true;
+  }
+
   if(D_mesh.size() == 0) Rcpp::stop("D_mesh cannot be empty or NULL");
   if(mesh.nrow() == 0) Rcpp::stop("mesh cannot be empty");
-  if(pop.nrow() != dist_dat_pop.nrow()) Rcpp::stop("dist_dat_pop dimension does not match pop");
-  if(tracksdf.nrows() != dist_dat_pop.ncol()) Rcpp::stop("dist_dat_pop ncol does not match tracksdf nrow");
+  if(pop.nrow() != dist_dat_pop_r.nrow()) Rcpp::stop("dist_dat_pop dimension does not match pop");
+  if(tracksdf.nrows() != dist_dat_pop_r.ncol()) Rcpp::stop("dist_dat_pop ncol does not match tracksdf nrow");
   
   // Check that required columns exist
   CharacterVector colnames = tracksdf.names();
@@ -589,8 +599,40 @@ sim_capthist_C(NumericMatrix traps,
   ch.attr("dim") = dims;
 
   NumericMatrix tracksxy(tracksdf.nrows(), 2);
-  tracksxy(_, 0) = x;
-  tracksxy(_, 1) = y;
+  tracksxy = Rcpp::cbind(x,y);
+ 
+  if(recalc_distdatpop){
+    //need to calculate midpoints of tracksdf pts for each occasion for 
+    // centered Riemann sum
+    NumericMatrix tracksdfmidptxy(tracksdf.nrows(),2);
+    for (int k = 0; k < nocc; ++k){
+      
+      int track_id = uniq_occs[k];
+      
+      // Indices for this occasion from tracksdf (of points, not segments)
+      LogicalVector mask = occ == track_id;
+      IntegerVector idx = Rcpp::seq(0, tracksdf.nrows() - 1); // indexes rows of entire tracksdf
+      idx = idx[mask]; // subsetted to rows that are in this occasion
+      int nsteps = idx.size();
+      if(nsteps < 2){
+        Rcpp::warning("Occ %d has less than 2 increments", k);
+      }
+      if(nsteps < 1) continue;
+      
+      // first midpoint is just the first point
+      tracksdfmidptxy(idx[0], 0) = tracksxy(idx[0], 0);
+      tracksdfmidptxy(idx[0], 1) = tracksxy(idx[0], 1);
+      
+      // Remaining midpoints are the averages of consecutive points
+      for (int i = 1; i < nsteps; ++i) {
+        tracksdfmidptxy(idx[i], 0) = 0.5 * (tracksxy(idx[i-1], 0) + tracksxy(idx[i], 0));
+        tracksdfmidptxy(idx[i], 1) = 0.5 * (tracksxy(idx[i-1], 1) + tracksxy(idx[i], 1));
+      }
+    }
+    
+  //recalculate distances between hrcs and midpts for hazard later
+    dist_dat_pop_r = calc_dist_matC(pop, tracksdfmidptxy);
+  }
   
   //temporary output for testing
   NumericVector firsttprob(N * tracksdf.nrows());
@@ -635,7 +677,7 @@ sim_capthist_C(NumericMatrix traps,
         NumericVector seenfirstatt(nsteps + 1); //last entry is not seen any t
         for(int e = 0; e < nsteps; e ++){
           int x = idx[e]; //index of row in tracksdf
-          double d = dist_dat_pop(i,x);
+          double d = dist_dat_pop_r(i,x);
           double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
           hus[e] = haz * increments[e];
           if(hus[e] < 0){
