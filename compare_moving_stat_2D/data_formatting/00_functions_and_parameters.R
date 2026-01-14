@@ -18,6 +18,18 @@ sigma = 200
 N <- 90
 beta1 <- -3e-6
 beta2 <- -2400
+calcDv <- function(xs, 
+                   ys, 
+                   beta1,
+                   beta2, 
+                   N,
+                   meshspacing){
+  apply(as.array(1:length(xs)), 1, function(x){
+    D = exp(N) * exp(beta1*((xs[x] + beta2)^2+ (ys[x] + beta2.sim)^2)) / 
+      (sum(exp(beta1.sim*((xs + beta2.sim)^2 + (ys +beta2.sim)^2))) * meshspacing^2)
+    return(D)
+  })
+}
 
 
 nsims = 30
