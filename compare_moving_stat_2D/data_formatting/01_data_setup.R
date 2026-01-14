@@ -48,7 +48,7 @@ nocc <- length(unique(tracksdf$occ))
 #mesh grid
 meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
-eta <- beta1*(mesh$x + beta2)^2
+eta <- beta1*((mesh$x + beta2)^2 + (mesh$y + beta2)^2)
 Z   <- sum(exp(eta)) * meshspacing^2
 D_mesh_v   <- N * exp(eta) / Z
 flatD <- N/(nrow(mesh) * meshspacing^2)

@@ -1,7 +1,8 @@
 library(dplyr)
 
 
-create_plots <- function(sim_fits_out, Dmodel = "variable",
+create_plots <- function(sim_fits_out, 
+                         Dmodel = "variable",
                          plotcols = c("cornflowerblue", "goldenrod", "black"),
                          linesize = .3, output){
   ###------------------------compare computation time-----------------------------
@@ -62,7 +63,6 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
                                                               nrow(stat_outs)))),
                       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
-    #all_outs$sd <- (((all_outs$upper)- (all_outs$value))/1.96)
     
     all_outs2 <- all_outs %>%
       group_by(name, model) %>%
@@ -76,19 +76,24 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
       meshstep = meshspacing/10
       newmeshxs = seq(min(mesh$x), max(mesh$x), meshstep)
       #calculate D for meshx (row) and estimated betas (column)
+      enames = sim_fits_out[[1]]$statdet_est$name
       statDdat <- apply(as.array(1:nsims), 1, function(sim){
         apply(as.array(newmeshxs), 1, function(x){
-          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]
-          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
-            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
+          beta1.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"]
+          beta2.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"]
+          N.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "N"]
+          D = exp(N.sim) * exp(beta1.sim*(x + beta2.sim)^2) / 
+            (sum(exp(beta1.sim*(newmeshxs + beta2.sim)^2)) * meshspacing^2)
           return(D)
         })
       })
       moveDdat <- apply(as.array(1:nsims), 1, function(sim){
         apply(as.array(newmeshxs), 1, function(x){
-          betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
-          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
-            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
+          beta1.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"]
+          beta2.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"]
+          N.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "N"]
+          D = exp(N.sim) * exp(beta1.sim*(x + beta2.sim)^2) / 
+            (sum(exp(beta1.sim*(newmeshxs + beta2.sim)^2)) * meshspacing^2)
           return(D)
         })
       }) 
@@ -112,22 +117,10 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
                                            rep("97.5%",length(newmeshxs)))
       )
       #mean and quantiles for sum D
-      moveNdat <- apply(as.array(1:nsims), 1, function(sim){
-        N = sum(apply(as.array(mesh$x), 1, function(x){
-          betas = sim_fits_out[[sim]]$movdet_est$value[3:5]
-          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
-            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
-          return(D)
-        }) * meshspacing^2)
-      })
-      statNdat <- apply(as.array(1:nsims), 1, function(sim){
-        N = sum(apply(as.array(mesh$x), 1, function(x){
-          betas = sim_fits_out[[sim]]$statdet_est$value[3:5]      
-          D = exp(betas[3]) * exp(betas[1]*(x + betas[2])^2) / 
-            (sum(exp(betas[1]*(newmeshxs + betas[2])^2)) * meshspacing^2)
-          return(D)
-        }) * meshspacing^2)
-      })
+      moveNdat <- colSums(moveDdat) * meshspacing^2
+     
+      statNdat <- colSums(statDdat) * meshspacing^2
+      
       Nplotdat <- data.frame(model = rep(c("True", "Moving", "Stationary"), 3),
                              quantile = c("mean", "mean", "mean",
                                           "2.5%", "2.5%", "2.5%",
@@ -221,7 +214,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab(expression(paste("\u03bb"[0], " (dets/km)"))) +
     ylab("Frequency") + 
-    #xlim(.004,.006) +
+    xlim(0,lambda0*1.1*1000) +
     scale_color_manual(name = "",
                        values = plotcols, 
                        labels = c("Moving", "Stationary", 
@@ -233,35 +226,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
   
-  lambda0precisionplot <- 
-    ggplot() +
-    geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = exp(upper)- exp(lower), col = model),
-                 size = linesize) +
-    geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-                             data.frame(name = "lambda0", model = "true", 
-                                        mean = logit(lambda0))), 
-               aes(xintercept = exp(c(mean)), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanlower)), col = model), 
-               linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanupper)), col = model),
-               linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = lambda0, size = linesize, col = "black") +
-    xlab(expression("\u03bb"[0])) +
-    ylab("Frequency") + 
-    #xlim(.004,.006) +
-    scale_color_manual(name = "",
-                       values = plotcols, 
-                       labels = c("Moving", "Stationary", 
-                                  expression("True \u03bb"[0]))) +
-    theme_classic() +
-    theme(axis.title = element_text(size = 10),
-          legend.position = "none",
-          axis.text.y = element_blank())
-  
-  
+
   sigmaplot <- 
     ggplot() +
     geom_density(all_outs[all_outs$name == "sigma",], 
@@ -284,7 +249,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-   # scale_x_continuous(limits = c(0, exp(min(all_outs2[all_outs2$name == "sigma","mean"]))*3/1000)) +
+    scale_x_continuous(limits = c(.9*sigma/1000, 1.1*sigma/1000)) +
     xlab("\u03C3 (km)") +
     ylab("Frequency") +
     theme_classic() +
@@ -308,6 +273,7 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
     ylab("Frequency") +
     scale_color_manual(values = plotcols) +
     xlab("beta1") +
+    scale_x_continuous(limits = c(beta1*4/3, beta1*1/3)) +
     theme_classic() +
     theme(axis.title = element_text(size = 10),
           axis.text.y = element_blank(),
@@ -339,14 +305,15 @@ create_plots <- function(sim_fits_out, Dmodel = "variable",
   
   beta3plot <- ggplot() +
     geom_density(all_outs[all_outs$name == "N",],
-                 mapping = aes(x = value, col = model), size = linesize) +
+                 mapping = aes(x = exp(value), col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "N",], 
-               aes(xintercept = c(mean), col = model), size = linesize) +
+               aes(xintercept = exp(mean), col = model), size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "N",], 
-               aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+               aes(xintercept = exp(meanlower), col = model), linetype = "dashed", size = linesize) +
     geom_vline(data = all_outs2[all_outs2$name == "N",],
-               aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
+               aes(xintercept = exp(meanupper), col = model), linetype = "dashed", size = linesize) +
     geom_vline(xintercept = N) +
+    scale_x_continuous(limits = c(.95*N, 1.05*N)) +
     scale_color_manual(values = plotcols) +
     xlab("N") +
     ylab("Frequency") +
@@ -449,8 +416,8 @@ if (!dir.exists(paste(dirstart, "/plots", sep = ""))) {
 all_sim_fits_q <- readRDS(paste(dirstart, "variable_dens.Rds", sep = ""))
 all_sim_fits <- readRDS(paste(dirstart, "flat_dens.Rds", sep = ""))
 
-vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plots")
-fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plots")
+vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
+fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
 ggsave(file = paste(dirstart, "plots/variable_moving_2D.png", sep = ""),
        plot = vpl,
        width = 169,
