@@ -4,11 +4,11 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 81#98/2 #it'll be the first number if there's two types of tracks
+ntrapsish = 13^2#98/2 #it'll be the first number if there's two types of tracks
 trackxmin = 1400
-trapspacing = sigma
+trapspacing = sigma/2
 trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
-tracksteplength = trapspacing/16
+tracksteplength = trapspacing/15
 
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
@@ -48,9 +48,14 @@ nocc <- length(unique(tracksdf$occ))
 #mesh grid
 meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
-eta <- beta1*((mesh$x + beta2)^2 + (mesh$y + beta2)^2)
-Z   <- sum(exp(eta)) * meshspacing^2
-D_mesh_v   <- N * exp(eta) / Z
+#eta <- beta1*((mesh$x + beta2)^2 + (mesh$y + beta2)^2)
+#Z   <- sum(exp(eta)) * meshspacing^2
+D_mesh_v   <- calcDv(mesh$x,
+                     mesh$y,
+                     beta1,
+                     beta2,
+                     N,
+                     meshspacing)#N * exp(eta) / Z
 flatD <- N/(nrow(mesh) * meshspacing^2)
 D_mesh_f <- rep(flatD, nrow(mesh))
 
@@ -69,12 +74,13 @@ for (tr in 1:length(trapno)) {
   cat(tr, " / ", length(trapno), "\r")
   d <- sqrt((tracksdf[tr, ]$x - gr[, 1])^2 + (tracksdf[tr, ]$y - gr[, 2])^2)
   dmin <- min(d)
-  trapno[tr] <- which.min(d)
+  trapno[tr] <- max(which(d==dmin)) #but this returns first trap
 }
 
 # pick out possible traps as used cells
 un <- sort(unique(trapno))
-tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, FUN = function(x){which(un == trapno[x])})
+tracksdf$trapno <- apply(as.array(1:length(trapno)), 1, 
+                         FUN = function(x){which(un == trapno[x])})
 traps <- data.frame(x = gr[un, 1],
                     y = gr[un, 2])
 

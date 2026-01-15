@@ -83,7 +83,7 @@ create_plots <- function(sim_fits_out,
                newmeshys,
         beta1.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
         beta2.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"],
-        N.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "N"],
+        N.sim = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
       })
       moveDdat <- apply(as.array(1:nsims), 1, function(sim){
@@ -91,7 +91,7 @@ create_plots <- function(sim_fits_out,
                  newmeshys,
           beta1.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
           beta2.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"],
-          N.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "N"],
+          N.sim = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
           
       }) 
