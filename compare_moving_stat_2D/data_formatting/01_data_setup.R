@@ -5,12 +5,13 @@
 
 #each trackline is a series of points with x, y, and time
 ntrapsish = 100 #98/2 #it'll be the first number if there's two types of tracks
-trackxmin = 1750
-trapspacing = sigma/(2)
-trap_n_horiz = 13 #round(sqrt(ntrapsish))
+trackxmin = 1600
+trapspacing = sigma/2
+trap_n_horiz = 14 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
 tracksteplength = trapspacing/15
+occreps = 10
 
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
@@ -35,9 +36,10 @@ for(i in 2:trap_n_vert){ #total, so including existing df
 }
 
 df2 <- tracksdf
-for(i in 2:round(sqrt(ntrapsish))){
+occ_1rep <- length(unique(tracksdf$occ))
+for(i in 2:occreps){
   rep <- 1
-  df2$occ <- df2$occ + (round(sqrt(ntrapsish))*rep)*uniquetracktypes
+  df2$occ <- df2$occ + (occ_1rep * rep)
   df2$time <- df2$time + 24*60*60
   tracksdf <- rbind(tracksdf, df2)
   rep <- rep + 1
