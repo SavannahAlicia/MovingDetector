@@ -73,34 +73,34 @@ create_plots <- function(sim_fits_out,
     
     if (Dmodel == "variable"){
 
-      meshstep = meshspacing/10
-      newmeshxs = seq(min(mesh$x), max(mesh$x), meshstep)
-      newmeshys = seq(min(mesh$y), max(mesh$y), meshstep)
+      meshstep = meshspacing/3
+      newmeshxys = expand.grid(seq(min(mesh$x), max(mesh$x), meshstep),
+                                seq(min(mesh$x), max(mesh$x), meshstep))
       #calculate D for meshx (row) and estimated betas (column)
       enames = sim_fits_out[[1]]$statdet_est$name
+      
       statDdat <- apply(as.array(1:nsims), 1, function(sim){
-        calcDv(newmeshxs,
-               newmeshys,
-        beta1.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
-        beta2.sim = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"],
-        N.sim = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
+        calcDv(newmeshxys[,1],
+               newmeshxys[,2],
+        beta1_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
+        beta2_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"],
+        N_ = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
       })
       moveDdat <- apply(as.array(1:nsims), 1, function(sim){
-          calcDv(newmeshxs,
-                 newmeshys,
-          beta1.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
-          beta2.sim = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"],
-          N.sim = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
+          calcDv(newmeshxys[,1],
+                 newmeshxys[,2],
+          beta1_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
+          beta2_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"],
+          N_ = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
-          
       }) 
 
       #dataframe with x, y, trueD, stationarydets, movingdets, quantile columns
-      D_plotdat <- data.frame(x = rep(newmeshxs,3),
+      D_plotdat <- data.frame(x = rep(newmeshxys[,1],3),
                               trueD = rep(
-                                          calcDv(newmeshxs, 
-                                                 newmeshys, 
+                                          calcDv(newmeshxys[,1], 
+                                                 newmeshxys[,2], 
                                                  beta1, beta2, N,
                                                  meshspacing), 
                                           3),
@@ -112,9 +112,9 @@ create_plots <- function(sim_fits_out,
                                              apply(moveDdat, 1, function(x) quantile(x, probs = .025)),
                                              apply(moveDdat, 1, function(x) quantile(x, probs = .975))
                                              ),
-                              quantile = c(rep("mean", length(newmeshxs)),
-                                           rep("2.5%",length(newmeshxs)),
-                                           rep("97.5%",length(newmeshxs)))
+                              quantile = c(rep("mean", nrow(newmeshxys)),
+                                           rep("2.5%",nrow(newmeshxys)),
+                                           rep("97.5%",nrow(newmeshxys)))
       )
       #mean and quantiles for sum D
       moveNdat <- colSums(moveDdat) * meshspacing^2

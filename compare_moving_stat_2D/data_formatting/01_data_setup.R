@@ -4,10 +4,12 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 13^2#98/2 #it'll be the first number if there's two types of tracks
-trackxmin = 1400
-trapspacing = sigma/2
-trackxmax = trackxmin + trapspacing * round(sqrt(ntrapsish)) #roughly ntraps x
+ntrapsish = 100 #98/2 #it'll be the first number if there's two types of tracks
+trackxmin = 1750
+trapspacing = sigma/(2)
+trap_n_horiz = 13 #round(sqrt(ntrapsish))
+trap_n_vert = round(ntrapsish/trap_n_horiz)
+trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
 tracksteplength = trapspacing/15
 
 
@@ -26,7 +28,7 @@ tracksdf <- rbind(data.frame(occ = 1,
              )
 uniquetracktypes <- length(unique(tracksdf$occ))
 nexttrack <- tracksdf
-for(i in 2:round(sqrt(ntrapsish))){ #total, so including existing df
+for(i in 2:trap_n_vert){ #total, so including existing df
   nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
   nexttrack[,"occ"] <- nexttrack[,"occ"] + uniquetracktypes
   tracksdf <- rbind(tracksdf, nexttrack)
@@ -46,7 +48,7 @@ for(i in 2:round(sqrt(ntrapsish))){
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = trapspacing/2
+meshspacing = trapspacing/sqrt(2)
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 #eta <- beta1*((mesh$x + beta2)^2 + (mesh$y + beta2)^2)
 #Z   <- sum(exp(eta)) * meshspacing^2
@@ -105,7 +107,7 @@ layoutplot <- ggplot() +
              size = 3,shape = "+", color= "white"
              ) +
   scale_fill_viridis_c()
-layoutplot +
+seetrap_plot <- layoutplot +
   #xlim(1000, 4000) +
   geom_point(data.frame(x = traps$x,
                         y = traps$y),
@@ -113,14 +115,15 @@ layoutplot +
              shape = 21, color = "pink", 
              fill = "red", 
              alpha = .7, size = 2) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
   theme_bw()
+
 
 # visualize a capture history
 testpop <- sim_pop_C(D_mesh_v, 
                      as.matrix(mesh), 
                      meshspacing)
-testdist_dat_pop <- calc_dist_matC(testpop, 
-                               as.matrix(tracksdf[,c("x","y")]))
 
 testcapthist_full <- sim_capthist_C(as.matrix(traps),
                                 tracksdf, 
@@ -131,7 +134,7 @@ testcapthist_full <- sim_capthist_C(as.matrix(traps),
                                 meshspacing,
                                 hazdenom,
                                 testpop,
-                                testdist_dat_pop,
+                                dist_dat_pop = NULL,
                                 report_probseenxk = F)
 testcapthist <- testcapthist_full[which(apply((!is.na(testcapthist_full)), 1, sum)>0),,]
 testinduse <- create_ind_use_C(testcapthist_full, as.matrix(traps),
@@ -139,7 +142,7 @@ testinduse <- create_ind_use_C(testcapthist_full, as.matrix(traps),
 
 tocck = sample(nocc,1)
 tindi = sample(nrow(testpop),1)
-ggplot() + 
+example_ch_plot <- ggplot() + 
   scale_fill_viridis_c()+
   geom_point(data.frame(x = traps$x,
                         y = traps$y,
@@ -157,25 +160,40 @@ ggplot() +
   geom_point(data.frame(x = traps$x[which(!is.na(testcapthist_full[tindi,tocck,]))], 
                         y = traps$y[which(!is.na(testcapthist_full[tindi,tocck,]))]
                         ), mapping = aes(x = x, y = y), color = "red", shape = 1,
-             stroke = 1.5) 
+             stroke = 1.5) +
+  guides(color = "none") +
+  theme_bw()
 
 popdf <- data.frame(x = testpop[,1],
                     y = testpop[,2],
                     totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))})
                     )
 
-layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, 
+popdet_plot <- layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, 
                                              color = totdets), 
                         size = 3) +
-  scale_color_viridis_c(option = "magma")
+  scale_color_viridis_c(option = "magma", name = "dets") +
+  guides(fill = "none") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_bw()
 
-layoutplot +   
+trapdet_plot <- layoutplot +   
   geom_point(data.frame(x = traps$x,
                                      y = traps$y,
                                      dets = apply(testcapthist_full, 3, function(j){sum(!is.na(j))})),
-                          mapping = aes(x = x, y = y, fill = dets, color = dets), 
+                          mapping = aes(x = x, y = y, color = dets), 
               size = 3) +
-  scale_color_viridis_c(option = "magma")
+  geom_vline(xintercept = -beta2 - 3*sigma, color = "white", linetype = "dashed") +
+  scale_color_viridis_c(option = "magma", name = "dets") +
+  guides(fill = "none") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_bw()
 
-  
-    
+grid.arrange(seetrap_plot,
+                  example_ch_plot,
+                  popdet_plot,
+                  trapdet_plot)
+dim(testcapthist)
+
