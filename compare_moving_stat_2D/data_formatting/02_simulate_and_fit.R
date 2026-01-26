@@ -196,17 +196,32 @@ fit_capthist <- function(dist_trapmesh,
   fit_sd <- optim(par = start,
                   fn = stat_nll,
                   hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
-  fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
-                                      method.args = list(eps = 1e-5, d = 1e-3, r = 3))
-  fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
+  fit_sd_con = fit_sd$convergence
+  if(fit_sd_con == 0){
+    fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
+                                        method.args = list(eps = 1e-5, d = 1e-3, r = 3))
+    fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
+    
+  } else { #if model did not converge, don't bother hessian 
+    fit_sd$hessian = NA
+    fit.time.sd = NA
+  }
   
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                   fn = nll,
                   hessian = F, method = "Nelder-Mead")
-  fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
-                                      method.args = list(eps = 1e-6, d = 1e-4, r = 4))
-  fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
+  fit_md_con = fit_md$convergence
+  if(fit_md_con == 0){
+    fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
+                                        method.args = list(eps = 1e-6, d = 1e-4, r = 4))
+    
+    fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
+    
+  } else {
+    fit_md$hessian <- NA
+    fit.time.md <- NA
+  }
   
   if (Dmod == "~1"){
     outnames <- c("lambda0", "sigma", "D")
@@ -214,16 +229,24 @@ fit_capthist <- function(dist_trapmesh,
     outnames <- c("lambda0", "sigma", "beta1", "beta2", "N")
   }
   assemble_CIs <- function(fit){
-    fisher_info <- MASS::ginv(fit$hessian)
-    prop_sigma <- sqrt(diag(fisher_info))
-    prop_sigma <- diag(prop_sigma)
-    upper <- fit$par+1.96*prop_sigma
-    lower <- fit$par-1.96*prop_sigma
-    interval <- data.frame(name = outnames,
-                           value = fit$par * scaling_factors, 
-                           upper = diag(upper) * scaling_factors, 
-                           lower = diag(lower) * scaling_factors
-    )
+    if(fit$convergence == 0){
+      fisher_info <- MASS::ginv(fit$hessian)
+      prop_sigma <- sqrt(diag(fisher_info))
+      prop_sigma <- diag(prop_sigma)
+      upper <- fit$par+1.96*prop_sigma
+      lower <- fit$par-1.96*prop_sigma
+      interval <- data.frame(name = outnames,
+                             value = fit$par * scaling_factors, 
+                             upper = diag(upper) * scaling_factors, 
+                             lower = diag(lower) * scaling_factors
+      )
+    } else { #if model did not converge, don't return values
+      interval <- data.frame(name = outnames,
+                             value = NA, 
+                             upper = NA, 
+                             lower = NA
+      )
+    }
     
     return(interval)
   } 
@@ -232,6 +255,8 @@ fit_capthist <- function(dist_trapmesh,
               movdet_est = assemble_CIs(fit_md),
               statdet_time = fit.time.sd,
               movdet_time = fit.time.md,
+              stat_conv = fit_sd_con, #return convergence codes
+              mov_conv = fit_md_con,
               sim_time = fit.time.sim,
               n = dim(capthist)[1])
   return(out)

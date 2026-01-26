@@ -105,12 +105,12 @@ create_plots <- function(sim_fits_out,
                                                  meshspacing), 
                                           3),
                               stationarydets = c(rowMeans(statDdat),
-                                                 apply(statDdat, 1, function(x) quantile(x, probs = .025)),
-                                                 apply(statDdat, 1, function(x) quantile(x, probs = .975))
+                                                 apply(statDdat, 1, function(x) quantile(x, probs = .025, na.rm = T)),
+                                                 apply(statDdat, 1, function(x) quantile(x, probs = .975, na.rm = T))
                                                  ),
                               movingdets = c(rowMeans(moveDdat),
-                                             apply(moveDdat, 1, function(x) quantile(x, probs = .025)),
-                                             apply(moveDdat, 1, function(x) quantile(x, probs = .975))
+                                             apply(moveDdat, 1, function(x) quantile(x, probs = .025, na.rm = T)),
+                                             apply(moveDdat, 1, function(x) quantile(x, probs = .975, na.rm = T))
                                              ),
                               quantile = c(rep("mean", nrow(newmeshxys)),
                                            rep("2.5%",nrow(newmeshxys)),
@@ -129,11 +129,11 @@ create_plots <- function(sim_fits_out,
                                        mean(moveNdat), 
                                        mean(statNdat),
                                        NA,
-                                       quantile(moveNdat, probs = 0.025),
-                                       quantile(statNdat, probs = 0.025),
+                                       quantile(moveNdat, probs = 0.025, na.rm = T),
+                                       quantile(statNdat, probs = 0.025, na.rm = T),
                                        NA,
-                                       quantile(moveNdat, probs = 0.975),
-                                       quantile(statNdat, probs = 0.975))
+                                       quantile(moveNdat, probs = 0.975, na.rm = T),
+                                       quantile(statNdat, probs = 0.975, na.rm = T))
                              )
     } else if(Dmodel == "flat"){
       D_plotdat <- data.frame(x = rep(mesh$x, 3),
