@@ -23,7 +23,8 @@ clusterExport(cl, varlist = c(
   "sim_fit", "simulate_popandcapthist", "fit_capthist",
   "traps", "tracksdf", "mesh", "meshspacing",
   "dist_trapmesh", "useall", "lambda0", "sigma",
-  "D_mesh_v", "D_mesh_f", "beta1", "beta2", "N", "hazdenom"
+  "D_mesh_v", "D_mesh_f", "beta1", "beta2", "N", "hazdenom",
+  "fixed_beta1"
 ))
 
 # Run first batch (inhomogeneous)
