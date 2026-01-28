@@ -6,7 +6,7 @@
 #each trackline is a series of points with x, y, and time
 ntrapsish = 182 #98/2 #it'll be the first number if there's two types of tracks
 trackxmin = -700
-trapspacing = sigma/2.5
+trapspacing = sigma/2
 trap_n_horiz = 14 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
