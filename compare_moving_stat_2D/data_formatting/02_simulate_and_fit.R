@@ -205,7 +205,7 @@ fit_capthist <- function(dist_trapmesh,
   start.time.sd <- Sys.time()
   fit_sd <- optim(par = start,
                   fn = stat_nll,
-                  hessian = F, method = "NM") #NM is best at this likelihood, even though slower
+                  hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
   fit_sd_con = fit_sd$convergence
   if(fit_sd_con == 0){
     fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
@@ -220,7 +220,7 @@ fit_capthist <- function(dist_trapmesh,
   start.time.md <- Sys.time()
   fit_md <- optim(par = start,
                   fn = nll,
-                  hessian = F, method = "BFGS")
+                  hessian = F, method = "Nelder-Mead")
   fit_md_con = fit_md$convergence
   if(fit_md_con == 0){
     fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
