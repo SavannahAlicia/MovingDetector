@@ -139,7 +139,10 @@ fit_capthist <- function(dist_trapmesh,
   }else if(Dmod == "~x^2"){  
     start0 <- c(
       log(lambda0),
-      log(sigma), beta1, beta2, log(N))
+      log(sigma),
+      beta1 * x_sd^2, 
+      (beta2 - x_mean)/x_sd, 
+      log(N))
     scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     

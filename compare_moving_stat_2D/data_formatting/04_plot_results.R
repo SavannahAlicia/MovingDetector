@@ -83,7 +83,7 @@ create_plots <- function(sim_fits_out,
         calcDv(newmeshxys[,1],
                newmeshxys[,2],
         beta1_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
-        beta2_ = mean(mesh$x) - sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"] * sd(mesh$x),
+        beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"] * sd(mesh$x),
         N_ = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
       })
@@ -91,7 +91,7 @@ create_plots <- function(sim_fits_out,
           calcDv(newmeshxys[,1],
                  newmeshxys[,2],
           beta1_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
-          beta2_ = mean(mesh$x) - sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"] * sd(mesh$x),
+          beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"] * sd(mesh$x),
           N_ = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
       }) 
