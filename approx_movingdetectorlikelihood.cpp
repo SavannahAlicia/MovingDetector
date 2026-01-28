@@ -820,6 +820,8 @@ double
           } else {
             probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
           }
+          //prevent underflow
+          probcapthist_eachocc(occk) = std::max(probcapthist_eachocc(occk), 1e-16);
         }
         double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
@@ -935,10 +937,13 @@ double
              //prob that trap j made the detection given i was detected in k
              probcapthist_eachocc(occk) = exp(log(hu_js(trapijk))-log(sum_hujs))   * (1 - exp(-sum_hujs)); 
            }
+           
           } else {
             //prob i wasn't detected in k
             probcapthist_eachocc(occk) = exp(-sum_hujs) ; //survived all traps
           }
+          //prevent underflow
+          probcapthist_eachocc(occk) = std::max(probcapthist_eachocc(occk), 1e-16);
         }
         double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
         DKprod_eachx_log(x) = D_mesh(x) + probcapthist_alloccs_log;
