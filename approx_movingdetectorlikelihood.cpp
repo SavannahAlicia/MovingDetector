@@ -774,8 +774,8 @@ double
         }
         notseen_mk(m,occk) = exp(-sum(hu_eachtrap)); 
       }
-      double notseen_alloccs = product(notseen_mk.row(m));
-      double pdot = 1 - notseen_alloccs;
+      double notseen_alloccs_log = sum(log(notseen_mk.row(m)));
+      double pdot = 1 - exp(notseen_alloccs_log);
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
     }
@@ -786,7 +786,7 @@ double
     double n = capthist.n_rows;
     NumericVector integral_eachi(n);
     for(int i = 0; i < n; i++){
-      NumericVector DKprod_eachx(meshx.length());
+      NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
         NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
@@ -828,10 +828,12 @@ double
             probcapthist_eachocc(occk) = 1e-16;
           }
         }
-        double probcapthist_alloccs = product(probcapthist_eachocc);
-        DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
+        double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
+        DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
-      double DKprod_sum = sumC(DKprod_eachx);
+      double maxv = max(DKprod_eachx_log); //attempt to fix underflow
+      double DKprod_sum = exp(maxv) * sum(exp(DKprod_eachx_log - maxv));
+
       integral_eachi(i) = DKprod_sum * mesharea;
       integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
     }
@@ -891,7 +893,7 @@ double
     NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      NumericVector notseen_eachocc((occs.size()));
+      NumericVector notseen_eachocc_log((occs.size()));
       for(int occk = 0; occk < occs.size(); occk++){
         NumericVector notseen_eachtrap((traps.size()));
         for(int trapj = 0; trapj < traps.size(); trapj++){
@@ -902,11 +904,11 @@ double
             notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * (usage(trapj, occk)/haz_denom)); //survival
           }
         }
-        double notseenalltraps = product(notseen_eachtrap);
-        notseen_eachocc(occk) = notseenalltraps;
+        double notseenalltraps_log = sum(log(notseen_eachtrap));
+        notseen_eachocc_log(occk) = notseenalltraps_log;
       }
-      double notseen_alloccs = product(notseen_eachocc);
-      double pdot = 1 - notseen_alloccs;
+      double notseen_alloccs_log = sum(notseen_eachocc_log);
+      double pdot = 1 - exp(notseen_alloccs_log);
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
     }
@@ -917,7 +919,7 @@ double
     double n = capthist.n_rows;
     NumericVector integral_eachi(n);
     for(int i = 0; i < n; i++){
-      NumericVector DKprod_eachx(meshx.length());
+      NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
         NumericVector probcapthist_eachocc(occs.length());
         for(int occk = 0; occk < occs.length(); occk++){
@@ -952,10 +954,12 @@ double
             probcapthist_eachocc(occk) = 1e-16;
           }
         }
-        double probcapthist_alloccs = product(probcapthist_eachocc);
-        DKprod_eachx(x) = D_mesh(x) * probcapthist_alloccs;
+        double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
+        DKprod_eachx_log(x) = D_mesh(x) + probcapthist_alloccs_log;
       }
-      double DKprod_sum = sumC(DKprod_eachx);
+      double maxv = max(DKprod_eachx_log);
+      double DKprod_sum = exp(maxv) * sum(exp(DKprod_eachx_log - maxv));
+      
       integral_eachi(i) = DKprod_sum * mesharea;
       integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
     }
