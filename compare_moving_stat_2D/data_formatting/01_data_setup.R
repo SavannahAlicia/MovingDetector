@@ -4,21 +4,21 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 100 #98/2 #it'll be the first number if there's two types of tracks
-trackxmin = 1600
-trapspacing = sigma/2
+ntrapsish = 182 #98/2 #it'll be the first number if there's two types of tracks
+trackxmin = -700
+trapspacing = sigma/2.5
 trap_n_horiz = 14 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
 tracksteplength = trapspacing/15
-occreps = 10
+occreps = 5
 
 
 tracksteps = (trackxmax - trackxmin)/tracksteplength #intervals 
 trackint = 360 #seconds (doesn't really matter for length based hazard as long as its positive)
 tracksdf <- rbind(data.frame(occ = 1,
              x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
-             y = trackxmin, 
+             y = 0, 
              time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
                         by = trackint))#,
             # data.frame(occ = 2,

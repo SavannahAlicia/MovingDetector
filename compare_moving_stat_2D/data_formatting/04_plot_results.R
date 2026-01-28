@@ -5,11 +5,31 @@ create_plots <- function(sim_fits_out,
                          Dmodel = "variable",
                          plotcols = c("cornflowerblue", "goldenrod", "black"),
                          linesize = .3, output){
+  ##---converged models
+  statconv <- unlist(lapply(sim_fits_out, function(x){
+    if(is.null(x$stat_conv)){
+      out = NA
+    } else {
+      out = x$stat_conv
+    }
+    })) == 0
+  movconv <- unlist(lapply(sim_fits_out, function(x){
+    if(is.null(x$mov_conv)){
+      out = NA
+    } else {
+      out = x$mov_conv
+    }
+    })) == 0
+  bothconv <- (statconv + movconv) == 2
+  bothconv[is.na(bothconv)] <- FALSE
+  
+  sim_fits_out <- sim_fits_out[bothconv]
+  
   ###------------------------compare computation time-----------------------------
   
   times <- do.call(rbind, lapply(as.list(1:length(sim_fits_out)), FUN = function(x){
     stattime = as.numeric(sim_fits_out[[x]]$statdet_time)
-    movetime = as.numeric(sim_fits_out[[x]]$movdet_time)
+    movetime =as.numeric(sim_fits_out[[x]]$movdet_time)
     #should add something to exclude times from failed Hessians
     return(data.frame(stat = stattime, move = movetime))
   }))
@@ -76,22 +96,24 @@ create_plots <- function(sim_fits_out,
       meshstep = meshspacing/3
       newmeshxys = expand.grid(seq(min(mesh$x), max(mesh$x), meshstep),
                                 seq(min(mesh$x), max(mesh$x), meshstep))
+
+      
       #calculate D for meshx (row) and estimated betas (column)
       enames = sim_fits_out[[1]]$statdet_est$name
       
-      statDdat <- apply(as.array(1:nsims), 1, function(sim){
+      statDdat <- apply(as.array(1:length(sim_fits_out)), 1, function(sim){
         calcDv(newmeshxys[,1],
                newmeshxys[,2],
-        beta1_ = beta1, #sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
-        beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"] * sd(mesh$x),
+        beta1_ = beta1, #sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
+        beta2_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"],
         N_ = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
       })
-      moveDdat <- apply(as.array(1:nsims), 1, function(sim){
+      moveDdat <- apply(as.array(1:length(sim_fits_out)), 1, function(sim){
           calcDv(newmeshxys[,1],
                  newmeshxys[,2],
-          beta1_ = beta1, #sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
-          beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"] * sd(mesh$x),
+          beta1_ = beta1, #sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
+          beta2_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"],
           N_ = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
       }) 

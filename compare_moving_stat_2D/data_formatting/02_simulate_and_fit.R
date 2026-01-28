@@ -84,11 +84,6 @@ fit_capthist <- function(dist_trapmesh,
   
   #in case mesh is df
   mesh_mat <- as.matrix(mesh)
-  # rescale x
-  x_mean <- mean(mesh_mat[,1])
-  x_sd   <- sd(mesh_mat[,1])
-  
-  x_cs <- (mesh_mat[,1] - x_mean) / x_sd
   
   #grid with stationary detector likelihood
   if (Dmod == "~1"){
@@ -141,7 +136,7 @@ fit_capthist <- function(dist_trapmesh,
       log(lambda0),
       log(sigma),
       #beta1 * x_sd^2, 
-      (beta2 - x_mean)/x_sd, 
+      beta2, 
       log(N))
     scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
     start <- start0/scaling_factors
@@ -156,7 +151,7 @@ fit_capthist <- function(dist_trapmesh,
       if (!is.finite(sigma_)) return(1e12)
       
       eta <- #v[3]*
-        fixed_beta1* x_sd^2 * (x_cs + v[3])^2
+        fixed_beta1 * (mesh_mat[,1] + v[3])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
@@ -183,7 +178,7 @@ fit_capthist <- function(dist_trapmesh,
       if (!is.finite(sigma_)) return(1e12)
       
       eta <- #v[3]*
-        fixed_beta1* x_sd^2 * (x_cs + v[3])^2
+        fixed_beta1 * (mesh_mat[,1] + v[3])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
