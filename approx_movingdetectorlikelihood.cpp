@@ -820,13 +820,6 @@ double
           } else {
             probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
           }
-          //sanity check for if P(ch = 1) = 0 but was detected
-          if(probcapthist_eachocc(occk) <= 0){
-            Rcpp::Rcout << "Zero probability for individual " << i
-                        << ", occasion " << occk
-                        << ", mesh point " << x << std::endl;
-            probcapthist_eachocc(occk) = 1e-16;
-          }
         }
         double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
@@ -945,13 +938,6 @@ double
           } else {
             //prob i wasn't detected in k
             probcapthist_eachocc(occk) = exp(-sum_hujs) ; //survived all traps
-          }
-          //sanity check for if P(ch = 1) = 0 but was detected
-          if(probcapthist_eachocc(occk) <= 0){
-            Rcpp::Rcout << "Zero probability for individual " << i
-                        << ", occasion " << occk
-                        << ", mesh point " << x << std::endl;
-            probcapthist_eachocc(occk) = 1e-16;
           }
         }
         double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));

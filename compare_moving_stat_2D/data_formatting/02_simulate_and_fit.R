@@ -95,7 +95,7 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c( 
       log(lambda0),
       log(sigma), log(D_mesh[1]))
-    scaling_factors <-  10^round(log10(pmax(abs(start0), 1e-8)))#rep(1, length(start0)) #
+    scaling_factors <-  rep(1, length(start0)) #10^round(log10(pmax(abs(start0), 1e-8)))
     start <- start0/scaling_factors
     
     stat_nll <- function(v_scaled ){
@@ -143,7 +143,7 @@ fit_capthist <- function(dist_trapmesh,
       #beta1 * x_sd^2, 
       (beta2 - x_mean)/x_sd, 
       log(N))
-    scaling_factors <-  10^round(log10(pmax(abs(start0), 1e-8))) #rep(1, length(start0)) #10^round(log10(abs(start0)))
+    scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
     start <- start0/scaling_factors
     
     #quadratic density function
@@ -156,7 +156,7 @@ fit_capthist <- function(dist_trapmesh,
       if (!is.finite(sigma_)) return(1e12)
       
       eta <- #v[3]*
-        fixed_beta1 * (x_cs + v[3])^2
+        fixed_beta1* x_sd^2 * (x_cs + v[3])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
@@ -183,7 +183,7 @@ fit_capthist <- function(dist_trapmesh,
       if (!is.finite(sigma_)) return(1e12)
       
       eta <- #v[3]*
-        fixed_beta1 * (x_cs + v[3])^2
+        fixed_beta1* x_sd^2 * (x_cs + v[3])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
@@ -205,7 +205,7 @@ fit_capthist <- function(dist_trapmesh,
   start.time.sd <- Sys.time()
   fit_sd <- optim(par = start,
                   fn = stat_nll,
-                  hessian = F, method = "BFGS") #NM is best at this likelihood, even though slower
+                  hessian = F, method = "NM") #NM is best at this likelihood, even though slower
   fit_sd_con = fit_sd$convergence
   if(fit_sd_con == 0){
     fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
