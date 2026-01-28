@@ -82,7 +82,7 @@ create_plots <- function(sim_fits_out,
       statDdat <- apply(as.array(1:nsims), 1, function(sim){
         calcDv(newmeshxys[,1],
                newmeshxys[,2],
-        beta1_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
+        beta1_ = beta1, #sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
         beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"] * sd(mesh$x),
         N_ = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
@@ -90,7 +90,7 @@ create_plots <- function(sim_fits_out,
       moveDdat <- apply(as.array(1:nsims), 1, function(sim){
           calcDv(newmeshxys[,1],
                  newmeshxys[,2],
-          beta1_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
+          beta1_ = beta1, #sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"]/sd(mesh$x)^2,
           beta2_ = mean(mesh$x) + sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"] * sd(mesh$x),
           N_ = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
@@ -260,27 +260,27 @@ create_plots <- function(sim_fits_out,
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
   
-  beta1plot <- ggplot() +
-    geom_density(all_outs[all_outs$name == "beta1",], 
-                 mapping = aes(x = value, col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-               aes(xintercept = c(mean), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-               aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-               aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = beta1) +
-    ylab("Frequency") +
-    scale_color_manual(values = plotcols) +
-    xlab("beta1") +
-    scale_x_continuous(limits = c(beta1*4/3, beta1*1/3)) +
-    theme_classic() +
-    theme(axis.title = element_text(size = 10),
-          axis.text.y = element_blank(),
-          axis.title.y = element_blank(),
-          legend.position = "none",
-          legend.title = element_text(size = 20),
-          legend.text = element_text(size = 20))
+  # beta1plot <- ggplot() +
+  #   geom_density(all_outs[all_outs$name == "beta1",], 
+  #                mapping = aes(x = value, col = model), size = linesize) +
+  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
+  #              aes(xintercept = c(mean), col = model), size = linesize) +
+  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
+  #              aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
+  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
+  #              aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
+  #   geom_vline(xintercept = beta1) +
+  #   ylab("Frequency") +
+  #   scale_color_manual(values = plotcols) +
+  #   xlab("beta1") +
+  #   scale_x_continuous(limits = c(beta1*4/3, beta1*1/3)) +
+  #   theme_classic() +
+  #   theme(axis.title = element_text(size = 10),
+  #         axis.text.y = element_blank(),
+  #         axis.title.y = element_blank(),
+  #         legend.position = "none",
+  #         legend.title = element_text(size = 20),
+  #         legend.text = element_text(size = 20))
   
   beta2plot <- ggplot() +
     geom_density(all_outs[all_outs$name == "beta2",],
@@ -380,14 +380,15 @@ create_plots <- function(sim_fits_out,
   if (Dmodel == "variable"){
     out = grid.arrange(
       grobs = list(lambda0plot, sigmaplot, 
-                   beta1plot, beta2plot,
+                   #beta1plot,
+                   beta2plot,
                    Dplot,
                    beta3plot, timeplot),
       widths = c(1,1),
       heights = c(1,1,1,1),
-      layout_matrix = rbind(c(1,3),
+      layout_matrix = rbind(c(1,6),
                             c(2,4),
-                            c(7, 6),
+                            c(7, 7),
                             5))
   }
   if(Dmodel == "flat"){
