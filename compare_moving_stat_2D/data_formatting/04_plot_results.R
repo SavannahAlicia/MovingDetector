@@ -54,10 +54,10 @@ create_plots <- function(sim_fits_out,
       df <- sim_fits_out[[x]]$statdet_est
       trueN = sim_fits_out[[x]]$n #just detected inds though
 
-      if(any(is.na(df))) {
-        df <- df %>% 
-          mutate(across(-name, ~NA)) #don't include results where hessian failed
-      }
+      # if(any(is.na(df))) {
+      #   df <- df %>% 
+      #     mutate(across(-name, ~NA)) #don't include results where hessian failed
+      # }
       df$sim = rep(x,nrow(df))
       df$value = as.numeric(df$value)
       df$upper = as.numeric(df$upper)
@@ -68,10 +68,10 @@ create_plots <- function(sim_fits_out,
       df <- sim_fits_out[[x]]$movdet_est
       trueN = sim_fits_out[[x]]$n
   
-      if(any(is.na(df))) {
-        df <- df %>% 
-          mutate(across(-name, ~NA)) #don't include results where hessian failed
-      }
+      # if(any(is.na(df))) {
+      #   df <- df %>% 
+      #     mutate(across(-name, ~NA)) #don't include results where hessian failed
+      # }
       df$sim = rep(x,nrow(df))
       
       df$value = as.numeric(df$value)
@@ -236,7 +236,7 @@ create_plots <- function(sim_fits_out,
     #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab(expression(paste("\u03bb"[0], " (dets/km)"))) +
     ylab("Frequency") + 
-    xlim(0,lambda0*1.1*1000) +
+    xlim(0,lambda0*4*1000) +
     scale_color_manual(name = "",
                        values = plotcols, 
                        labels = c("Moving", "Stationary", 
@@ -271,7 +271,7 @@ create_plots <- function(sim_fits_out,
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_x_continuous(limits = c(.9*sigma/1000, 1.1*sigma/1000)) +
+    scale_x_continuous(limits = c(.2*sigma/1000, 2*sigma/1000)) +
     xlab("\u03C3 (km)") +
     ylab("Frequency") +
     theme_classic() +

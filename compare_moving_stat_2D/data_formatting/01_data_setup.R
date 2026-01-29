@@ -102,8 +102,13 @@ useall <- as.matrix(useallC[1,,])
 #calculate distance matrix for all trap cells and mesh cells
 dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
+
+#-------visualize
+# pick which mesh to check
+testmesh <- D_mesh_f
+
 layoutplot <- ggplot() +
-  geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
+  geom_raster(data.frame(x = mesh$x, y = mesh$y, D = testmesh), 
              mapping = aes(x = x, y = y, fill = D)) +
   geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
              size = 3,shape = "+", color= "white"
@@ -123,7 +128,7 @@ seetrap_plot <- layoutplot +
 
 
 # visualize a capture history
-testpop <- sim_pop_C(D_mesh_v, 
+testpop <- sim_pop_C(testmesh, 
                      as.matrix(mesh), 
                      meshspacing)
 
@@ -131,7 +136,7 @@ testcapthist_full <- sim_capthist_C(as.matrix(traps),
                                 tracksdf, 
                                 lambda0,
                                 sigma,
-                                D_mesh_v,
+                                testmesh,
                                 as.matrix(mesh),
                                 meshspacing,
                                 hazdenom,
@@ -171,7 +176,8 @@ popdf <- data.frame(x = testpop[,1],
                     totdets = apply(testcapthist_full, 1, function(i){sum(!is.na(i))})
                     )
 
-popdet_plot <- layoutplot + geom_point(popdf, mapping = aes(x = x, y = y, 
+popdet_plot <- layoutplot + 
+  geom_point(popdf, mapping = aes(x = x, y = y, 
                                              color = totdets), 
                         size = 3) +
   scale_color_viridis_c(option = "magma", name = "dets") +
@@ -198,4 +204,4 @@ grid.arrange(seetrap_plot,
                   popdet_plot,
                   trapdet_plot)
 dim(testcapthist)
-
+summary(apply(testcapthist_full, 1, function(x){sum(!is.na(x))}))     # detections per individual

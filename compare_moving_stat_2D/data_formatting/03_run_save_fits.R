@@ -48,6 +48,8 @@ all_sim_fits_q <- parLapply(cl, 1:nsims, function(sim) {
 tot.time.all_q <- difftime(Sys.time(), start.time.all_q, units = "secs")
 print(tot.time.all_q)
 
+saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
+
 # Run second batch (~1)
 start.time.all1 <- Sys.time()
 all_sim_fits <- parLapply(cl, 1:nsims, function(sim) {
@@ -74,7 +76,6 @@ errors <- Filter(function(x) is.list(x) && identical(x$ok, FALSE), all_sim_fits_
 errors
 print(errors)
 
-saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
 saveRDS(all_sim_fits, paste(dirstart, "flat_dens.Rds", sep = ""))
 
 
