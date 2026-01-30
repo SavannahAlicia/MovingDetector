@@ -10,7 +10,7 @@ trapspacing = sigma/2
 trap_n_horiz = 14 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
-tracksteplength = trapspacing/15
+tracksteplength = trapspacing/5
 occreps = 5
 
 
@@ -105,7 +105,7 @@ dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
 
 #-------visualize
 # pick which mesh to check
-testmesh <- D_mesh_f
+testmesh <- D_mesh_v
 
 layoutplot <- ggplot() +
   geom_raster(data.frame(x = mesh$x, y = mesh$y, D = testmesh), 
@@ -124,7 +124,12 @@ seetrap_plot <- layoutplot +
              alpha = .7, size = 2) +
   scale_y_continuous(expand = c(0,0)) +
   scale_x_continuous(expand = c(0,0)) +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        text = element_text(size = fontsize))
 
 
 # visualize a capture history
@@ -150,7 +155,7 @@ testinduse <- create_ind_use_C(testcapthist_full, as.matrix(traps),
 tocck = sample(nocc,1)
 tindi = sample(nrow(testpop),1)
 example_ch_plot <- ggplot() + 
-  scale_fill_viridis_c()+
+  scale_fill_viridis_c(guide = "none")+
   geom_point(data.frame(x = traps$x,
                         y = traps$y,
                         induse1 = testinduse[tindi,,tocck]),
@@ -162,14 +167,40 @@ example_ch_plot <- ggplot() +
                         detocci = apply(testcapthist_full[,tocck,], 1, sum, na.rm = T)>0,
                         interest = seq(1:nrow(testpop)) == tindi
   ), mapping = aes(x = x, y = y, fill = detocci, color = interest), shape = 21, stroke = 1.5) +
-  scale_color_manual(values = c("transparent", "red")) +
-  scale_fill_discrete() +
+  scale_color_manual(values = c("transparent", "red"), 
+                     labels = NULL,
+                     name = "Focus\nindividual\nand trap") +
+  scale_fill_discrete(name = "Detected\nthis survey?") +
   geom_point(data.frame(x = traps$x[which(!is.na(testcapthist_full[tindi,tocck,]))], 
                         y = traps$y[which(!is.na(testcapthist_full[tindi,tocck,]))]
                         ), mapping = aes(x = x, y = y), color = "red", shape = 1,
              stroke = 1.5) +
-  guides(color = "none") +
-  theme_bw()
+  guides(
+    fill = guide_legend(
+      order = 1,
+      override.aes = list(
+        shape = 21,
+        colour = "transparent",
+        stroke = 1.5
+      )
+    ),
+    color = "none"#guide_legend(
+      #order = 2,
+      #override.aes = list(
+      #  shape = 21,
+       # fill = "white",
+      #  stroke = 1.5
+      #)
+   # )
+  ) +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(size = fontsize))
+
+detmax <- max(c(apply(testcapthist_full, 1, function(i){sum(!is.na(i))}), 
+                apply(testcapthist_full, 3, function(j){sum(!is.na(j))})))
 
 popdf <- data.frame(x = testpop[,1],
                     y = testpop[,2],
@@ -180,11 +211,17 @@ popdet_plot <- layoutplot +
   geom_point(popdf, mapping = aes(x = x, y = y, 
                                              color = totdets), 
                         size = 3) +
-  scale_color_viridis_c(option = "magma", name = "dets") +
+  scale_color_viridis_c(option = "magma", name = "dets",
+                        limits = c(0, detmax)) +
   guides(fill = "none") +
   scale_y_continuous(expand = c(0,0)) +
   scale_x_continuous(expand = c(0,0)) +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none",
+        text = element_text(size = fontsize))
 
 trapdet_plot <- layoutplot +   
   geom_point(data.frame(x = traps$x,
@@ -193,11 +230,16 @@ trapdet_plot <- layoutplot +
                           mapping = aes(x = x, y = y, color = dets), 
               size = 3) +
   geom_vline(xintercept = -beta2 - 3*sigma, color = "white", linetype = "dashed") +
-  scale_color_viridis_c(option = "magma", name = "dets") +
+  scale_color_viridis_c(option = "magma", name = "Detections",
+                        limits = c(0, detmax)) +
   guides(fill = "none") +
   scale_y_continuous(expand = c(0,0)) +
   scale_x_continuous(expand = c(0,0)) +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(size = fontsize))
 
 grid.arrange(seetrap_plot,
                   example_ch_plot,
