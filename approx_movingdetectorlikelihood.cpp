@@ -804,16 +804,14 @@ double
               //if(indusage(i,trapj,occk) <= haz_denom){
                 //do what i've been doing
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
-                sumtoj_ind_ijk = sumtoj_ind; //sum of hazards up to trap before capture
-              //} else { //else survive up to current trap - hazdenom and don't survive an interval of hazdenom
-              //  hu_ind_ijk = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * haz_denom; //hu for the last haz_denom in this trap
-              //  sumtoj_ind_ijk = sumtoj_ind + (hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * ((indusage(i, trapj, occk) - haz_denom)/haz_denom)); //survive up to last time increment in this trap
-            //  }
-              break; //don't need to keep summing hazard after detection
+               //traps are not ordered by time, so I need to keep summing 
+              //cumulative hazard after the detecting trap
             }
             //add cumulative hazard for ind at trap if not detected
             sumtoj_ind += hu_ind_j;
           }
+          sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i (remember
+          // usage is 0 for traps after i's detection)
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
             probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));
@@ -946,9 +944,9 @@ double
           probcapthist_eachocc(occk) = std::max(probcapthist_eachocc(occk), 1e-16);
         }
         double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
-        DKprod_eachx_log(x) = D_mesh(x) + probcapthist_alloccs_log;
+        DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
-      double maxv = max(DKprod_eachx_log);
+      double maxv = max(DKprod_eachx_log); //prevent underflow
       double DKprod_sum = exp(maxv) * sum(exp(DKprod_eachx_log - maxv));
       
       integral_eachi(i) = DKprod_sum * mesharea;
