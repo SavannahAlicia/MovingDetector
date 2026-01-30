@@ -1,14 +1,16 @@
 
-create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
-  
-  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[m0$parindx$D,"value"]))*1000000 #returns in m^2  now
+create_plots <- function(m_move, DdesignX, label, subareacutoff = NULL){
+  Dind <- grep("D", m_move$statdet_est$name)
+  lind <- grep("lambda", m_move$statdet_est$name)
+  sind <- grep("sigma", m_move$statdet_est$name)
+  denssurf_stat <- exp(DdesignX %*% (m_move$statdet_est[Dind,"value"]))*1000000 #returns in m^2  now
   abund_stat <- sum(denssurf_stat) * 4
-  lambda0_stat <- exp(m_move$statdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
-  sigma_stat <- exp(m_move$statdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
-  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[m0$parindx$D,"value"]))*1000000
+  lambda0_stat <- exp(m_move$statdet_est[lind, c("value", "lower", "upper")])
+  sigma_stat <- exp(m_move$statdet_est[sind, c("value", "lower", "upper")])
+  denssurf_move <- exp(DdesignX %*% (m_move$movdet_est[Dind,"value"]))*1000000
   abund_move <- sum(denssurf_move) * 4
-  lambda0_move <- exp(m_move$movdet_est[m0$parindx$lambda0, c("value", "lower", "upper")])
-  sigma_move <- exp(m_move$movdet_est[m0$parindx$sigma, c("value", "lower", "upper")])
+  lambda0_move <- exp(m_move$movdet_est[lind, c("value", "lower", "upper")])
+  sigma_move <- exp(m_move$movdet_est[sind, c("value", "lower", "upper")])
   diffdense <- denssurf_stat - denssurf_move
   difabund <- sum(diffdense) *4
   
@@ -16,10 +18,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   calc_pdet_x <- function(lambda0, sigma){
     #probability of not being detected during k 
     #nmesh rows, nocc cols
-    notdetk <- apply(as.array(1:dim(usage(trapscr))[2]), 1, function(k){
+    notdetk <- apply(as.array(1:dim(useall)[2]), 1, function(k){
       enc <- lambda0 * 
         exp(- distmatscr^2 / (2 * sigma^2)) * 
-        usage(trapscr)[,k]
+        useall[,k]
       x = exp(-colSums(enc)) 
     }
     )
@@ -168,11 +170,11 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
   Dspread_diff <- Dspreadsurf_stat - Dspreadsurf_move
   
   
-  lowcolor = "#000004FF" 
-  colorm1 = "#51127CFF" 
-  colorm2 = "#B63679FF"
-  colorm3 = "#FB8861FF"
-  highcolor = "#FCFDBFFF"
+  lowcolor = "#440154FF"#"#000004FF" 
+  colorm1 =  "#3B528BFF" #"#51127CFF" 
+  colorm2 = "#21908CFF"#"#B63679FF"
+  colorm3 = "#5DC863FF" #"#FB8861FF"
+  highcolor = "#FDE725FF"#"#FCFDBFFF"
   #-----------------------AC density---------------------------------------------  
   
   sharedmax = max(c(denssurf_stat[subarea_both],
@@ -340,7 +342,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
     ggtitle("Stationary Detector") +
     theme_bw() +
     theme(legend.position = "none",
-          axis.title = element_blank())
+          text = element_text(size = 42),
+          axis.title = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
   
   animDmov <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -360,7 +365,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
     ggtitle("Moving Detector") +
     theme_bw() +
     theme(legend.position = "none",
-          axis.title = element_blank())
+          text = element_text(size = 42),
+          axis.title = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
   
   animDlegend <- ggplot(data.frame(x = mesh$x, y = mesh$y, D = Dspreadsurf_move)[,], 
                         mapping = aes(x = x, y =y, fill = D)) +
@@ -380,6 +388,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
           legend.key = element_rect(fill='NA'),
           panel.grid = element_blank(),
           axis.line = element_blank(),
+          text = element_text(size = 42),
           panel.border = element_blank())
   
   animDdiff <- ggplot() +
@@ -400,7 +409,10 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
     ggtitle("Stationary - Moving") +
     theme_bw() + 
     theme(legend.position = "none",
-          axis.title = element_blank())
+          text = element_text(size = 42),
+          axis.title = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
   
   animDpercdiff <- ggplot() +
     geom_sf(data = st_as_sf(lpoly), mapping = aes(), fill = "#93c0d3", col = "#93c0d3",
@@ -443,6 +455,7 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
           legend.key = element_rect(fill='NA'),
           panel.grid = element_blank(),
           axis.line = element_blank(),
+          text = element_text(size = 42),
           panel.border = element_blank())
   
   ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "animDplot.png", sep = ""),
@@ -453,8 +466,8 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
            heights = c(1,.2),
            layout_matrix = rbind(c(1,  2, 3),
                                  c(4, 4, 5))),
-         width = 230,
-         height = 230*.5,
+         width = 700,
+         height = 700*.5,
          units = c("mm"),
          dpi = 300)
   
@@ -492,12 +505,13 @@ create_plots <- function(m_move, DdesignX, m0, label, subareacutoff = NULL){
     ylab("Detection rate\n(detections per km)") +
     xlab("Distance (km)")+
     scale_color_manual(name = "", 
-                       values =  c("cornflowerblue", "goldenrod"),
+                       values =  c("#5F187FFF", "#F8765CFF"),
                        labels = c("Moving", "Stationary")) +
     scale_fill_manual(name = "", 
-                      values =  c("cornflowerblue", "goldenrod"),
+                      values =  c("#5F187FFF", "#F8765CFF"),
                       labels = c("Moving", "Stationary")) +
-    theme_bw()
+    theme_bw() +
+    theme(text = element_text(size = 32))
   
   ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/", label, "detplot.png", sep = ""),
          plot = detfctplot,
@@ -594,7 +608,6 @@ ggsave(file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat
 
 create_plots(m_move = myfits[[6]],
              DdesignX = Xmats[[6]],
-             m0 = fits[[4]],
              label = paste(formulas[[6]])[3],
              subareacutoff = 0.5)
 create_plots(m_move = myfits[[6]],
@@ -604,7 +617,6 @@ create_plots(m_move = myfits[[6]],
              subareacutoff = 0)
 create_plots(m_move = myfits[[2]],
              DdesignX = Xmats[[2]],
-             m0 = fits[[3]],
              label = paste(paste(formulas[[2]])[3]),
              subareacutoff = 0.5)
 create_plots(m_move = myfits[[2]],

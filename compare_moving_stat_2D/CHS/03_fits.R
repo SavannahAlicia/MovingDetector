@@ -117,21 +117,8 @@ get_X_mat <- function(f, knots = NULL){
   return(DdesignX)
   }
 
-fit_smooth <- function(f, startother = NULL, addtl_name = ""){
+fit_smooth <- function(f, startpar, addtl_name = ""){
   formula = formulas[[f]]
-  if(is.null(startother)){
-    Dpar =  exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$D]) 
-    lambda0 = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$lambda0])
-    sigma = exp(fits[[f+1]]$fit$par[fits[[f+1]]$parindx$sigma])
-  } else {
-    Dpar =  exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$D]) 
-    lambda0 = exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$lambda0])
-    sigma = exp(fits[[startother]]$fit$par[fits[[startother]]$parindx$sigma])
-  }
-  
-  startparf = list(D = log(Dpar), 
-                   lambda0 = log(lambda0), 
-                   sigma = log(sigma))
   DdesignX <- Xmats[[f]]
   
   m_move <- move_fit(capthist = ch_10,
@@ -143,7 +130,7 @@ fit_smooth <- function(f, startother = NULL, addtl_name = ""){
                      DdesignX = DdesignX, 
                      hazdenom = 1, 
                      mesh = scrmesh, 
-                     startpar0 = startparf)
+                     startpar0 = startpar)
   saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_move", paste(formula)[3], addtl_name, ".Rds", sep = ""))
   return(m_move)
 }
@@ -153,9 +140,28 @@ Xmats[[6]] <- get_X_mat(f = 6, knots = knots_soap)
 Xmats[[7]] <- get_X_mat(f = 6, knots = knots_soap2)
 saveRDS(Xmats, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/Xmats.Rds")
 
-myfits <- lapply(as.list(1:5), fit_smooth)
-myfits[[6]] <- fit_smooth(6, startother = 4)
-myfits[[7]] <- fit_smooth(7, startother = 8, addtl_name = "moreknots")
+myfits <- list(fit_smooth(1, startpar = list(lambda0 = (fits[[2]]$fit$par[fits[[2]]$parindx$lambda0]), 
+                                                           sigma = (fits[[2]]$fit$par[fits[[2]]$parindx$sigma]),
+                                                           D = fits[[2]]$fit$par[fits[[2]]$parindx$D])),
+               fit_smooth(2, startpar = list(lambda0 = (fits[[3]]$fit$par[fits[[3]]$parindx$lambda0]), 
+                                             sigma = (fits[[3]]$fit$par[fits[[3]]$parindx$sigma]),
+                                             D = fits[[3]]$fit$par[fits[[3]]$parindx$D])),
+               fit_smooth(3, startpar = list(lambda0 = (fits[[4]]$fit$par[fits[[4]]$parindx$lambda0]), 
+                                             sigma = (fits[[4]]$fit$par[fits[[4]]$parindx$sigma]),
+                                             D = fits[[4]]$fit$par[fits[[4]]$parindx$D])),
+               fit_smooth(4, startpar = list(lambda0 = (fits[[5]]$fit$par[fits[[5]]$parindx$lambda0]), 
+                                             sigma = (fits[[5]]$fit$par[fits[[5]]$parindx$sigma]),
+                                             D = fits[[5]]$fit$par[fits[[5]]$parindx$D])),
+               fit_smooth(5, startpar = list(lambda0 = (fits[[6]]$fit$par[fits[[6]]$parindx$lambda0]), 
+                                             sigma = (fits[[6]]$fit$par[fits[[6]]$parindx$sigma]),
+                                             D = fits[[6]]$fit$par[fits[[6]]$parindx$D])),
+               fit_smooth(6, startpar = list(lambda0 = (fits[[4]]$fit$par[fits[[4]]$parindx$lambda0]), 
+                                             sigma = (fits[[4]]$fit$par[fits[[4]]$parindx$sigma]),
+                                             D = fits[[4]]$fit$par[fits[[4]]$parindx$D])),
+               fit_smooth(7, startpar = list(lambda0 = (fits[[8]]$fit$par[fits[[8]]$parindx$lambda0]), 
+                                             sigma = (fits[[8]]$fit$par[fits[[8]]$parindx$sigma]),
+                                             D = fits[[8]]$fit$par[fits[[8]]$parindx$D]),
+                          addtl_name = "moreknots"))
 myfits <- list(readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 5).Rds"),
                readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 6).Rds"),
                readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 7).Rds"),

@@ -44,6 +44,7 @@ names <- c('null', #1
            'Dsmooth12', #9
            'Dsmooth13') #10
 fits <- list.secr.fit(model = models, constant = args, names = names)
+saveRDS(fits, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/secrfits.Rds")
 # AIC(fits[!apply(as.array(1:length(fits)), 1, function(x){any(is.na(attr(predictDsurface(fits[[x]], cl.D = T), "covariates")[,2]))})])
 # m0 <- fits[[2]]
 # lowerD <- attr(predictDsurface(m0, cl.D = T), "covariates")[,2]*100

@@ -7,6 +7,7 @@ library(secr)
 library(mgcv)
 library(dplyr)
 library(tidyr)
+library(gridExtra)
 
 #-------------------------------functions---------------------------------------
 
