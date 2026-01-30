@@ -34,6 +34,7 @@ calcDv <- function(xs,
 
 nsims = 30
 set.seed(1994)
+fontsize = 22
 
 
 #directory names
