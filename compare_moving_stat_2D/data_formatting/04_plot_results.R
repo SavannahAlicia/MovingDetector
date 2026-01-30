@@ -2,9 +2,12 @@ library(dplyr)
 
 
 create_plots <- function(sim_fits_out, 
-                         Dmodel = "variable",
-                         plotcols = c("cornflowerblue", "goldenrod", "black"),
-                         linesize = .3, output){
+                         Dmodel = "variable", 
+                         plotcols = c("#5F187FFF", "#F8765CFF", "black"),#c("cornflowerblue", "goldenrod", "black"),
+                         linesize = 1,
+                         pointsize = 2,
+                         fontsize = 24,
+                         output){
   ##---converged models
   statconv <- unlist(lapply(sim_fits_out, function(x){
     if(is.null(x$stat_conv)){
@@ -36,14 +39,17 @@ create_plots <- function(sim_fits_out,
   
   timeplot <- ggplot() +
     geom_boxplot(data = tidyr::pivot_longer(times, cols = c("stat", "move")),
-                 mapping = aes(y = log(value), group = name, color = name)) +
+                 mapping = aes(y = log(value), group = name, color = name),
+                 linewidth = linesize) +
     scale_color_manual(name = "Model", labels = c("Moving", "Stationary"),
                                                   values = plotcols[1:2]) +
     ylab("Log seconds") +
-    xlab("") +
+    xlab("Model") +
     theme_bw() +
     theme(axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
           axis.ticks.x = element_blank(),
+      text = element_text(size = fontsize),
           panel.grid.major.x = element_blank(),
           panel.grid.minor.x = element_blank(),
           legend.position = "none")
@@ -83,6 +89,15 @@ create_plots <- function(sim_fits_out,
     all_outs <- rbind(cbind(stat_outs, data.frame(model = rep("stationary", 
                                                               nrow(stat_outs)))),
                       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
+    
+    if(Dmodel == "flat"){
+      Ndat <- all_outs[all_outs$name == "D",]
+      Ndat$value <- log(exp(Ndat$value) * meshspacing^2 * nrow(mesh))
+      Ndat$upper <- log(exp(Ndat$upper) * meshspacing^2 * nrow(mesh))
+      Ndat$lower <- log(exp(Ndat$lower) * meshspacing^2 * nrow(mesh))
+      Ndat$name = "N"
+      all_outs <- rbind(all_outs, Ndat)
+    }
     
     all_outs2 <- all_outs %>%
       group_by(name, model) %>%
@@ -217,68 +232,94 @@ create_plots <- function(sim_fits_out,
   
   lambda0plot <- 
     ggplot() +
-    geom_density(all_outs[all_outs$name == "lambda0",], 
-                 mapping = aes(x = exp(value)*1000, #per km instead of m
-                               col = model), size = linesize) +
-     geom_vline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-                              data.frame(name = "lambda0", model = "true", 
-                                         mean = log(lambda0))), 
-                aes(xintercept = exp(c(mean))*1000,
-                    col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanlower))*1000, 
-                   col = model), 
-               linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-               aes(xintercept = exp(c(meanupper))*1000, 
-                   col = model),
-               linetype = "dashed", size = linesize) +
-    #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
-    xlab(expression(paste("\u03bb"[0], " (dets/km)"))) +
-    ylab("Frequency") + 
-    xlim(0,lambda0*4*1000) +
+    geom_pointrange(all_outs2[all_outs2$name == "lambda0",],
+                    mapping = aes(ymin = exp(meanlower)*1000, 
+                        ymax = exp(meanupper)*1000,
+                        y = exp(mean)*1000,
+                        col = model,
+                        x = model),
+                    size = pointsize/2,
+                    linewidth = linesize) +
+    # geom_density(all_outs[all_outs$name == "lambda0",], 
+    #              mapping = aes(x = exp(value)*1000, #per km instead of m
+    #                            col = model, fill = model),
+    #              alpha = 0.5, size = linesize) +
+    geom_hline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
+                               data.frame(name = "lambda0", model = "true", 
+                                          mean = log(lambda0))), 
+                 aes(yintercept = exp(c(mean))*1000,
+                     col = model), size = linesize,
+               linetype = "dashed") +
+    # geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
+    #            aes(xintercept = exp(c(meanlower))*1000, 
+    #                col = model), 
+    #            linetype = "dashed", size = linesize) +
+    # geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
+    #            aes(xintercept = exp(c(meanupper))*1000, 
+    #                col = model),
+    #            linetype = "dashed", size = linesize) +
+    # #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
+    xlab("Model") +
+     ylab(expression(paste("\u03bb"[0], " (dets/km)"))) + 
+    scale_x_discrete(labels = c("moving" = "Moving",
+                                "stationary" = "Stationary")) +
+  
+    # xlim(0,lambda0*4*1000) +
+    ylim(0,lambda0*10*1000) +
     scale_color_manual(name = "",
                        values = plotcols, 
                        labels = c("Moving", "Stationary", 
                                   expression("True \u03bb"[0]))) +
+    scale_fill_manual(name = "",
+                       values = plotcols, 
+                       labels = c("Moving", "Stationary", 
+                                  expression("True \u03bb"[0]))) +
+    guides(fill = "none") +
     theme_classic() +
-    theme(axis.title = element_text(size = 10),
+    theme(#axis.title = element_text(size = 10),
           legend.position = "none",
-          axis.text.y = element_blank())
+          #axis.text.y = element_blank(),
+          text = element_text(size = fontsize),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x = element_blank())
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
   
 
   sigmaplot <- 
     ggplot() +
-    geom_density(all_outs[all_outs$name == "sigma",], 
-                 mapping = aes(x = exp(value)/1000, #in km instead of m
-                               col = model), size = linesize) +
-    geom_vline(data = rbind(all_outs2[all_outs2$name == "sigma",],
+    geom_pointrange(all_outs2[all_outs2$name == "sigma",],
+                    mapping = aes(ymin = exp(meanlower)/1000, 
+                                  ymax = exp(meanupper)/1000,
+                                  y = exp(mean)/1000,
+                                  col = model,
+                                  x = model),
+                    size = pointsize/2,
+                    linewidth = linesize) +
+    geom_hline(data = rbind(all_outs2[all_outs2$name == "sigma",],
                             data.frame(name = "sigma", model = "true",
                                        mean = log(sigma))),
-               aes(xintercept = exp(mean)/1000,
-                   col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "sigma",],
-               aes(xintercept = exp(meanlower)/1000,
+               aes(yintercept = exp(mean)/1000,
                    col = model), 
                linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "sigma",], 
-               aes(xintercept = exp(meanupper)/1000,
-                   col = model), 
-               linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = sigma/1000, size = linesize, col = "black")+
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_x_continuous(limits = c(.2*sigma/1000, 2*sigma/1000)) +
-    xlab("\u03C3 (km)") +
-    ylab("Frequency") +
+    scale_y_continuous(limits = c(0*sigma/1000, 1.5*sigma/1000)) +
+    scale_x_discrete(labels = c("moving" = "Moving",
+                                "stationary" = "Stationary")) +
+    ylab("\u03C3 (km)") +
+    xlab("Model") +
     theme_classic() +
-    theme(axis.title = element_text(size = 10),
+    theme(#axis.title = element_text(size = 10),
           legend.position = "none",
-          
-          axis.text.y = element_blank())
+          text = element_text(size = fontsize),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x = element_blank()
+          #axis.text.y = element_blank()
+          )
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
   
@@ -325,27 +366,43 @@ create_plots <- function(sim_fits_out,
           legend.title = element_text(size = 20),
           legend.text = element_text(size = 20))
   
-  beta3plot <- ggplot() +
-    geom_density(all_outs[all_outs$name == "N",],
-                 mapping = aes(x = exp(value), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "N",], 
-               aes(xintercept = exp(mean), col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "N",], 
-               aes(xintercept = exp(meanlower), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "N",],
-               aes(xintercept = exp(meanupper), col = model), linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = N) +
-    scale_x_continuous(limits = c(.95*N, 1.05*N)) +
-    scale_color_manual(values = plotcols) +
-    xlab("N") +
-    ylab("Frequency") +
+  
+  Nplot <- ggplot() +
+    geom_pointrange(all_outs2[all_outs2$name == "N",],
+                    mapping = aes(ymin = exp(meanlower), 
+                                  ymax = exp(meanupper),
+                                  y = exp(mean),
+                                  col = model,
+                                  x = model),
+                    size = pointsize/2,
+                    linewidth = linesize) +
+     geom_hline(data = rbind(all_outs2[all_outs2$name == "N",],
+                             data.frame(name = "N", 
+                                        model = "true",
+                                        mean = log(N))),
+               aes(yintercept = exp(mean), col = model), 
+               linetype = "dashed",
+               size = linesize) +
+    scale_y_continuous(limits = c(0*N, 1.1*N)) +
+    scale_x_discrete(labels = c("moving" = "Moving", "stationary" = "Stationary")) +
+    scale_color_manual(name = "",
+                      values = plotcols, 
+                      labels = c("Moving", "Stationary", 
+                                 expression("True"))) +
+    xlab("Model") +
+    ylab("N") +
     theme_classic() +
-    theme(axis.title = element_text(size = 10),
-          axis.text.y = element_blank(),
-          axis.title.y = element_blank(),
-          legend.position = "none",
-          legend.title = element_text(size = 20),
-          legend.text = element_text(size = 20))
+    theme(#axis.title = element_text(size = 10),
+          #axis.text.y = element_blank(),
+          #axis.title.y = element_blank(),
+          #legend.position = "none",
+          #legend.title = element_text(size = 20),
+          #legend.text = element_text(size = 20),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      text = element_text(size = fontsize)
+      )
   
 
   # 
@@ -373,39 +430,62 @@ create_plots <- function(sim_fits_out,
   #         legend.position = "none") 
   
   
-  D_plotdatlong <- tidyr::pivot_longer(D_plotdat, cols = c("trueD", "stationarydets", "movingdets"))
+  D_plotdatlong <- tidyr::pivot_longer(D_plotdat, 
+                                       cols = c("trueD", "stationarydets", "movingdets"))
   
 
   Dplot <- 
     ggplot() + 
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], mapping = aes(x = x/1000, y = value*1000000, col = name,
-                                                                                     linewidth = name)) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "2.5%",], mapping = aes(x = x/1000, y = value*1000000, col = name), linetype = "dashed", size = linesize) +
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "97.5%",], mapping = aes(x = x/1000, y = value*1000000, col = name), linetype = "dashed", size = linesize) +
-    scale_color_manual(values = c(plotcols, "black"), labels = c("Moving", "Stationary", "True"),
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], 
+              mapping = aes(x = x/1000, y = value*1000000, col = name
+                            ),linewidth = linesize/2) +
+    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "2.5%" &
+                                            D_plotdatlong$name != "trueD"),], 
+              mapping = aes(x = x/1000, y = value*1000000, 
+                            col = name), 
+              #linetype = "dashed", 
+              size = pointsize*2,#/2,
+              shape = 18
+              ) +
+    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
+                                            D_plotdatlong$name != "trueD"),], 
+              mapping = aes(x = x/1000, y = value*1000000, col = name),
+              #linetype = "dashed", 
+              size = pointsize*2,#/2,
+              shape = 16
+              ) +
+    scale_color_manual(values = c(plotcols, "black"), 
+                       labels = c("Moving", "Stationary", "True"),
                        name = "") +
-    scale_linewidth_manual(values = c(linesize*3, linesize*3, linesize), 
-                           labels = c("Moving", "Stationary", "True"), 
-                           name = "") +
     #ylim(0,.5) +
     xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
-    ylim(c(0, 400)) +
-    ylab("AC density") +
+    #ylim(c(0, 400)) +
+    ylab("D") +
     xlab("x") +
     theme_classic() +
-    guides(linewidth = "none") +
-    theme(axis.title = element_text(size = 10),
-          axis.text = element_text(size = 10),
-          legend.title = element_text(size = 10),
-          legend.text = element_text(size = 10))
+    guides(
+      color = guide_legend(
+        override.aes = list(
+          shape = NA,      # remove points
+          linewidth = linesize
+        )
+      )
+    ) +
+    theme(#axis.title = element_text(size = 10),
+          text = element_text(size = fontsize),
+          #axis.text = element_text(size = 10),
+          #legend.title = element_text(size = 10),
+          #legend.text = element_text(size = 10)
+          )
   
   if (Dmodel == "variable"){
+    plotlist = list(lambda0plot, sigmaplot, 
+                    #beta1plot,
+                    beta2plot,
+                    Dplot,
+                    Nplot, timeplot)
     out = grid.arrange(
-      grobs = list(lambda0plot, sigmaplot, 
-                   #beta1plot,
-                   beta2plot,
-                   Dplot,
-                   beta3plot, timeplot),
+      grobs = plotlist,
       widths = c(1,1),
       heights = c(1,1,1,1),
       layout_matrix = rbind(c(1,6),
@@ -414,21 +494,25 @@ create_plots <- function(sim_fits_out,
                             5))
   }
   if(Dmodel == "flat"){
+    plotlist <- list(lambda0plot, 
+                          sigmaplot, 
+                          Nplot,#Dplot,
+                          timeplot)
     out = grid.arrange(
-      grobs = list(lambda0plot, sigmaplot, 
-                   
-                   Dplot,
-                   timeplot),
+      grobs = plotlist,
       widths = c(1,1),
       heights = c(1,1,1),
       layout_matrix = rbind(c(1,3),
-                            
                             c(2,4)))
   }
+
   if(output == "plots"){
     return(out)
-  } else if(output == "plotdat")
+  } else if(output == "plotdat"){
     return(plotdat)
+  } else if(output == "plotlist"){
+    return(plotlist)
+  }
   
 }
 
@@ -440,8 +524,14 @@ if (!dir.exists(paste(dirstart, "/plots", sep = ""))) {
 all_sim_fits_q <- readRDS(paste(dirstart, "variable_dens.Rds", sep = ""))
 all_sim_fits <- readRDS(paste(dirstart, "flat_dens.Rds", sep = ""))
 
-vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
-fpl <- create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
+vpl <- create_plots(all_sim_fits_q, Dmodel = "variable", 
+                    pointsize = .5,#1.5, 
+                    fontsize = 8,
+                    linesize = .5,#2,
+                    output = "plotdat")
+fpl <- create_plots(all_sim_fits, Dmodel = "flat", 
+                    pointsize = .5,#1.5, 
+                    linesize = 2, output = "plotdat")
 ggsave(file = paste(dirstart, "plots/variable_moving_2D.png", sep = ""),
        plot = vpl,
        width = 169,
