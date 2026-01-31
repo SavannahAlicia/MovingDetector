@@ -806,12 +806,13 @@ double
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                //traps are not ordered by time, so I need to keep summing 
               //cumulative hazard after the detecting trap
+            } else {
+              //add cumulative hazard for ind at trap if not detected
+              sumtoj_ind += hu_ind_j;
             }
-            //add cumulative hazard for ind at trap if not detected
-            sumtoj_ind += hu_ind_j;
           }
           sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i (remember
-          // usage is 0 for traps after i's detection)
+          // usage is 0 for traps after i's detection) EXCEPT trap detected
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
             probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));

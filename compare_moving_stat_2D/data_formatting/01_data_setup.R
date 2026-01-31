@@ -10,7 +10,7 @@ trapspacing = sigma/2
 trap_n_horiz = 14 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
-tracksteplength = trapspacing/5
+tracksteplength = trapspacing/2
 occreps = 5
 
 
