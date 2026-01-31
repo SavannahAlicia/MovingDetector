@@ -794,25 +794,27 @@ double
           double sumtoj_ind_ijk;
           double hu_ind_ijk;
           double sumtoj_ind = 0;
-          for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
-            double captik = capthist(i, occk, trapj);
-            //hazard for ind at trap
-            double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (indusage(i, trapj, occk)/haz_denom);//hazard times individual usage for each trap. 
-            
-            if(captik == 1){ // this could be within the above else (only captures if used)?
-              ikcaught = TRUE; //assign if i is caught
-              //if(indusage(i,trapj,occk) <= haz_denom){
-                //do what i've been doing
+          arma::rowvec useik = indusage.slice(occk).row(i);
+          for (arma::uword trapj = 0; trapj < useik.n_elem; trapj++) {
+            //limit to used traps
+            if (useik[trapj] > 0) {
+              double captik = capthist(i, occk, trapj);
+              //hazard for ind at trap
+              double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (indusage(i, trapj, occk)/haz_denom);//hazard times individual usage for each trap. 
+              
+              if(captik == 1){ // this could be within the above else (only captures if used)?
+                ikcaught = TRUE; //assign if i is caught
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
-               //traps are not ordered by time, so I need to keep summing 
-              //cumulative hazard after the detecting trap
-            } else {
-              //add cumulative hazard for ind at trap if not detected
-              sumtoj_ind += hu_ind_j;
+                //traps are not ordered by time, so I need to keep summing 
+                //cumulative hazard after the detecting trap
+              } else {
+                //add cumulative hazard for ind at trap if not detected
+                sumtoj_ind += hu_ind_j;
+              }
             }
           }
-          sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i (remember
-          // usage is 0 for traps after i's detection) EXCEPT trap detected
+          sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i EXCEPT 
+          // trap detected
           double prob_notseenk = notseen_mk(x,occk);
           if(ikcaught){
             probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));
@@ -920,12 +922,16 @@ double
           bool ikcaught = false;
           int trapijk;
           NumericVector hu_js(traps.length());
-          for(int trapj = 0; trapj < traps.length(); trapj++){//could limit this to traps used in the occasion
+          NumericVector usek = usage(_,occk);
+          for(int trapj = 0; trapj < traps.length(); trapj++){
+            //limit to traps used in occasion
+            if(usek[trapj] >0 ){
             double captik = capthist(i, occk, trapj);
               hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (usage(trapj, occk)/haz_denom);//hazard times usage for each trap. 
             if(captik == 1){ // this could be within the above else (only captures if used)?
               ikcaught = TRUE; //assign if i is caught and which trap caught it
               trapijk = trapj;
+            }
             }
           }
           double sum_hujs = sum(hu_js);
