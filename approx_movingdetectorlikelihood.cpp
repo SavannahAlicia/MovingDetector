@@ -432,7 +432,7 @@ arma::cube create_ind_use_C(arma::cube ch,
           
           
           if (!Rcpp::NumericVector::is_na(ch(i,k,j))){ //trap where detection occurs
-            //i_det_k = TRUE;
+            //i_det_k = true;
             det_time_ik =  ch(i,k,j);
             
             break;
@@ -463,7 +463,7 @@ arma::cube create_ind_use_C(arma::cube ch,
             }
             
             // it does exist now
-            useallk_exists = TRUE;
+            useallk_exists = true;
             
           } 
         } else { //det_time_ik does exist
@@ -728,7 +728,7 @@ double
     int haz_denom,
     NumericVector D_mesh,
     arma::cube capthist,
-    NumericMatrix usage, //traps by occ, could be calculated from indusage
+    arma::mat usage, //traps by occ, could be calculated from indusage
     arma::cube indusage, // ind by traps by occ
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
@@ -803,7 +803,7 @@ double
               double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (indusage(i, trapj, occk)/haz_denom);//hazard times individual usage for each trap. 
               
               if(captik == 1){ // this could be within the above else (only captures if used)?
-                ikcaught = TRUE; //assign if i is caught
+                ikcaught = true; //assign if i is caught
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                 //traps are not ordered by time, so I need to keep summing 
                 //cumulative hazard after the detecting trap
@@ -858,7 +858,7 @@ double
     int haz_denom,
     NumericVector D_mesh,
     arma::cube capthist,
-    NumericMatrix usage, //traps by occ, could be calculated from indusage
+    arma::mat usage, //traps by occ, could be calculated from indusage
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
     bool linear = false
@@ -921,15 +921,15 @@ double
         for(int occk = 0; occk < occs.length(); occk++){
           bool ikcaught = false;
           int trapijk;
-          NumericVector hu_js(traps.length());
-          NumericVector usek = usage(_,occk);
+          arma::vec hu_js(traps.length(), arma::fill::zeros);
+          arma::vec usek = usage.col(occk);
           for(int trapj = 0; trapj < traps.length(); trapj++){
             //limit to traps used in occasion
-            if(usek[trapj] >0 ){
+            if(usek(trapj) >0 ){
             double captik = capthist(i, occk, trapj);
               hu_js(trapj) = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (usage(trapj, occk)/haz_denom);//hazard times usage for each trap. 
             if(captik == 1){ // this could be within the above else (only captures if used)?
-              ikcaught = TRUE; //assign if i is caught and which trap caught it
+              ikcaught = true; //assign if i is caught and which trap caught it
               trapijk = trapj;
             }
             }
