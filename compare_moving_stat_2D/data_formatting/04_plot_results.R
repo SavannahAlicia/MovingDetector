@@ -265,7 +265,7 @@ create_plots <- function(sim_fits_out,
                                 "stationary" = "Stationary")) +
   
     # xlim(0,lambda0*4*1000) +
-    ylim(0,lambda0*10*1000) +
+    ylim(0,lambda0*1.2*1000) +
     scale_color_manual(name = "",
                        values = plotcols, 
                        labels = c("Moving", "Stationary", 
@@ -306,7 +306,7 @@ create_plots <- function(sim_fits_out,
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_y_continuous(limits = c(0*sigma/1000, 1.5*sigma/1000)) +
+    scale_y_continuous(limits = c(.8*sigma/1000, 1.2*sigma/1000)) +
     scale_x_discrete(labels = c("moving" = "Moving",
                                 "stationary" = "Stationary")) +
     ylab("\u03C3 (km)") +
@@ -531,7 +531,8 @@ vpl <- create_plots(all_sim_fits_q, Dmodel = "variable",
                     output = "plotdat")
 fpl <- create_plots(all_sim_fits, Dmodel = "flat", 
                     pointsize = .5,#1.5, 
-                    linesize = 2, output = "plotdat")
+                    fontsize = 8,
+                    linesize = .5, output = "plotdat")
 ggsave(file = paste(dirstart, "plots/variable_moving_2D.png", sep = ""),
        plot = vpl,
        width = 169,
