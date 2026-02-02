@@ -5,12 +5,12 @@
 
 #each trackline is a series of points with x, y, and time
 ntrapsish = 300 #98/2 #it'll be the first number if there's two types of tracks
-trackxmin = -700
-trapspacing = sigma/3
+trackxmin = -900
+trapspacing = round(sigma/3)
 trap_n_horiz = 20 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
-tracksteplength = trapspacing/1
+tracksteplength = trapspacing/2
 occreps = 6
 
 
@@ -68,7 +68,7 @@ hazdenom <- 1 #hazard is per time or distance, currently specified as distance
 
 #trap grid
 
-xgr <- seq(min(tracksdf$x)-(0.5 * trapspacing), max(tracksdf$x), by = trapspacing)
+xgr <- seq(min(tracksdf$x)+(0.5 * trapspacing), max(tracksdf$x), by = trapspacing)
 ygr <- seq(min(tracksdf$y),#-(0.5 * trapspacing),
            max(tracksdf$y), by = trapspacing)
 gr <- expand.grid(xgr, ygr)
@@ -78,7 +78,25 @@ for (tr in 1:length(trapno)) {
   cat(tr, " / ", length(trapno), "\r")
   d <- sqrt((tracksdf[tr, ]$x - gr[, 1])^2 + (tracksdf[tr, ]$y - gr[, 2])^2)
   dmin <- min(d)
-  trapno[tr] <- max(which(d==dmin)) #but this returns first trap
+  #this needs to assign to the first trap
+  candidatetrap <- which(d==dmin) #but this returns first trap
+  if(length(candidatetrap)==1){
+    trapno[tr] <- candidatetrap
+  } else { #if there are two candidate traps
+    #we need to choose the first one
+    #check if there is an earlier tracksdfpt
+    if(tr>1){ #if its not the first point in tracksdf
+      #calculate the midpoint between two trackpoints
+      midx <- mean(tracksdf[tr,"x"],tracksdf[tr-1, "x"])
+      #return the trap of two candidates closest to that
+      trapno[tr] <- candidatetrap[which.min(c(gr[candidatetrap[1],1], gr[candidatetrap[2],1])-midx)]
+    } else {
+      #if this if the first point in tracksdf, it doesn't matter
+      trapno[tr] <- candidatetrap[2]
+    }
+    #
+  }
+
 }
 
 # pick out possible traps as used cells
@@ -217,7 +235,7 @@ popdet_plot <- layoutplot +
   scale_y_continuous(expand = c(0,0)) +
   scale_x_continuous(expand = c(0,0)) +
   theme_bw() +
-  theme(axis.text = element_blank(),
+  theme(axis.text.y = element_blank(),
         axis.title = element_blank(),
         axis.ticks = element_blank(),
         legend.position = "none",
@@ -230,13 +248,14 @@ trapdet_plot <- layoutplot +
                           mapping = aes(x = x, y = y, color = dets), 
               size = 3) +
   geom_vline(xintercept = -beta2 - 3*sigma, color = "white", linetype = "dashed") +
-  scale_color_viridis_c(option = "magma", name = "Detections",
-                        limits = c(0, detmax)) +
+  scale_color_viridis_c(option = "magma", name = "Detections"#,
+                       # limits = c(0, detmax)
+                        ) +
   guides(fill = "none") +
   scale_y_continuous(expand = c(0,0)) +
   scale_x_continuous(expand = c(0,0)) +
   theme_bw() +
-  theme(axis.text = element_blank(),
+  theme(axis.text.y = element_blank(),
         axis.title = element_blank(),
         axis.ticks = element_blank(),
         text = element_text(size = fontsize))
