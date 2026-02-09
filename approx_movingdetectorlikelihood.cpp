@@ -732,39 +732,29 @@ double
     arma::cube indusage, // ind by traps by occ
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
-    bool linear = false
+    double mesharea
+   // bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
     clock.tick("setup");
-    int one = 1;
     int captrap = capthist.n_slices;
-    NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
     int capocc = capthist.n_cols;
-    NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
     //calculate mesh area (note this is for a rectangular mesh grid, will need to
     //be recalculated for irregular shaped mesh)
     NumericVector meshx = mesh.column(0);
     NumericVector meshy = mesh.column(1);
-    NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-    NumericVector meshysorted = Rcpp::sort_unique(meshy);
-    double mesharea;
-    if(linear){
-      mesharea = (meshxsorted(2) - meshxsorted(1)); //m     
-    } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1))); //m^2
-    }
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
-    NumericMatrix notseen_mk(meshx.length(), occs.size());
+    NumericMatrix notseen_mk(meshx.length(), capocc);
     NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
       //Rcpp::NumericVector notseen_eachocc((occs.size()));
-      for(int occk = 0; occk < occs.size(); occk++){
-        NumericVector hu_eachtrap((traps.size()));
-        for(int trapj = 0; trapj < traps.size(); trapj++){
+      for(int occk = 0; occk < capocc; occk++){
+        NumericVector hu_eachtrap(captrap);
+        for(int trapj = 0; trapj < captrap; trapj++){
           if(usage(trapj, occk) == 0){
             hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
           } else {
@@ -788,8 +778,8 @@ double
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
-        NumericVector probcapthist_eachocc(occs.length());
-        for(int occk = 0; occk < occs.length(); occk++){
+        NumericVector probcapthist_eachocc(capocc);
+        for(int occk = 0; occk < capocc; occk++){
           bool ikcaught = false;
           double sumtoj_ind_ijk;
           double hu_ind_ijk;
@@ -836,6 +826,7 @@ double
     clock.tock("loopllk");
     int n_int = std::round(n);
     NumericVector ns(n);
+    int one = 1;
     ns = seqC(one, n_int);
     NumericVector logns(n);
     logns = log(ns);
@@ -861,38 +852,28 @@ double
     arma::mat usage, //traps by occ, could be calculated from indusage
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
-    bool linear = false
+    double mesharea //area of single mesh cell
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
     clock.tick("setup");
     int one = 1;
     int captrap = capthist.n_slices;
-    NumericVector traps = seqC(one, captrap); //needs to still just be a list of trap ID number
     int capocc = capthist.n_cols;
-    NumericVector occs = seqC(one, capocc); //seq(1:n_occasions) but 0 base
     //calculate mesh area (note this is for a rectangular mesh grid, will need to
     //be recalculated for irregular shaped mesh)
     NumericVector meshx = mesh.column(0);
     NumericVector meshy = mesh.column(1);
-    NumericVector meshxsorted = Rcpp::sort_unique(meshx);
-    NumericVector meshysorted = Rcpp::sort_unique(meshy);
-    double mesharea;
-    if(linear){
-      mesharea = (meshxsorted(2) - meshxsorted(1)); //m
-    } else {
-      mesharea = ((meshxsorted(2) - meshxsorted(1)) * (meshysorted(2) - meshysorted(1))); //m^2 instead of ha
-    }
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
     NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      NumericVector notseen_eachocc_log((occs.size()));
-      for(int occk = 0; occk < occs.size(); occk++){
-        NumericVector notseen_eachtrap((traps.size()));
-        for(int trapj = 0; trapj < traps.size(); trapj++){
+      NumericVector notseen_eachocc_log((capocc));
+      for(int occk = 0; occk < capocc; occk++){
+        NumericVector notseen_eachtrap((captrap));
+        for(int trapj = 0; trapj < captrap; trapj++){
           if(usage(trapj, occk) == 0){
             notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
           } else {
@@ -917,13 +898,13 @@ double
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
-        NumericVector probcapthist_eachocc(occs.length());
-        for(int occk = 0; occk < occs.length(); occk++){
+        NumericVector probcapthist_eachocc(capocc);
+        for(int occk = 0; occk < capocc; occk++){
           bool ikcaught = false;
           int trapijk;
-          arma::vec hu_js(traps.length(), arma::fill::zeros);
+          arma::vec hu_js(captrap, arma::fill::zeros);
           arma::vec usek = usage.col(occk);
-          for(int trapj = 0; trapj < traps.length(); trapj++){
+          for(int trapj = 0; trapj < captrap; trapj++){
             //limit to traps used in occasion
             if(usek(trapj) >0 ){
             double captik = capthist(i, occk, trapj);
@@ -936,12 +917,12 @@ double
           }
           double sum_hujs = sum(hu_js);
           if(ikcaught){
-           if(sum_hujs < 1e-16){//would be odd if individual detected if sumhujs was almost 0...
-             probcapthist_eachocc(occk) = (1/traps.length())   * (1 - exp(-sum_hujs)); 
-           } else {
+           //if(sum_hujs < 1e-16){//would be odd if individual detected if sumhujs was almost 0...
+          //   probcapthist_eachocc(occk) = (1/captrap)   * (1 - exp(-sum_hujs)); 
+           //} else {
              //prob that trap j made the detection given i was detected in k
              probcapthist_eachocc(occk) = exp(log(hu_js(trapijk))-log(sum_hujs))   * (1 - exp(-sum_hujs)); 
-           }
+          // }
            
           } else {
             //prob i wasn't detected in k
