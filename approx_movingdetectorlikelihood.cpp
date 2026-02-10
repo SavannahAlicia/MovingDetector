@@ -733,7 +733,6 @@ double
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
     double mesharea
-   // bool linear = false
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
@@ -834,7 +833,9 @@ double
     double out = -1 * (-lambdan - lognfact + sumlogint);
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
-    return(out);
+    
+    return(lambdan);
+    //return(out);
   }
 
 //---------------Stationary
@@ -952,7 +953,9 @@ double
     double out = -1 * (-lambdan - lognfact + sumlogint);
     clock.tock("wholeenchilada");
     clock.stop("approxstatllktimes");
-    return(out);
+    
+    return(lambdan);
+  //  return(out);
   }
 
 
