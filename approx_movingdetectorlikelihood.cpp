@@ -834,8 +834,7 @@ double
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
     
-    return(lambdan);
-    //return(out);
+  return(out);
   }
 
 //---------------Stationary
@@ -954,8 +953,7 @@ double
     clock.tock("wholeenchilada");
     clock.stop("approxstatllktimes");
     
-    return(lambdan);
-  //  return(out);
+    return(out);
   }
 
 
