@@ -747,7 +747,7 @@ double
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
-    NumericMatrix notseen_mk(meshx.length(), capocc);
+    NumericMatrix notseen_mk_log(meshx.length(), capocc);
     NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
@@ -758,13 +758,17 @@ double
           if(usage(trapj, occk) == 0){
             hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
           } else {
-            double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-            hu_eachtrap(trapj) = hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * (usage(trapj, occk)/haz_denom); //survival
+            double thisdist = distmat(trapj, m);  //note this can't be recycled
+            //below except for individuals never detected. detected inds will 
+            //have different induse
+            hu_eachtrap(trapj) = 
+              hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * 
+              (usage(trapj, occk)/haz_denom); 
           }
         }
-        notseen_mk(m,occk) = exp(-sum(hu_eachtrap)); 
+        notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
       }
-      double notseen_alloccs_log = sum(log(notseen_mk.row(m)));
+      double notseen_alloccs_log = sum(notseen_mk_log.row(m));
       double pdot = 1 - exp(notseen_alloccs_log);
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
@@ -774,25 +778,23 @@ double
     //rest of likelihood
     clock.tick("loopllk");
     double n = capthist.n_rows;
-    NumericVector integral_eachi(n);
+    NumericVector integral_eachi_log(n);
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
-        NumericVector probcapthist_eachocc(capocc);
+        NumericVector probcapthist_eachocc_log(capocc);
         for(int occk = 0; occk < capocc; occk++){
           bool ikcaught = false;
           double sumtoj_ind_ijk;
           double hu_ind_ijk;
           double sumtoj_ind = 0;
-          arma::rowvec useik = indusage.slice(occk).row(i);
-          for (arma::uword trapj = 0; trapj < useik.n_elem; trapj++) {
+          arma::subview_row<double> induseik = indusage.slice(occk).row(i);
+          for (arma::uword trapj = 0; trapj < captrap; trapj++) {
             //limit to used traps
-            if (useik[trapj] > 0) {
-              double captik = capthist(i, occk, trapj);
-              //hazard for ind at trap
-              double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (indusage(i, trapj, occk)/haz_denom);//hazard times individual usage for each trap. 
-              
-              if(captik == 1){ // this could be within the above else (only captures if used)?
+            if (induseik[trapj] > 0) {
+              //hazard times individual usage for each trap. 
+              double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (induseik[trapj]/haz_denom);
+              if(capthist(i, occk, trapj) == 1){
                 ikcaught = true; //assign if i is caught
                 hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
                 //traps are not ordered by time, so I need to keep summing 
@@ -805,23 +807,20 @@ double
           }
           sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i EXCEPT 
           // trap detected
-          double prob_notseenk = notseen_mk(x,occk);
+          double prob_notseenk_log = notseen_mk_log(x,occk);
           if(ikcaught){
-            probcapthist_eachocc(occk) = exp(-sumtoj_ind_ijk) * (1 - exp(-hu_ind_ijk));
+            probcapthist_eachocc_log(occk) = -sumtoj_ind_ijk + log(1 - exp(-hu_ind_ijk));
           } else {
-            probcapthist_eachocc(occk) = prob_notseenk; //survived all traps
+            probcapthist_eachocc_log(occk) = prob_notseenk_log; //survived all traps
           }
-          //prevent underflow
-          probcapthist_eachocc(occk) = std::max(probcapthist_eachocc(occk), 1e-16);
         }
-        double probcapthist_alloccs_log = sum(log(probcapthist_eachocc));
+        double probcapthist_alloccs_log = sum(probcapthist_eachocc_log);
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
       double maxv = max(DKprod_eachx_log); //attempt to fix underflow
-      double DKprod_sum = exp(maxv) * sum(exp(DKprod_eachx_log - maxv));
+      double DKprod_sum_log = maxv  + log(sum(exp(DKprod_eachx_log - maxv)));
 
-      integral_eachi(i) = DKprod_sum * mesharea;
-      integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
+      integral_eachi_log(i) = DKprod_sum_log + log(mesharea);
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
@@ -831,8 +830,7 @@ double
     NumericVector logns(n);
     logns = log(ns);
     double lognfact = sum(logns);
-    NumericVector logint = logvec(integral_eachi);
-    double sumlogint = sumC(logint);
+    double sumlogint = sum(integral_eachi_log);
     double out = -1 * (-lambdan - lognfact + sumlogint);
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
