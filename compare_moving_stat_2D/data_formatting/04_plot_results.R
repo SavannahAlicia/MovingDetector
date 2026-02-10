@@ -651,3 +651,5 @@ ggsave(file = paste(dirstart, "plots/setup.png", sep = ""),
 #           all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)
 # )
 # 
+
+#change

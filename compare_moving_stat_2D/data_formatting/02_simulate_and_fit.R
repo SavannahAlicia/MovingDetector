@@ -72,7 +72,8 @@ fit_capthist <- function(dist_trapmesh,
                     hazdenom, 
                     mesh, 
                     capthistout,
-                    Dmod 
+                    Dmod,
+                    meshspacing
                     ){
   if(!Dmod %in% c("~1", "~x^2")){
     stop("Dmod must be specified ~1 or ~x^2")
@@ -305,6 +306,7 @@ sim_fit <- function(traps,
                                   hazdenom, 
                                   mesh, 
                                   capthistout,
-                                  Dmod)
+                                  Dmod,
+                      meshspacing)
   return(out)
 }
