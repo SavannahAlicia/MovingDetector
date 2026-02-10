@@ -865,24 +865,26 @@ double
     clock.tock("setup");
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
+    NumericMatrix notseen_mk_log(meshx.length(), capocc);
     NumericVector Dx_pdotxs(meshx.length());
     for(int m = 0; m < meshx.length(); m++){
       double Dx = D_mesh(m);
-      NumericVector notseen_eachocc_log((capocc));
+      //NumericVector notseen_eachocc_log((capocc));
       for(int occk = 0; occk < capocc; occk++){
-        NumericVector notseen_eachtrap((captrap));
+        NumericVector hu_eachtrap((captrap));
         for(int trapj = 0; trapj < captrap; trapj++){
           if(usage(trapj, occk) == 0){
-            notseen_eachtrap(trapj) = 1; //if the trap isn't used, can't be seen at it
+            hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
           } else {
-            double thisdist = distmat(trapj, m);  //note this can't be recycled below except for individuals never detected. detected inds will have different induse
-            notseen_eachtrap(trapj) = exp(-hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * (usage(trapj, occk)/haz_denom)); //survival
+            double thisdist = distmat(trapj, m);  
+            hu_eachtrap(trapj) =
+              hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * 
+              usage(trapj, occk)/haz_denom; 
           }
         }
-        double notseenalltraps_log = sum(log(notseen_eachtrap));
-        notseen_eachocc_log(occk) = notseenalltraps_log;
+        notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
       }
-      double notseen_alloccs_log = sum(notseen_eachocc_log);
+      double notseen_alloccs_log = sum(notseen_mk_log.row(m));
       double pdot = 1 - exp(notseen_alloccs_log);
       double Dx_pdotx = Dx * pdot;
       Dx_pdotxs(m) = Dx_pdotx;
