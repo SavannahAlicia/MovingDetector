@@ -806,11 +806,10 @@ double
           }
           sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i EXCEPT 
           // trap detected
-          double prob_notseenk_log = notseen_mk_log(x,occk);
           if(ikcaught){
             probcapthist_eachocc_log(occk) = -sumtoj_ind_ijk + log(1 - exp(-hu_ind_ijk));
           } else {
-            probcapthist_eachocc_log(occk) = prob_notseenk_log; //survived all traps
+            probcapthist_eachocc_log(occk) = notseen_mk_log(x,occk); //survived all traps
           }
         }
         double probcapthist_alloccs_log = sum(probcapthist_eachocc_log);
