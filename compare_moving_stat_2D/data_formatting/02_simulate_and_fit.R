@@ -107,7 +107,8 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
-                                             dist_trapmesh, mesh_mat)
+                                             dist_trapmesh, mesh_mat,
+                                             mesharea = meshspacing^2)
       
       return(out)
     }
@@ -126,7 +127,8 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh_mat)
+                                         induse, dist_trapmesh, mesh_mat,
+                                         mesharea = meshspacing^2)
       return(out)
     }
 
@@ -165,7 +167,8 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                              hazdenom, D_mesh_, 
                                              capthist, useall,
-                                             dist_trapmesh, mesh_mat)
+                                             dist_trapmesh, mesh_mat,
+                                             mesharea = meshspacing^2)
       return(out)
     }
     #moving detector likelihood
@@ -192,7 +195,8 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh_mat)
+                                         induse, dist_trapmesh, mesh_mat,
+                                         mesharea = meshspacing^2)
       return(out)
     }
   }  

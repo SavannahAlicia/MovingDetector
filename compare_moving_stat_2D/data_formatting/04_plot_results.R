@@ -90,6 +90,11 @@ create_plots <- function(sim_fits_out,
                                                               nrow(stat_outs)))),
                       cbind(move_outs, data.frame(model = rep("moving",nrow(move_outs)))))
     
+    all_outs <- as.data.frame(all_outs %>%
+      group_by(model, name) %>%
+      mutate(sd_value = sd(value, na.rm = TRUE)) %>%
+      ungroup())
+    
     if(Dmodel == "flat"){
       Ndat <- all_outs[all_outs$name == "D",]
       Ndat$value <- log(exp(Ndat$value) * meshspacing^2 * nrow(mesh))
@@ -232,24 +237,24 @@ create_plots <- function(sim_fits_out,
   
   lambda0plot <- 
     ggplot() +
-    geom_pointrange(all_outs2[all_outs2$name == "lambda0",],
-                    mapping = aes(ymin = exp(meanlower)*1000, 
-                        ymax = exp(meanupper)*1000,
-                        y = exp(mean)*1000,
-                        col = model,
-                        x = model),
-                    size = pointsize/2,
-                    linewidth = linesize) +
-    # geom_density(all_outs[all_outs$name == "lambda0",], 
-    #              mapping = aes(x = exp(value)*1000, #per km instead of m
-    #                            col = model, fill = model),
-    #              alpha = 0.5, size = linesize) +
-    geom_hline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-                               data.frame(name = "lambda0", model = "true", 
-                                          mean = log(lambda0))), 
-                 aes(yintercept = exp(c(mean))*1000,
-                     col = model), size = linesize,
-               linetype = "dashed") +
+    # geom_pointrange(all_outs2[all_outs2$name == "lambda0",],
+    #                 mapping = aes(ymin = exp(meanlower)*1000, 
+    #                     ymax = exp(meanupper)*1000,
+    #                     y = exp(mean)*1000,
+    #                     col = model,
+    #                     x = model),
+    #                 size = pointsize/2,
+    #                 linewidth = linesize) +
+     geom_boxplot(all_outs[all_outs$name == "lambda0",], 
+                  mapping = aes(y = 100*(exp(value)-lambda0)/lambda0, #per km instead of m
+                                col = model, fill = model),
+                  alpha = 0.5, size = linesize) +
+    # geom_hline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
+    #                            data.frame(name = "lambda0", model = "true", 
+    #                                       mean = log(lambda0))), 
+    #              aes(yintercept = exp(c(mean))*1000,
+    #                  col = model), size = linesize,
+    #            linetype = "dashed") +
     # geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
     #            aes(xintercept = exp(c(meanlower))*1000, 
     #                col = model), 
@@ -260,12 +265,12 @@ create_plots <- function(sim_fits_out,
     #            linetype = "dashed", size = linesize) +
     # #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab("Model") +
-     ylab(expression(paste("\u03bb"[0], " (dets/km)"))) + 
+     ylab(expression(paste("\u03bb"[0], " (dets/km) \n% relative bias"))) + 
     scale_x_discrete(labels = c("moving" = "Moving",
                                 "stationary" = "Stationary")) +
   
     # xlim(0,lambda0*4*1000) +
-    ylim(0,lambda0*1.2*1000) +
+    #ylim(0,lambda0*1.2*1000) +
     scale_color_manual(name = "",
                        values = plotcols, 
                        labels = c("Moving", "Stationary", 
@@ -275,7 +280,7 @@ create_plots <- function(sim_fits_out,
                        labels = c("Moving", "Stationary", 
                                   expression("True \u03bb"[0]))) +
     guides(fill = "none") +
-    theme_classic() +
+    theme_bw() +
     theme(#axis.title = element_text(size = 10),
           legend.position = "none",
           #axis.text.y = element_blank(),
@@ -289,29 +294,37 @@ create_plots <- function(sim_fits_out,
 
   sigmaplot <- 
     ggplot() +
-    geom_pointrange(all_outs2[all_outs2$name == "sigma",],
-                    mapping = aes(ymin = exp(meanlower)/1000, 
-                                  ymax = exp(meanupper)/1000,
-                                  y = exp(mean)/1000,
-                                  col = model,
-                                  x = model),
-                    size = pointsize/2,
-                    linewidth = linesize) +
-    geom_hline(data = rbind(all_outs2[all_outs2$name == "sigma",],
-                            data.frame(name = "sigma", model = "true",
-                                       mean = log(sigma))),
-               aes(yintercept = exp(mean)/1000,
-                   col = model), 
-               linetype = "dashed", size = linesize) +
+    # geom_pointrange(all_outs2[all_outs2$name == "sigma",],
+    #                 mapping = aes(ymin = exp(meanlower)/1000, 
+    #                               ymax = exp(meanupper)/1000,
+    #                               y = exp(mean)/1000,
+    #                               col = model,
+    #                               x = model),
+    #                 size = pointsize/2,
+    #                 linewidth = linesize) +
+    geom_boxplot(all_outs[all_outs$name == "sigma",], 
+                 mapping = aes(y = 100*(exp(value)-sigma)/sigma, #per km instead of m
+                               col = model, fill = model),
+                 alpha = 0.5, size = linesize) +
+    # geom_hline(data = rbind(all_outs2[all_outs2$name == "sigma",],
+    #                         data.frame(name = "sigma", model = "true",
+    #                                    mean = log(sigma))),
+    #            aes(yintercept = exp(mean)/1000,
+    #                col = model), 
+    #            linetype = "dashed", size = linesize) +
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
-    scale_y_continuous(limits = c(.8*sigma/1000, 1.2*sigma/1000)) +
+    scale_fill_manual(name = "",
+                      values = plotcols, 
+                      labels = c("Moving", "Stationary", 
+                                 "True \u03C3")) +
+ #   scale_y_continuous(limits = c(.8*sigma/1000, 1.2*sigma/1000)) +
     scale_x_discrete(labels = c("moving" = "Moving",
                                 "stationary" = "Stationary")) +
-    ylab("\u03C3 (km)") +
+    ylab("\u03C3 (km) \n% relative bias") +
     xlab("Model") +
-    theme_classic() +
+    theme_bw() +
     theme(#axis.title = element_text(size = 10),
           legend.position = "none",
           text = element_text(size = fontsize),
@@ -337,7 +350,7 @@ create_plots <- function(sim_fits_out,
   #   scale_color_manual(values = plotcols) +
   #   xlab("beta1") +
   #   scale_x_continuous(limits = c(beta1*4/3, beta1*1/3)) +
-  #   theme_classic() +
+  #   theme_bw() +
   #   theme(axis.title = element_text(size = 10),
   #         axis.text.y = element_blank(),
   #         axis.title.y = element_blank(),
@@ -345,53 +358,57 @@ create_plots <- function(sim_fits_out,
   #         legend.title = element_text(size = 20),
   #         legend.text = element_text(size = 20))
   
+  
+  
   beta2plot <- ggplot() +
-    geom_density(all_outs[all_outs$name == "beta2",],
-                 mapping = aes(x = value/1000, col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-               aes(xintercept = c(mean)/1000, col = model), size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-               aes(xintercept = c(meanlower)/1000, col = model), linetype = "dashed", size = linesize) +
-    geom_vline(data = all_outs2[all_outs2$name == "beta2",],
-               aes(xintercept = c(meanupper)/1000, col = model), linetype = "dashed", size = linesize) +
-    geom_vline(xintercept = beta2/1000) +
+    geom_boxplot(all_outs[all_outs$name == "beta2",],
+                 mapping = aes(y = 100*(value-beta2)/sd_value, col = model), size = linesize) +
+    # geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
+    #            aes(xintercept = c(mean)/1000, col = model), size = linesize) +
+    # geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
+    #            aes(xintercept = c(meanlower)/1000, col = model), linetype = "dashed", size = linesize) +
+    # geom_vline(data = all_outs2[all_outs2$name == "beta2",],
+    #            aes(xintercept = c(meanupper)/1000, col = model), linetype = "dashed", size = linesize) +
+    # geom_vline(xintercept = beta2/1000) +
     scale_color_manual(values = plotcols) +
-    xlab("beta2") +
-    ylab("Frequency") +
-    theme_classic() +
-    theme(axis.title = element_text(size = 10),
-          axis.text.y = element_blank(),
-          axis.title.y = element_blank(),
+    scale_fill_manual(values = plotcols) +
+    ylab("beta2 % \nstandardized bias") +
+   # ylab("Frequency") +
+    theme_bw() +
+    theme(axis.title.y = element_text(size = fontsize),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
           legend.position = "none",
-          legend.title = element_text(size = 20),
-          legend.text = element_text(size = 20))
+          legend.title = element_text(size = fontsize),
+          legend.text = element_text(size = fontsize))
   
   
   Nplot <- ggplot() +
-    geom_pointrange(all_outs2[all_outs2$name == "N",],
-                    mapping = aes(ymin = exp(meanlower), 
-                                  ymax = exp(meanupper),
-                                  y = exp(mean),
-                                  col = model,
-                                  x = model),
-                    size = pointsize/2,
-                    linewidth = linesize) +
-     geom_hline(data = rbind(all_outs2[all_outs2$name == "N",],
-                             data.frame(name = "N", 
-                                        model = "true",
-                                        mean = log(N))),
-               aes(yintercept = exp(mean), col = model), 
-               linetype = "dashed",
-               size = linesize) +
-    scale_y_continuous(limits = c(0*N, 1.1*N)) +
+    geom_boxplot(all_outs[all_outs$name == "N",], 
+                 mapping = aes(y = 100*(exp(value)-N)/N, #per km instead of m
+                               col = model, fill = model),
+                 alpha = 0.5, size = linesize) +
+    # geom_pointrange(all_outs2[all_outs2$name == "N",],
+    #                 mapping = aes(ymin = exp(meanlower), 
+    #                               ymax = exp(meanupper),
+    #                               y = exp(mean),
+    #                               col = model,
+    #                               x = model),
+    #                 size = pointsize/2,
+    #                 linewidth = linesize) +
+    #scale_y_continuous(limits = c(0*N, 1.1*N)) +
     scale_x_discrete(labels = c("moving" = "Moving", "stationary" = "Stationary")) +
     scale_color_manual(name = "",
                       values = plotcols, 
                       labels = c("Moving", "Stationary", 
                                  expression("True"))) +
+    scale_fill_manual(name = "",
+                       values = plotcols, 
+                       labels = c("Moving", "Stationary", 
+                                  expression("True"))) +
     xlab("Model") +
-    ylab("N") +
-    theme_classic() +
+    ylab("N \n% relative bias") +
+    theme_bw() +
     theme(#axis.title = element_text(size = 10),
           #axis.text.y = element_blank(),
           #axis.title.y = element_blank(),
@@ -437,8 +454,9 @@ create_plots <- function(sim_fits_out,
   Dplot <- 
     ggplot() + 
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], 
-              mapping = aes(x = x/1000, y = value*1000000, col = name
-                            ),linewidth = linesize/2) +
+              mapping = aes(x = x/1000, y = value*1000000, col = name,
+                            alpha = name, linewidth = name
+                            )) +
     geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "2.5%" &
                                             D_plotdatlong$name != "trueD"),], 
               mapping = aes(x = x/1000, y = value*1000000, 
@@ -457,19 +475,26 @@ create_plots <- function(sim_fits_out,
     scale_color_manual(values = c(plotcols, "black"), 
                        labels = c("Moving", "Stationary", "True"),
                        name = "") +
+    scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*2),
+                           labels = c("Moving", "Stationary", "True"),
+                           name = "") +
+    scale_alpha_manual(values = c(1,1,.6)
+                       ) +
     #ylim(0,.5) +
     xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
     #ylim(c(0, 400)) +
     ylab("D") +
     xlab("x") +
-    theme_classic() +
+    theme_bw() +
     guides(
       color = guide_legend(
         override.aes = list(
           shape = NA,      # remove points
           linewidth = linesize
         )
-      )
+      ),
+      linewidth = "none",
+      alpha = "none"
     ) +
     theme(#axis.title = element_text(size = 10),
           text = element_text(size = fontsize),
@@ -496,14 +521,16 @@ create_plots <- function(sim_fits_out,
   if(Dmodel == "flat"){
     plotlist <- list(lambda0plot, 
                           sigmaplot, 
-                          Nplot,#Dplot,
-                          timeplot)
+                          Nplot,
+                          timeplot,
+                     Dplot)
     out = grid.arrange(
       grobs = plotlist,
       widths = c(1,1),
       heights = c(1,1,1),
       layout_matrix = rbind(c(1,3),
-                            c(2,4)))
+                            c(2,4),
+                            c(5,5)))
   }
 
   if(output == "plots"){

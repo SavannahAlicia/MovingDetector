@@ -4,13 +4,13 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 300 #98/2 #it'll be the first number if there's two types of tracks
-trackxmin = -900
+ntrapsish = 200 #98/2 #it'll be the first number if there's two types of tracks
+trackxmin = -1000
 trapspacing = round(sigma/3)
-trap_n_horiz = 20 #round(sqrt(ntrapsish))
+trap_n_horiz = 15 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
-tracksteplength = trapspacing/2
+tracksteplength = round(trapspacing/10)
 occreps = 6
 
 
@@ -50,7 +50,7 @@ for(i in 2:occreps){
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = trapspacing/sqrt(2)
+meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 #eta <- beta1*((mesh$x + beta2)^2 + (mesh$y + beta2)^2)
 #Z   <- sum(exp(eta)) * meshspacing^2
