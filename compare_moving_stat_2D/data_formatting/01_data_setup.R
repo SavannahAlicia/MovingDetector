@@ -4,7 +4,7 @@
 #per occasion
 
 #each trackline is a series of points with x, y, and time
-ntrapsish = 200 #98/2 #it'll be the first number if there's two types of tracks
+ntrapsish = 350 #98/2 #it'll be the first number if there's two types of tracks
 trackxmin = -1000
 trapspacing = round(sigma/3)
 trap_n_horiz = 15 #round(sqrt(ntrapsish))
