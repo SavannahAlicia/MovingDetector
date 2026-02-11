@@ -554,7 +554,8 @@ sim_capthist_C(NumericMatrix traps,
                              int hazdenom,
                              NumericMatrix pop,
                              Nullable<NumericMatrix> dist_dat_pop = R_NilValue,
-                             bool report_probseenxk = false
+                             bool report_probseenxk = false,
+                             bool report_hus = false
 ){
   //dist_dat_pop needs to be distances to midpoints of increments if precalculated
   bool recalc_distdatpop = false;
@@ -643,6 +644,11 @@ sim_capthist_C(NumericMatrix traps,
   NumericVector probseen(N * nocc);
   IntegerVector probseendims = {N, nocc};
   probseen.attr("dim") = probseendims;
+  
+  NumericVector hus_ike(N * tracksdf.nrows());
+  IntegerVector hus_ike_dims = {N, tracksdf.nrows()};
+  hus_ike.attr("dim") = hus_ike_dims;
+  
    for (int k = 0; k < nocc; ++k){
 
       int track_id = uniq_occs[k];
@@ -692,7 +698,11 @@ sim_capthist_C(NumericMatrix traps,
          // prob not detected in increment e
           double survive_t_inc = exp(-hus[e]);
           seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc); 
+          
+          // for testing
           firsttprob[i + idx[e] * N] = seenfirstatt[e];
+          hus_ike[i + idx[e] * N] = hus[e];
+          
         }
         double survk = exp(-cumhus);
         probseen[i + k * N] = 1 - survk;
@@ -710,15 +720,16 @@ sim_capthist_C(NumericMatrix traps,
             
             ch[i + N * k + N * nocc * trapdet] = timedet; //ch is ind x occ x trap, ixkxj 
           } 
-          
         }
-    }
-  }
-  if(report_probseenxk){
-    return probseen;
-  } else {
-    return ch;
-  }
+      }
+   }
+   if(report_probseenxk){
+     return probseen;
+   } else if(report_hus){
+     return(hus_ike);
+   } else {
+     return ch;
+   }
 }
 
 //#---------------------Moving Detector multi-catch LLK (approximated with traps)
