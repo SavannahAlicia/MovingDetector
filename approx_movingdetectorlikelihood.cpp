@@ -675,25 +675,29 @@ sim_capthist_C(NumericMatrix traps,
         NumericVector hus(nsteps);
         double cumhus = 0.0;
         NumericVector seenfirstatt(nsteps + 1); //last entry is not seen any t
-        for(int e = 0; e < nsteps; e ++){
+        seenfirstatt[0] = 0; 
+        for(int e = 1; e < nsteps; e ++){ //first increment is 0 anyway
           int x = idx[e]; //index of row in tracksdf
-          double d = dist_dat_pop_r(i,x);
+          double d = dist_dat_pop_r(i,(x-1)); //midpoint of previous increment
+          // recall e0 is start pt, so e1 pt has >0 increment length 
+          // which we multiply by haz between pt e0 and e1
           double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
           hus[e] = haz * increments[e];
           if(hus[e] < 0){
             Rcpp::stop("Error: negative hazard * effort");
           }
+          // prob not detected before start of survey = 1 since cumhus init 0
           double survive_until_tminus1 = exp(-cumhus);
           cumhus += hus[e];
-         // double survive_until_t = exp(-cumhus);
+         // prob not detected in increment e
           double survive_t_inc = exp(-hus[e]);
-          seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc); //zero for e = 0
+          seenfirstatt[e] = survive_until_tminus1 * (1.0 - survive_t_inc); 
           firsttprob[i + idx[e] * N] = seenfirstatt[e];
         }
         double survk = exp(-cumhus);
         probseen[i + k * N] = 1 - survk;
         if(!report_probseenxk){
-          seenfirstatt[nsteps] = survk;
+          seenfirstatt[nsteps] = survk; //last item is not detected at all
           IntegerVector nstepsample = seq(0, nsteps); //length nsteps+1
           int stepdet = Rcpp::sample(nstepsample, 1, false, seenfirstatt)[0];
           if(stepdet < nsteps){ //if detection happened
