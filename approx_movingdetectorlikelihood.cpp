@@ -489,6 +489,46 @@ arma::cube create_ind_use_C(arma::cube ch,
   return use;
 }
 
+// [[Rcpp::export]]
+NumericMatrix calc_trackmidpts(DataFrame tracksdf
+                               ) {
+  IntegerVector uniq_occs = sort_unique(Rcpp::as<Rcpp::IntegerVector>(tracksdf["occ"]));
+  int nocc = uniq_occs.size();
+  IntegerVector occ = tracksdf["occ"];
+  NumericVector x = tracksdf["x"];
+  NumericVector y = tracksdf["y"];
+  NumericMatrix tracksxy(tracksdf.nrows(), 2);
+  tracksxy = Rcpp::cbind(x,y);
+  
+  NumericMatrix tracksdfmidptxy(tracksdf.nrows(),2);
+  for (int k = 0; k < nocc; ++k){
+    
+    int track_id = uniq_occs[k];
+    
+    // Indices for this occasion from tracksdf (of points, not segments)
+    LogicalVector mask = occ == track_id;
+    IntegerVector idx = Rcpp::seq(0, tracksdf.nrows() - 1); // indexes rows of entire tracksdf
+    idx = idx[mask]; // subsetted to rows that are in this occasion
+    int nsteps = idx.size();
+    if(nsteps < 2){
+      Rcpp::warning("Occ %d has less than 2 increments", k);
+    }
+    if(nsteps < 1) continue;
+    
+    // first midpoint is just the first point
+    tracksdfmidptxy(idx[0], 0) = tracksxy(idx[0], 0);
+    tracksdfmidptxy(idx[0], 1) = tracksxy(idx[0], 1);
+    
+    // Remaining midpoints are the averages of consecutive points
+    for (int i = 1; i < nsteps; ++i) {
+      tracksdfmidptxy(idx[i], 0) = 0.5 * (tracksxy(idx[i-1], 0) + tracksxy(idx[i], 0));
+      tracksdfmidptxy(idx[i], 1) = 0.5 * (tracksxy(idx[i-1], 1) + tracksxy(idx[i], 1));
+    }
+  }
+  return tracksdfmidptxy;
+}
+
+
 //----------------- Likelihood related functions -------------------------------
 
 // [[Rcpp::export]]
@@ -586,6 +626,8 @@ sim_capthist_C(NumericMatrix traps,
   
   NumericVector x = tracksdf["x"];
   NumericVector y = tracksdf["y"];
+  NumericMatrix tracksxy(tracksdf.nrows(), 2);
+  tracksxy = Rcpp::cbind(x,y);
   NumericVector tracktimes = tracksdf["time"];
   IntegerVector occ = tracksdf["occ"];
   IntegerVector trapnos = tracksdf["trapno"];
@@ -599,37 +641,11 @@ sim_capthist_C(NumericMatrix traps,
   NumericVector ch(N * nocc * traps.nrow(), NA_REAL); //needs to filled with NA
   ch.attr("dim") = dims;
 
-  NumericMatrix tracksxy(tracksdf.nrows(), 2);
-  tracksxy = Rcpp::cbind(x,y);
  
   if(recalc_distdatpop){
     //need to calculate midpoints of tracksdf pts for each occasion for 
     // centered Riemann sum
-    NumericMatrix tracksdfmidptxy(tracksdf.nrows(),2);
-    for (int k = 0; k < nocc; ++k){
-      
-      int track_id = uniq_occs[k];
-      
-      // Indices for this occasion from tracksdf (of points, not segments)
-      LogicalVector mask = occ == track_id;
-      IntegerVector idx = Rcpp::seq(0, tracksdf.nrows() - 1); // indexes rows of entire tracksdf
-      idx = idx[mask]; // subsetted to rows that are in this occasion
-      int nsteps = idx.size();
-      if(nsteps < 2){
-        Rcpp::warning("Occ %d has less than 2 increments", k);
-      }
-      if(nsteps < 1) continue;
-      
-      // first midpoint is just the first point
-      tracksdfmidptxy(idx[0], 0) = tracksxy(idx[0], 0);
-      tracksdfmidptxy(idx[0], 1) = tracksxy(idx[0], 1);
-      
-      // Remaining midpoints are the averages of consecutive points
-      for (int i = 1; i < nsteps; ++i) {
-        tracksdfmidptxy(idx[i], 0) = 0.5 * (tracksxy(idx[i-1], 0) + tracksxy(idx[i], 0));
-        tracksdfmidptxy(idx[i], 1) = 0.5 * (tracksxy(idx[i-1], 1) + tracksxy(idx[i], 1));
-      }
-    }
+    NumericMatrix tracksdfmidptxy = calc_trackmidpts(tracksdf);
     
   //recalculate distances between hrcs and midpts for hazard later
     dist_dat_pop_r = calc_dist_matC(pop, tracksdfmidptxy);
@@ -701,7 +717,7 @@ sim_capthist_C(NumericMatrix traps,
           
           // for testing
           firsttprob[i + idx[e] * N] = seenfirstatt[e];
-          hus_ike[i + idx[e] * N] = hus[e];
+          hus_ike[i + idx[e] * N] = d;//hus[e];
           
         }
         double survk = exp(-cumhus);
