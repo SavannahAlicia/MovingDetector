@@ -700,7 +700,7 @@ sim_capthist_C(NumericMatrix traps,
         seenfirstatt[0] = 0; 
         for(int e = 1; e < nsteps; e ++){ //first increment is 0 anyway
           int x = idx[e]; //index of row in tracksdf
-          double d = dist_dat_pop_r(i,(x-1)); //midpoint of previous increment
+          double d = dist_dat_pop_r(i,(x)); //midpoint of pt e and previous pt e
           // recall e0 is start pt, so e1 pt has >0 increment length 
           // which we multiply by haz between pt e0 and e1
           double haz = hazdist_cpp(lambda0, sigma, d, hazdenom);
@@ -717,7 +717,7 @@ sim_capthist_C(NumericMatrix traps,
           
           // for testing
           firsttprob[i + idx[e] * N] = seenfirstatt[e];
-          hus_ike[i + idx[e] * N] = d;//hus[e];
+          hus_ike[i + idx[e] * N] = hus[e];
           
         }
         double survk = exp(-cumhus);
