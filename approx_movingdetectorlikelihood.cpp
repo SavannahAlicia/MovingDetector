@@ -763,7 +763,8 @@ double
     arma::cube indusage, // ind by traps by occ
     NumericMatrix distmat, //traps x mesh 
     NumericMatrix mesh, //first column x, second y
-    double mesharea
+    double mesharea,
+    double meanstepsize
   ) {//specify objects
     Rcpp::Clock clock;
     clock.tick("wholeenchilada");
@@ -826,9 +827,21 @@ double
               double hu_ind_j = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (induseik[trapj]/haz_denom);
               if(capthist(i, occk, trapj) == 1){
                 ikcaught = true; //assign if i is caught
-                hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
-                //traps are not ordered by time, so I need to keep summing 
-                //cumulative hazard after the detecting trap
+                if (induseik[trapj]/haz_denom <= meanstepsize){
+                  //only one step (effectively) took place in this trap before 
+                  // detection, so the entire effort of this trap is used
+                  hu_ind_ijk = hu_ind_j; //hazard times use at trap/time of capture
+                  //traps are not ordered by time, so I need to keep summing 
+                  //cumulative hazard after the detecting trap
+                } else {
+                  // there were some steps before the step of detection in this
+                  // trap, so add those to the cumulative hazard for survival
+                  // and only keep the last step for when detection happened
+                  double hu_ind_j_step = hazdist_cpp(lambda0, sigma, distmat(trapj, x), haz_denom) * (meanstepsize/haz_denom);
+                  hu_ind_ijk = hu_ind_j_step;
+                  // add cumulative hazard for trap up to step of detection
+                  sumtoj_ind += (hu_ind_j - hu_ind_j_step);
+                }
               } else {
                 //add cumulative hazard for ind at trap if not detected
                 sumtoj_ind += hu_ind_j;

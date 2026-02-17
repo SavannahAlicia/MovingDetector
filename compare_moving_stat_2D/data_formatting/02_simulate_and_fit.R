@@ -48,7 +48,10 @@ simulate_popandcapthist <- function(traps,
   }
   
   #use
-  induse <- create_ind_use_C(capthist, as.matrix(traps), trapspacing, tracksdf,
+  induse <- create_ind_use_C(capthist,
+                             as.matrix(traps),
+                             trapspacing, 
+                             tracksdf,
                              scenario = "everything")
   
   #convert capthist to 1s and 0s
@@ -73,7 +76,8 @@ fit_capthist <- function(dist_trapmesh,
                     mesh, 
                     capthistout,
                     Dmod,
-                    meshspacing
+                    meshspacing,
+                    meanstepsize
                     ){
   if(!Dmod %in% c("~1", "~x^2")){
     stop("Dmod must be specified ~1 or ~x^2")
@@ -128,8 +132,11 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh_mat,
-                                         mesharea = meshspacing^2)
+                                         induse, 
+                                         dist_trapmesh, 
+                                         mesh_mat,
+                                         mesharea = meshspacing^2,
+                                         meanstepsize)
       return(out)
     }
 
@@ -196,8 +203,11 @@ fit_capthist <- function(dist_trapmesh,
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                          hazdenom, D_mesh_,
                                          capthist, useall,
-                                         induse, dist_trapmesh, mesh_mat,
-                                         mesharea = meshspacing^2)
+                                         induse, 
+                                         dist_trapmesh,
+                                         mesh_mat,
+                                         mesharea = meshspacing^2,
+                                         meanstepsize)
       return(out)
     }
   }  
@@ -287,7 +297,15 @@ sim_fit <- function(traps,
                     N,
                     hazdenom, 
                     Dmod){
-  capthistout <- simulate_popandcapthist(traps,
+  tracksdf$stepsize <- c(0,
+                         sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
+                                (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
+  tracksdf$stepsize[apply(as.array(unique(tracksdf$occ)), 1, 
+                          function(k){min(which(tracksdf$occ == k))})] <- 0
+  meanstepsize = mean(tracksdf$stepsize)
+
+  
+    capthistout <- simulate_popandcapthist(traps,
                                       tracksdf, 
                                       lambda0,
                                       sigma,
@@ -307,6 +325,7 @@ sim_fit <- function(traps,
                                   mesh, 
                                   capthistout,
                                   Dmod,
-                      meshspacing)
+                      meshspacing,
+                      meanstepsize)
   return(out)
 }
