@@ -454,30 +454,36 @@ create_plots <- function(sim_fits_out,
   Dplot <- 
     ggplot() + 
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], 
-              mapping = aes(x = x/1000, y = value*1000000, col = name,
-                            alpha = name, linewidth = name
+              mapping = aes(x = x/1000, 
+                            y = value*1000000, 
+                            col = name,
+                            alpha = name,
+                          #  linewidth = name
                             )) +
     geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "2.5%" &
-                                            D_plotdatlong$name != "trueD"),], 
-              mapping = aes(x = x/1000, y = value*1000000, 
-                            col = name), 
-              #linetype = "dashed", 
+                                            D_plotdatlong$name != "trueD"),],
+              mapping = aes(x = x/1000,
+                            y = value*1000000,
+                            col = name),
+              #linetype = "dashed",
               size = pointsize*2,#/2,
-              shape = 18
+              shape = 6
               ) +
     geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
                                             D_plotdatlong$name != "trueD"),], 
-              mapping = aes(x = x/1000, y = value*1000000, col = name),
+              mapping = aes(x = x/1000, 
+                            y = value*1000000, 
+                            col = name),
               #linetype = "dashed", 
               size = pointsize*2,#/2,
-              shape = 16
+              shape = 2
               ) +
     scale_color_manual(values = c(plotcols, "black"), 
                        labels = c("Moving", "Stationary", "True"),
                        name = "") +
-    scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*2),
-                           labels = c("Moving", "Stationary", "True"),
-                           name = "") +
+    # scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*2),
+    #                        labels = c("Moving", "Stationary", "True"),
+    #                        name = "") +
     scale_alpha_manual(values = c(1,1,.6)
                        ) +
     #ylim(0,.5) +
