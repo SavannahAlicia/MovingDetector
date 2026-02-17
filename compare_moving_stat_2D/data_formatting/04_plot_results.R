@@ -23,7 +23,7 @@ create_plots <- function(sim_fits_out,
       out = x$mov_conv
     }
     })) == 0
-  bothconv <- (statconv + movconv) == 2
+  bothconv <- (statconv == 1 & movconv == 1)
   bothconv[is.na(bothconv)] <- FALSE
   
   sim_fits_out <- sim_fits_out[bothconv]
