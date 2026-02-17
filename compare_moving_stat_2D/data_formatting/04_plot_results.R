@@ -237,33 +237,10 @@ create_plots <- function(sim_fits_out,
   
   lambda0plot <- 
     ggplot() +
-    # geom_pointrange(all_outs2[all_outs2$name == "lambda0",],
-    #                 mapping = aes(ymin = exp(meanlower)*1000, 
-    #                     ymax = exp(meanupper)*1000,
-    #                     y = exp(mean)*1000,
-    #                     col = model,
-    #                     x = model),
-    #                 size = pointsize/2,
-    #                 linewidth = linesize) +
      geom_boxplot(all_outs[all_outs$name == "lambda0",], 
                   mapping = aes(y = 100*(exp(value)-lambda0)/lambda0, #per km instead of m
                                 col = model, fill = model),
                   alpha = 0.5, size = linesize) +
-    # geom_hline(data = rbind( all_outs2[all_outs2$name == "lambda0", ], 
-    #                            data.frame(name = "lambda0", model = "true", 
-    #                                       mean = log(lambda0))), 
-    #              aes(yintercept = exp(c(mean))*1000,
-    #                  col = model), size = linesize,
-    #            linetype = "dashed") +
-    # geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-    #            aes(xintercept = exp(c(meanlower))*1000, 
-    #                col = model), 
-    #            linetype = "dashed", size = linesize) +
-    # geom_vline(data = all_outs2[all_outs2$name == "lambda0",], 
-    #            aes(xintercept = exp(c(meanupper))*1000, 
-    #                col = model),
-    #            linetype = "dashed", size = linesize) +
-    # #geom_vline(xintercept = lambda0*1000, size = linesize, col = "black") +
     xlab("Model") +
      ylab(expression(paste("\u03bb"[0], " (dets/km) \n% relative bias"))) + 
     scale_x_discrete(labels = c("moving" = "Moving",
@@ -294,24 +271,11 @@ create_plots <- function(sim_fits_out,
 
   sigmaplot <- 
     ggplot() +
-    # geom_pointrange(all_outs2[all_outs2$name == "sigma",],
-    #                 mapping = aes(ymin = exp(meanlower)/1000, 
-    #                               ymax = exp(meanupper)/1000,
-    #                               y = exp(mean)/1000,
-    #                               col = model,
-    #                               x = model),
-    #                 size = pointsize/2,
-    #                 linewidth = linesize) +
     geom_boxplot(all_outs[all_outs$name == "sigma",], 
                  mapping = aes(y = 100*(exp(value)-sigma)/sigma, #per km instead of m
                                col = model, fill = model),
                  alpha = 0.5, size = linesize) +
-    # geom_hline(data = rbind(all_outs2[all_outs2$name == "sigma",],
-    #                         data.frame(name = "sigma", model = "true",
-    #                                    mean = log(sigma))),
-    #            aes(yintercept = exp(mean)/1000,
-    #                col = model), 
-    #            linetype = "dashed", size = linesize) +
+
     scale_color_manual(name = "",
                        labels = c("Moving", "Stationary", "True \u03C3"),
                        values = plotcols) +
@@ -336,44 +300,28 @@ create_plots <- function(sim_fits_out,
   #legend.title = element_text(size = 20),
   #legend.text = element_text(size = 20))
   
-  # beta1plot <- ggplot() +
-  #   geom_density(all_outs[all_outs$name == "beta1",], 
-  #                mapping = aes(x = value, col = model), size = linesize) +
-  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-  #              aes(xintercept = c(mean), col = model), size = linesize) +
-  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-  #              aes(xintercept = c(meanlower), col = model), linetype = "dashed", size = linesize) +
-  #   geom_vline(data = all_outs2[all_outs2$name == "beta1",], 
-  #              aes(xintercept = c(meanupper), col = model), linetype = "dashed", size = linesize) +
-  #   geom_vline(xintercept = beta1) +
-  #   ylab("Frequency") +
-  #   scale_color_manual(values = plotcols) +
-  #   xlab("beta1") +
-  #   scale_x_continuous(limits = c(beta1*4/3, beta1*1/3)) +
-  #   theme_bw() +
-  #   theme(axis.title = element_text(size = 10),
-  #         axis.text.y = element_blank(),
-  #         axis.title.y = element_blank(),
-  #         legend.position = "none",
-  #         legend.title = element_text(size = 20),
-  #         legend.text = element_text(size = 20))
+  beta1plot <- ggplot() +
+    geom_boxplot(all_outs[all_outs$name == "beta1",],
+                 mapping = aes(y = 100*(value-beta1)/beta1, col = model), size = linesize) +
+    scale_color_manual(values = plotcols) +
+    scale_fill_manual(values = plotcols) +
+    ylab("beta1 % \nrelative bias") +
+    theme_bw() +
+    theme(axis.title.y = element_text(size = fontsize),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          legend.position = "none",
+          legend.title = element_text(size = fontsize),
+          legend.text = element_text(size = fontsize))
   
   
   
   beta2plot <- ggplot() +
     geom_boxplot(all_outs[all_outs$name == "beta2",],
                  mapping = aes(y = 100*(value-beta2)/sd_value, col = model), size = linesize) +
-    # geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-    #            aes(xintercept = c(mean)/1000, col = model), size = linesize) +
-    # geom_vline(data = all_outs2[all_outs2$name == "beta2",], 
-    #            aes(xintercept = c(meanlower)/1000, col = model), linetype = "dashed", size = linesize) +
-    # geom_vline(data = all_outs2[all_outs2$name == "beta2",],
-    #            aes(xintercept = c(meanupper)/1000, col = model), linetype = "dashed", size = linesize) +
-    # geom_vline(xintercept = beta2/1000) +
     scale_color_manual(values = plotcols) +
     scale_fill_manual(values = plotcols) +
     ylab("beta2 % \nstandardized bias") +
-   # ylab("Frequency") +
     theme_bw() +
     theme(axis.title.y = element_text(size = fontsize),
           axis.text.x = element_blank(),
@@ -388,15 +336,6 @@ create_plots <- function(sim_fits_out,
                  mapping = aes(y = 100*(exp(value)-N)/N, #per km instead of m
                                col = model, fill = model),
                  alpha = 0.5, size = linesize) +
-    # geom_pointrange(all_outs2[all_outs2$name == "N",],
-    #                 mapping = aes(ymin = exp(meanlower), 
-    #                               ymax = exp(meanupper),
-    #                               y = exp(mean),
-    #                               col = model,
-    #                               x = model),
-    #                 size = pointsize/2,
-    #                 linewidth = linesize) +
-    #scale_y_continuous(limits = c(0*N, 1.1*N)) +
     scale_x_discrete(labels = c("moving" = "Moving", "stationary" = "Stationary")) +
     scale_color_manual(name = "",
                       values = plotcols, 
@@ -420,32 +359,7 @@ create_plots <- function(sim_fits_out,
       axis.ticks.x = element_blank(),
       text = element_text(size = fontsize)
       )
-  
 
-  # 
-  # ggplot() + 
-  #   geom_tile(data = D_plotdat[,c(1,2,3)], aes(x = x, y= y, fill = trueD)) +
-  #   scale_color_manual(values = "black",  name = "D") +
-  #   theme_classic() +
-  #   labs(title = "True density") +
-  #   theme(axis.text.y = element_blank()
-  #         ,
-  #         legend.position = "none") 
-  # ggplot() + 
-  #   geom_tile(data = D_plotdat[,c(1,2,4)], aes(x = x, y= y, fill = stationarydets)) +
-  #   scale_fill_viridis_c(name = "D") +
-  #   theme_classic() +
-  #   labs(title = "Stationary detectors") +
-  #   theme(axis.text.y = element_blank(),
-  #         legend.position = "none") 
-  # ggplot() + 
-  #   geom_tile(data = D_plotdat[,c(1,2,5)], aes(x = x, y= y, fill = movingdets)) +
-  #   scale_fill_viridis_c(name = "D") +
-  #   theme_classic() +
-  #   labs(title = "Moving detectors") +
-  #   theme(axis.text.y = element_blank(),
-  #         legend.position = "none") 
-  
   
   D_plotdatlong <- tidyr::pivot_longer(D_plotdat, 
                                        cols = c("trueD", "stationarydets", "movingdets"))
@@ -511,7 +425,7 @@ create_plots <- function(sim_fits_out,
   
   if (Dmodel == "variable"){
     plotlist = list(lambda0plot, sigmaplot, 
-                    #beta1plot,
+                    beta1plot,
                     beta2plot,
                     Dplot,
                     Nplot, timeplot)
@@ -606,56 +520,3 @@ ggsave(file = paste(dirstart, "plots/setup.png", sep = ""),
        units = c("mm"),
        dpi = 300)
 
-# plotdat_q <-create_plots(all_sim_fits_q, Dmodel = "variable", output = "plotdat")
-# all_outs_q <- plotdat_q$all_outs
-# c(t.test(all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd, 
-#        all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd,
-#        paired = T, alternative = "less")$p.value,
-# t.test(all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd, 
-#        all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd,
-#        paired = T, alternative = "less")$p.value,
-# t.test(all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd, 
-#        all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd, 
-#        paired = T, alternative = "less")$p.value,
-# t.test(all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd, 
-#        all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd, 
-#        paired = T, alternative = "less")$p.value
-# )
-# c(
-#   mean((all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "moving",]$sd^2-
-#           all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "lambda0" & all_outs_q$model == "stationary",]$sd^2),
-#   mean((all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "moving",]$sd^2-
-#           all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "sigma" & all_outs_q$model == "stationary",]$sd^2),
-#   mean((all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "moving",]$sd^2-
-#           all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta1" & all_outs_q$model == "stationary",]$sd^2),
-#   mean((all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "moving",]$sd^2-
-#           all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)/all_outs_q[all_outs_q$name == "beta2" & all_outs_q$model == "stationary",]$sd^2)
-#   
-# )
-# 
-# 
-# 
-# plotdat_1 <-create_plots(all_sim_fits, Dmodel = "flat", output = "plotdat")
-# all_outs_1 <- plotdat_1$all_outs
-# c(t.test(all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd, 
-#        all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd,
-#        paired = T, alternative = "less")$p.value,
-# t.test(all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd, 
-#        all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd,
-#        paired = T, alternative = "less")$p.value,
-# t.test(all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd, 
-#        all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd, 
-#        paired = T, alternative = "less")$p.value
-# )
-# 
-# c(
-#   mean((all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "moving",]$sd^2-
-#           all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "lambda0" & all_outs_1$model == "stationary",]$sd^2),
-#   mean((all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "moving",]$sd^2-
-#           all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "sigma" & all_outs_1$model == "stationary",]$sd^2),
-#   mean((all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "moving",]$sd^2-
-#           all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)/all_outs_1[all_outs_1$name == "D" & all_outs_1$model == "stationary",]$sd^2)
-# )
-# 
-
-#change

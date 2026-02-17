@@ -17,7 +17,7 @@ lambda0 = .008 #expected number of detections per m of trackline at AC
 sigma = 300
 N <- 60
 beta1 <- -6e-6
-fixed_beta1 <- beta1
+#fixed_beta1 <- beta1
 beta2 <- 0
 calcDv <- function(xs, 
                    ys, 

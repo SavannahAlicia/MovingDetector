@@ -145,7 +145,7 @@ fit_capthist <- function(dist_trapmesh,
     start0 <- c(
       log(lambda0),
       log(sigma),
-      #beta1 * x_sd^2, 
+      beta1, 
       beta2, 
       log(N))
     scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
@@ -160,8 +160,7 @@ fit_capthist <- function(dist_trapmesh,
       sigma_ <- exp(v[2])
       if (!is.finite(sigma_)) return(1e12)
       
-      eta <- #v[3]*
-        fixed_beta1 * (mesh_mat[,1] + v[3])^2
+      eta <- v[3] * (mesh_mat[,1] + v[4])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
@@ -169,7 +168,7 @@ fit_capthist <- function(dist_trapmesh,
       Z   <- sum(exp_eta) * meshspacing^2
       if (!is.finite(Z) || Z <= 0) return(1e12)
       
-      D_mesh_  <- exp(v[4]) * exp_eta / Z
+      D_mesh_  <- exp(v[5]) * exp_eta / Z
       if (any(!is.finite(D_mesh_))) return(1e12)
       
       out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
@@ -188,8 +187,7 @@ fit_capthist <- function(dist_trapmesh,
       sigma_ <- exp(v[2])
       if (!is.finite(sigma_)) return(1e12)
       
-      eta <- #v[3]*
-        fixed_beta1 * (mesh_mat[,1] + v[3])^2
+      eta <- v[3] * (mesh_mat[,1] + v[4])^2
       if (any(!is.finite(eta))) return(1e12)
       exp_eta <- exp(eta)
       if (any(!is.finite(exp_eta))) return(1e12)
@@ -197,7 +195,7 @@ fit_capthist <- function(dist_trapmesh,
       Z   <- sum(exp_eta) * meshspacing^2
       if (!is.finite(Z) || Z <= 0) return(1e12)
       
-      D_mesh_ <- exp(v[4]) * exp_eta / Z
+      D_mesh_ <- exp(v[5]) * exp_eta / Z
       if (any(!is.finite(D_mesh_))) return(1e12)
       
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
@@ -246,7 +244,7 @@ fit_capthist <- function(dist_trapmesh,
   if (Dmod == "~1"){
     outnames <- c("lambda0", "sigma", "D")
   } else if(Dmod == "~x^2"){
-    outnames <- c("lambda0", "sigma", #"beta1", 
+    outnames <- c("lambda0", "sigma", "beta1", 
                   "beta2", "N")
   }
   assemble_CIs <- function(fit){
