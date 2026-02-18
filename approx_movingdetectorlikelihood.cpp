@@ -860,7 +860,7 @@ double
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
       double maxv = max(DKprod_eachx_log); //attempt to fix underflow
-      double DKprod_sum_log = maxv  + log(sum(exp(DKprod_eachx_log - maxv)));
+      double DKprod_sum_log = maxv  + log(sum(exp(DKprod_eachx_log - maxv)));//does this cause issues or fix them?
 
       integral_eachi_log(i) = DKprod_sum_log + log(mesharea);
     }
