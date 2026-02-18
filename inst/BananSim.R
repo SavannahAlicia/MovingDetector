@@ -17,19 +17,29 @@ simulateScrTrapsMask <- function(
     trapSpacing = NULL,   # Spacing between traps in grid
     N = 100,
     b1 = 0,
-    b2 = 0){  # Spacial covariate smooth factor
+    b2 = 0,
+    trapxmin = -1000){  # Spacial covariate smooth factor
   
   #Define spacing between traps as is recommended
   if(is.null(trapSpacing)) trapSpacing = sigma
   
+  trackxmax <- (trackxmin + trapSpacing * nxTraps)
+  stepsize <- trapspacing/nSteps
   #Create trapping grid
-  rawTrap = expand.grid(x = seq( - ((nxTraps-1)*trapSpacing/2), ((nxTraps-1)*trapSpacing/2),length.out = nxTraps),
-                        y = seq(- ((nyTraps-1)*trapSpacing/2),((nyTraps-1)*trapSpacing/2),length.out = nyTraps)) %>% 
+  rawTrap = expand.grid(x = seq(from = (trackxmin + trapspacing/2),
+                                to = (trackxmax - trapspacing/2), 
+                                length.out = (nxTraps)),
+                        y = seq(0, 
+                                (nyTraps-1)*trapSpacing,
+                        length.out = nyTraps)) %>% 
     arrange(y,x) %>% 
     mutate(transect = as.numeric(factor(y))) %>% 
     mutate(TrapID = paste0('Trap',rownames(.)))
   
-  trapSteps <- map(1:nrow(rawTrap), \(i) createSteps(rawTrap$x[i],rawTrap$y[i],trapSpacing,nSteps)) %>% 
+  trapSteps <- map(1:nrow(rawTrap), \(i) createSteps(rawTrap$x[i],
+                                                     rawTrap$y[i],
+                                                     trapSpacing,
+                                                     nSteps)) %>% 
     bind_rows() %>% 
     left_join(rawTrap) %>% 
     arrange(yStep,xStep) %>% 
@@ -139,7 +149,7 @@ modifymodel <- function(model, user_model){
 
 scrFitMov <- scr_lik <- function(capthist,
                                  mask, 
-                                 trapSteps,
+                                 trapSteps, #need to pass in induse instead
                                  model = NULL, 
                                  startparams = NULL,
                                  hessian = F){
@@ -162,7 +172,9 @@ scrFitMov <- scr_lik <- function(capthist,
   lambda_x <- lambda_hhn  ### Hazard half normal encounter rate
   
   ## Create design matrix
-  desmat <- lapply(model,model.matrix,data = data.frame(cbind(D = 1,lambda0 = 1,sigma = 1, covariates(mask))))
+  desmat <- lapply(model,
+                   model.matrix,
+                   data = data.frame(cbind(D = 1,lambda0 = 1,sigma = 1, covariates(mask))))
   
   ## Calculate number of parameters
   npars = lapply(desmat,ncol)
