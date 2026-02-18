@@ -179,19 +179,12 @@ sim_capthist_bysubset <- function(tracksdf,
   } else {
     capthist <- capthist[which(apply((!is.na(capthist)), 1, sum)>0),,]
   }
-  
-  #use
-  induse <- create_ind_use_C(capthist,
-                             as.matrix(traps),
-                             trapspacing, 
-                             tracksdf,
-                             scenario = "everything")
+  capthist_times <- capthist
   
   #convert capthist to 1s and 0s
   capthist[is.na(capthist)] <- 0
   capthist[capthist!=0] <- 1
-  
-  #now scale back down to desired trap
+
   
   # allocate track records to grid
   trapno_step <- rep(0, nrow(trapscr))
@@ -219,14 +212,30 @@ sim_capthist_bysubset <- function(tracksdf,
     
   }
   
+  #now scale back down to desired trap
+  apply(as.array(1:(dim(capthist)[2])), 1, function(k){
+    apply(as.array(1:(dim(capthist)[1])), 1, function(i){
+      
+      
+    })
+  })
+  
   #condense capture history to traps
-  X <- matrix(capthist, nrow = (dim(capthist)[1]) * (dim(capthist)[2]), ncol = (dim(capthist)[3]))
+  X <- matrix(capthist, nrow = (dim(capthist)[1]) * (dim(capthist)[2]),
+              ncol = (dim(capthist)[3]))
+  
   X_new <- rowsum(t(X), trapno_step)
   X_newt <- t(X_new)
   capthist_attrap <- array(X_newt, dim = c((dim(capthist)[1]),
                                            (dim(capthist)[2]),
                                            (nrow(traps))))
-  #I think I need to condesne before calculating induse???!!!
+  #I need to condense before calculating induse!!!
+  #use
+  # induse <- create_ind_use_C(capthist,
+  #                            as.matrix(traps),
+  #                            trapspacing, 
+  #                            tracksdf,
+  #                            scenario = "everything")
 
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
   out_ls <- list(capthist = capthist_attrap,
