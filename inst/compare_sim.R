@@ -11,12 +11,7 @@ sim_capthist_bysubset <- function(tracksdf,
   
   start.time.sim <- Sys.time()
   
-  tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
-  tracksdf$inc <- c(0,sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
-                             (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
-  #set first inc of each occ to 0
-  tracksdf$inc[apply(as.array(unique(tracksdf$occ)), 1, function(x){min(which(tracksdf$occ == x))})] <- 0
-  
+  #tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
   usetracksdf <- as.data.frame(tidyr::pivot_wider(tracksdf[,c("occ", "inc", "midx", "midy")], 
                                                   names_from = occ, values_from = inc))
   usetracksdf[(is.na(usetracksdf))] <- 0
