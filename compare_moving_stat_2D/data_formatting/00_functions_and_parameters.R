@@ -15,9 +15,8 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .008 #expected number of detections per m of trackline at AC
 sigma = 300
-N <- 60
-beta1 <- -6e-6
-#fixed_beta1 <- beta1
+N <- 65
+beta1 <-  -0.015
 beta2 <- 0
 calcDv <- function(xs, 
                    ys, 
@@ -25,7 +24,7 @@ calcDv <- function(xs,
                    beta2_, 
                    N_,
                    meshspacing) {
-  eta = beta1_*((xs + beta2_)^2 )#+ (ys + beta2_)^2)
+  eta = beta1_*((xs/meshspacing + beta2_)^2 )#+ (ys + beta2_)^2)
   Z = sum(exp(eta)) * meshspacing^2
   D = N * exp(eta) / Z
     return(D)

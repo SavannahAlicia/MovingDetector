@@ -7,6 +7,7 @@
 ntrapsish = 200 #98/2 #it'll be the first number if there's two types of tracks
 trackxmin = -1000
 trapspacing = round(sigma/3)
+meshspacing = trapspacing/2
 trap_n_horiz = 15 #round(sqrt(ntrapsish))
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 trackxmax = trackxmin + trapspacing * trap_n_horiz #roughly ntraps x
@@ -50,7 +51,6 @@ for(i in 2:occreps){
 nocc <- length(unique(tracksdf$occ))
 
 #mesh grid
-meshspacing = trapspacing/2
 mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
 
 D_mesh_v   <- calcDv(mesh$x,
@@ -58,9 +58,13 @@ D_mesh_v   <- calcDv(mesh$x,
                      beta1,
                      beta2,
                      N,
-                     meshspacing)#N * exp(eta) / Z
-flatD <- N/(nrow(mesh) * meshspacing^2)
-D_mesh_f <- rep(flatD, nrow(mesh))
+                     meshspacing)
+D_mesh_f <- calcDv(mesh$x,
+                   mesh$y,
+                   beta1_ = 0,
+                   beta2_ = 0,
+                   N,
+                   meshspacing)
 
 
 hazdenom <- 1 #hazard is per time or distance, currently specified as distance
