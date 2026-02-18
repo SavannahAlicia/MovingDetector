@@ -31,9 +31,19 @@ calcDv <- function(xs,
 }
 
 
+#----------------------------setup parameters ----------------------------------
+ntrapsish = 200 #98/2 #it'll be the first number if there's two types of tracks
+trackxmin = -1000
+trapspacing = round(sigma/3)
+meshspacing = trapspacing/2
+trap_n_horiz = 15 #n vertical determined by total traps
+nsteps_pertrap = 10
+occreps = 6
+
 nsims = 30
 set.seed(1994)
 fontsize = 22
+printplots = F
 
 
 #directory names
