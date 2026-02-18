@@ -626,6 +626,7 @@ sim_capthist_C(NumericMatrix traps,
   
   NumericVector x = tracksdf["x"];
   NumericVector y = tracksdf["y"];
+  NumericVector inc = tracksdf["inc"];
   NumericMatrix tracksxy(tracksdf.nrows(), 2);
   tracksxy = Rcpp::cbind(x,y);
   NumericVector tracktimes = tracksdf["time"];
@@ -683,15 +684,7 @@ sim_capthist_C(NumericMatrix traps,
       // (currently no way to subset line segments by effort label)
       // time denominated hazard not yet implemented
      // double begintime = vec_min(tracktimes[idx]);
-      NumericVector increments(nsteps);
-
-      for(int d = 1; d <  nsteps; d ++){ //first one is 0, so start at 1
-        int x = idx[d];
-        int xbefore = idx[d-1]; 
-        increments[d] = std::sqrt((tracksxy(xbefore, 0) - tracksxy(x,0)) * (tracksxy(xbefore, 0) - tracksxy(x,0)) +
-          (tracksxy(xbefore,1) - tracksxy(x,1)) * (tracksxy(xbefore,1) - tracksxy(x,1)));
-
-      }
+      NumericVector increments = inc[idx];
 
       for (int i = 0; i < N; ++i){
         NumericVector hus(nsteps);

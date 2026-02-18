@@ -1,8 +1,7 @@
 #2D
 #----------------------------------data setup-----------------------------------
 
-setup_data <- function(lambda0, 
-                       sigma,
+setup_data <- function(sigma,
                        N,
                        beta1,
                        beta2,
@@ -55,26 +54,13 @@ setup_data <- function(lambda0,
     rep <- rep + 1
   }
   
+  tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
+  tracksdf$inc <- c(0,sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
+                             (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
+  #set first inc of each occ to 0
+  tracksdf$inc[apply(as.array(unique(tracksdf$occ)), 1, function(x){min(which(tracksdf$occ == x))})] <- 0
   
-  #tracksteplength <- abs(tracksdf[2,"x"] - tracksdf[1,"x"])
   nocc <- length(unique(tracksdf$occ))
-  
-  #mesh grid
-  mesh <- make.mask(tracksdf[,c("x","y")], buffer = 3*sigma, spacing = meshspacing)
-  
-  D_mesh_v  <- calcDv(mesh$x,
-                       mesh$y,
-                       beta1, #will be 0 for flat D
-                       beta2,
-                       N,
-                       meshspacing)
-  D_mesh_f  <- calcDv(mesh$x,
-                    mesh$y,
-                    0, 
-                    0,
-                    N,
-                    meshspacing)
-  
   
   hazdenom <- 1 #hazard is per time or distance, currently specified as distance
   
@@ -118,6 +104,26 @@ setup_data <- function(lambda0,
   traps <- data.frame(x = gr[un, 1],
                       y = gr[un, 2])
   
+  #mesh grid
+  mesh <- make.mask(traps[,c("x","y")], 
+                    buffer = 4*sigma, 
+                    spacing = meshspacing)
+  
+  D_mesh_v  <- calcDv(mesh$x,
+                      mesh$y,
+                      beta1, #will be 0 for flat D
+                      beta2,
+                      N,
+                      meshspacing)
+  D_mesh_f  <- calcDv(mesh$x,
+                      mesh$y,
+                      0, 
+                      0,
+                      N,
+                      meshspacing)
+  
+  
+  
   #create trapgrid (will break tracklines into trap grid, keeping times)
   trap_cells <- create_grid_bboxes_C(traps, trapspacing)
   #all lines
@@ -138,13 +144,9 @@ setup_data <- function(lambda0,
                  meshspacing = meshspacing,
                  dist_trapmesh = dist_trapmesh,
                  useall = useall,
-                 lambda0 = lambda0,
-                 sigma = sigma,
                  D_mesh_f = D_mesh_f,
-                 D_mesh_v = D_mesh_v,
-                 beta1 = beta1, 
-                 beta2 = beta2,
-                 N = N)
+                 D_mesh_v = D_mesh_v
+                 )
   return(out_ls)
 }
 

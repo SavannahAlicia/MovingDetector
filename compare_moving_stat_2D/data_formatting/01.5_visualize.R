@@ -1,6 +1,5 @@
 
 setup <- setup_data(
-  lambda0, 
   sigma,
   N,
   beta1,
@@ -19,13 +18,8 @@ mesh <- setup$mesh
 meshspacing <- setup$meshspacing
 dist_trapmesh <- setup$dist_trapmesh
 useall <- setup$useall
-lambda0 <- setup$lambda0
-sigma <- setup$sigma
 D_mesh_f <- setup$D_mesh_f
 D_mesh_v <- setup$D_mesh_v
-beta1 <- setup$beta1 
-beta2 <- setup$beta2
-N <- setup$N
 
 rm(setup)
 
