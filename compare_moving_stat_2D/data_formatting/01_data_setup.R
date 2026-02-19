@@ -29,7 +29,9 @@ setup_data <- function(sigma,
                                x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
                                y = 0, 
                                time = seq(ymd_hms("2024-01-01 0:00:00"), (ymd_hms("2024-01-01 0:00:00") + (tracksteps)*trackint), 
-                                          by = trackint))#,
+                                          by = trackint),
+                               transect = 1,
+                               rep = 1)#,
                     # data.frame(occ = 2,
                     #            x = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1),
                     #            y = seq(from = trackxmin, to = trackxmax, length.out = tracksteps+1)-900, 
@@ -41,6 +43,7 @@ setup_data <- function(sigma,
   for(i in 2:trap_n_vert){ #total, so including existing df
     nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
     nexttrack[,"occ"] <- nexttrack[,"occ"] + uniquetracktypes
+    nexttrack[,"transect"] <- nexttrack[,"transect"] + 1
     tracksdf <- rbind(tracksdf, nexttrack)
   }
   
@@ -50,8 +53,10 @@ setup_data <- function(sigma,
     rep <- 1
     df2$occ <- df2$occ + (occ_1rep * rep)
     df2$time <- df2$time + 24*60*60
+    df2$rep <- i
     tracksdf <- rbind(tracksdf, df2)
     rep <- rep + 1
+    
   }
   
   tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
