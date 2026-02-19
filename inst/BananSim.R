@@ -265,9 +265,10 @@ scrFitMov <- scr_lik <- function(capthist,
         ind_dat <- dets[[i]]
         log(mean(exp(
           rowSums(sapply(seq_len(nrow(ind_dat)), \(j){
-            colSums(ind_dat$dets[j]*rbind(log(1 - dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/2)), 
-                                          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)))
-          })) - rowSums(transectLambda %*% diag(noDets[i,]))
+            colSums(ind_dat$dets[j]*rbind(
+              log(1 - dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/2)), #survived half of trap that made detection
+                                          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T))) #survived all other traps
+          })) - rowSums(transectLambda %*% diag(noDets[i,])) #undetected
         )*D*a))
       })
       

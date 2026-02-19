@@ -15,7 +15,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .008 #expected number of detections per m of trackline at AC
 sigma = 300
-N <- 65
+N <- 50
 beta1 <-  -0.015
 beta2 <- 0
 calcDv <- function(xs, 
@@ -32,13 +32,13 @@ calcDv <- function(xs,
 
 
 #----------------------------setup parameters ----------------------------------
-ntrapsish = 200 #98/2 #it'll be the first number if there's two types of tracks
+ntrapsish = 150 #98/2 #it'll be the first number if there's two types of tracks
 trackxmin = -1000
 trapspacing = round(sigma/3)
 meshspacing = trapspacing/2
 trap_n_horiz = 15 #n vertical determined by total traps
 nsteps_pertrap = 10
-occreps = 6
+occreps = 5
 
 nsims = 30
 set.seed(1994)

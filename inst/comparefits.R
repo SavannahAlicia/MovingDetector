@@ -3,6 +3,7 @@ source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
 source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/BananSim.R")
+nsims = 30
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 tracksteplength = round(trapspacing/nsteps_pertrap)
 
@@ -39,7 +40,9 @@ traps <- surv_obj$traps
 mesh <- surv_obj$mesh
 D_mesh <- surv_obj$D_mesh_v
 
-ch_out <- simulate_popandcapthist(traps,
+
+do_a_sim_fit <- function(x){
+  ch_out <- simulate_popandcapthist(traps,
                                     tracksdf, 
                                     lambda0,
                                     sigma,
@@ -47,79 +50,170 @@ ch_out <- simulate_popandcapthist(traps,
                                     mesh,
                                     meshspacing = surv_obj$meshspacing,
                                     hazdenom = 1)
-
-ch <- ch_out$capthist
-induse <- ch_out$induse
-
-p <- sim.popn(D = D_mesh * 100^2*2, 
-              core = mask,
-              model2D = 'IHP')
-CH <- simCapthist(pop = p,
-            trapSteps = trapSteps, 
-            mask = mask, 
-            lambda0 = lambda0*100, 
-            sigma = sigma,
-            nOccasionsTransect = occreps)
-CH <- subset(CH, subset = 1:(dim(ch)[1]))
-
-#replace CH with data from ch (or collapse ch by transect)
-occkey <- unique(tracksdf[,c("occ", "transect", "rep")])
-
-ch_sm <- sapply(as.list(1:occreps),  
-      function(t){
-        apply(ch[,occkey$rep == t,], c(1,3), sum)
-      }, simplify = "array")
-ch_sm <- aperm(ch_sm, c(1, 3, 2))
-
-meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
-
-for(i in 1:(dim(CH)[1])){
-  for(k in 1:(dim(CH)[2])){
-    for(j in 1:(dim(CH)[3])){
-      CH[i,k,j] <- ch_sm[i,k,j]
+  
+  ch <- ch_out$capthist
+  induse <- ch_out$induse
+  
+  p <- sim.popn(D = D_mesh * 100^2*3, 
+                core = mask,
+                model2D = 'IHP')
+  CH <- simCapthist(pop = p,
+                    trapSteps = trapSteps, 
+                    mask = mask, 
+                    lambda0 = lambda0*100, 
+                    sigma = sigma,
+                    nOccasionsTransect = occreps)
+  CH <- subset(CH, subset = 1:(dim(ch)[1]))
+  
+  #replace CH with data from ch (or collapse ch by transect)
+  occkey <- unique(tracksdf[,c("occ", "transect", "rep")])
+  
+  ch_sm <- sapply(as.list(1:occreps),  
+                  function(t){
+                    apply(ch[,occkey$rep == t,], c(1,3), sum)
+                  }, simplify = "array")
+  ch_sm <- aperm(ch_sm, c(1, 3, 2))
+  
+  meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
+  
+  for(i in 1:(dim(CH)[1])){
+    for(k in 1:(dim(CH)[2])){
+      for(j in 1:(dim(CH)[3])){
+        CH[i,k,j] <- ch_sm[i,k,j]
+      }
     }
   }
-}
-
-fit_abinand <-  scrFitMov(CH,
-                                                mask, 
-                                                trapSteps, 
-                                                model = NULL, 
-                                                startparams = NULL,
-                                                hessian = F)
-
-start0 <- c(
-  log(lambda0),
-  log(sigma),
-  beta1, 
-  beta2, 
-  log(N))
-scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
-start <- start0/scaling_factors
-
-#moving detector likelihood
-nll <- function(v_scaled){
-  v <- v_scaled * 1
-  lambda0_ <- exp(v[1])
-  sigma_ <- exp(v[2])
-  eta <- v[3] * (mesh[,1] + v[4])^2
-  exp_eta <- exp(eta)
-  Z   <- sum(exp_eta) * meshspacing^2
-  D_mesh_ <- exp(v[5]) * exp_eta / Z
+  eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
+  Z = sum(exp(eta)) * meshspacing^2/100^2
+  D = N * exp(eta) / Z
   
-  out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
-                                     sigma = sigma_,  
-                                     haz_denom = 1,
-                                     D_mesh = D_mesh_,
-                                     capthist = ch, 
-                                     usage = surv_obj$useall,
-                                     indusage = induse, 
-                                     distmat = surv_obj$dist_trapmesh,
-                                     mesh = as.matrix(mesh),
-                                     mesharea = meshspacing^2,
-                                     meanstepsize = meanstepsize)
-  return(out)
+  b0 = log(N/Z) 
+  
+  fit_abinand <- scrFitMov(capthist = CH, mask = mask, 
+                           trapSteps = trapSteps,
+                           model = list(D ~ x + x2),
+                           startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
+                           hessian = F)
+  
+  start0 <- c(
+    log(lambda0),
+    log(sigma),
+    beta1, 
+    beta2, 
+    log(N))
+  scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
+  start <- start0/scaling_factors
+  
+  #moving detector likelihood
+  nll <- function(v_scaled){
+    v <- v_scaled * 1
+    lambda0_ <- exp(v[1])
+    sigma_ <- exp(v[2])
+    eta <- v[3] * (mesh[,1] + v[4])^2
+    exp_eta <- exp(eta)
+    Z   <- sum(exp_eta) * meshspacing^2
+    D_mesh_ <- exp(v[5]) * exp_eta / Z
+    
+    out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
+                                       sigma = sigma_,  
+                                       haz_denom = 1,
+                                       D_mesh = D_mesh_,
+                                       capthist = ch, 
+                                       usage = surv_obj$useall,
+                                       indusage = induse, 
+                                       distmat = surv_obj$dist_trapmesh,
+                                       mesh = as.matrix(mesh),
+                                       mesharea = meshspacing^2,
+                                       meanstepsize = meanstepsize)
+    return(out)
+  }
+  fit_me <- optim(par = start,
+                  fn = nll,
+                  hessian = F, method = "Nelder-Mead")
+  est_abinand <- fit_abinand$estimate
+  est_abinand <- c("b0" = est_abinand[1], 
+                   "b2" = est_abinand[2],
+                   "b1" = est_abinand[3],
+                   "lambda0" = exp(est_abinand[4])/100, 
+                   "sigma" = exp(est_abinand[5]))
+  
+  est_me <- fit_me$par
+  est_me <- c("lambda0" = exp(est_me[1]), 
+              "sigma" = exp(est_me[2]),
+              "beta1" = est_me[3],
+              "beta2" = est_me[4],
+              "N" = exp(est_me[5]))
+  
+  true <- c(lambda0 = lambda0,
+            sigma = sigma,
+            beta1 = beta1,
+            beta2 = beta2,
+            N = N,
+            beta0 = b0
+  )
+  
+  out_ls <- list(est_me = est_me,
+                 est_abinand = est_abinand,
+                 sim = x)
 }
-fit_md <- optim(par = start,
-                fn = nll,
-                hessian = F, method = "Nelder-Mead")
+
+#fits <- lapply(as.list(1:nsims), do_a_sim_fit)
+saveRDS(fits, "inst/comparefits_30.Rds")
+fits <- readRDS("inst/comparefits.Rds")
+
+beta1s <- data.frame(which = c(rep("my", length(fits)),
+                                 rep("abi", length(fits))),
+                     beta1est = c(sapply(fits, function(x){x$est_me["beta1"]}),
+                               sapply(fits, function(x){x$est_abinand["b1"]})),
+                     beta2est = c(sapply(fits, function(x){x$est_me["beta2"]}),
+                               sapply(fits, function(x){x$est_abinand["b2"]})),
+                     lambda0est = c(sapply(fits, function(x){x$est_me["lambda0"]}),
+                               sapply(fits, function(x){x$est_abinand["lambda0"]})),
+                     sigmaest = c(sapply(fits, function(x){x$est_me["sigma"]}),
+                               sapply(fits, function(x){x$est_abinand["sigma"]})),
+                     Nest = c(sapply(fits, function(x){x$est_me["N"]}),
+                              sapply(fits, function(x){
+                                sum(exp(x$est_abinand["b0"] + x$est_abinand["b2"]*(mask$x) + 
+                                          x$est_abinand["b1"]*(mask$x/meshspacing)^2)) * spacing(mask)^2/100^2})
+                              )
+                     )
+
+
+
+p1 <- ggplot() + 
+  geom_boxplot(beta1s, 
+               mapping = aes(y = (beta1est - beta1)/beta1*100,
+                                     group = which,
+                             fill = which))
+
+
+p2 <- ggplot() + 
+  geom_boxplot(beta1s,
+               mapping = aes(y = beta2est,
+                                     group = which,
+                             fill = which))
+
+p3 <- ggplot() + 
+  geom_boxplot(beta1s,
+               mapping = aes(y = (lambda0est-lambda0)/lambda0*100,
+                             group = which,
+                             fill = which))
+
+p4 <- ggplot() + 
+  geom_boxplot(beta1s,
+               mapping = aes(y = (sigmaest-sigma)/sigma*100,
+                             group = which,
+                             fill = which))
+p5 <- ggplot() + 
+  geom_boxplot(beta1s,
+               mapping = aes(y = (Nest-N)/N*100,
+                             group = which,
+                             fill = which)) 
+
+grid.arrange(
+  grobs = list(p1,p2,p3,p4,p5),
+  widths = c(1,1),
+  heights = c(1,1,1),
+  layout_matrix = rbind(c(1,2),
+                        c(3,4),
+                        c(5,5)))
