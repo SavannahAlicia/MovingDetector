@@ -1,22 +1,23 @@
 rm(list = ls())
 
 
-source('/Users/abinandkodi/Desktop/BananSim.R')
+source('inst/BananSim.R')
 
 
 sigma = 300
 trapSpacing = round(sigma/3)
-maskSpacing = 100
+maskSpacing = trapSpacing/2
 nxTraps = 15
 nyTraps = 13
 nSteps = 10
-nOccasionsTransect = 8
+nOccasionsTransect = 6
 nsims = 30
+trapxmin = -1000
 
-N = 60
+N = 65
 b1 = -0.015
 b2 = 0
-lambda0 = .008*30
+lambda0 = .008*100
 
 
 
@@ -29,7 +30,8 @@ survObj <- simulateScrTrapsMask(
   sigma = sigma, 
   N = N,
   b1 = b1,
-  b2 = b2
+  b2 = b2,
+  trapxmin = trapxmin
 )
 
 trapSteps <- survObj$trapSteps
@@ -56,7 +58,12 @@ ggplot()+
   coord_equal()+
   scale_fill_viridis_c(name = 'cov')
 
-allCapthists <- lapply(simPop, \(p) simCapthist(pop = p, trapSteps = trapSteps, mask = mask, lambda0 = lambda0, sigma = sigma,nOccasionsTransect = nOccasionsTransect))
+allCapthists <- lapply(simPop, \(p) simCapthist(pop = p,
+                                                trapSteps = trapSteps, 
+                                                mask = mask, 
+                                                lambda0 = lambda0, 
+                                                sigma = sigma,
+                                                nOccasionsTransect = nOccasionsTransect))
 
 capthist <- allCapthists[[1]]
 
