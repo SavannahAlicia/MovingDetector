@@ -24,10 +24,10 @@ simulateScrTrapsMask <- function(
   if(is.null(trapSpacing)) trapSpacing = sigma
   
   trackxmax <- (trackxmin + trapSpacing * nxTraps)
-  stepsize <- trapspacing/nSteps
+  stepsize <- trapSpacing/nSteps
   #Create trapping grid
-  rawTrap = expand.grid(x = seq(from = (trackxmin + trapspacing/2),
-                                to = (trackxmax - trapspacing/2), 
+  rawTrap = expand.grid(x = seq(from = (trackxmin + trapSpacing/2),
+                                to = (trackxmax - trapSpacing/2), 
                                 length.out = (nxTraps)),
                         y = seq(0, 
                                 (nyTraps-1)*trapSpacing,
@@ -149,7 +149,7 @@ modifymodel <- function(model, user_model){
 
 scrFitMov <- scr_lik <- function(capthist,
                                  mask, 
-                                 trapSteps, #need to pass in induse instead
+                                 trapSteps, 
                                  model = NULL, 
                                  startparams = NULL,
                                  hessian = F){
