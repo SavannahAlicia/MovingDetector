@@ -745,7 +745,7 @@ sim_capthist_C(NumericMatrix traps,
 //-----------------Likelihood --------------------------------------------------
 
 // [[Rcpp::export]]
-double
+List
   negloglikelihood_moving_cpp( //add log link 
     double lambda0,
     double sigma, 
@@ -803,6 +803,12 @@ double
     clock.tick("loopllk");
     double n = capthist.n_rows;
     NumericVector integral_eachi_log(n);
+    //for testing
+    NumericMatrix notseen_log_i(meshx.length(), capocc);
+    NumericMatrix sumallhuexcept(meshx.length(),capocc);
+    NumericMatrix didntsurvivej_log(meshx.length(),capocc);
+    NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
+    //end testing
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
@@ -842,20 +848,27 @@ double
             }
           }
           sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i EXCEPT 
+          
+          sumallhuexcept(x,occk) = sumtoj_ind_ijk;
           // trap detected
           if(ikcaught){
             probcapthist_eachocc_log(occk) = -sumtoj_ind_ijk + log(1 - exp(-hu_ind_ijk));
+            //testing
+            didntsurvivej_log(x,occk) = log(1 - exp(-hu_ind_ijk));
           } else {
             probcapthist_eachocc_log(occk) = notseen_mk_log(x,occk); //survived all traps
           }
+          notseen_log_i(x,occk) = notseen_mk_log(x,occk);
         }
         double probcapthist_alloccs_log = sum(probcapthist_eachocc_log);
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
+      DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
       double maxv = max(DKprod_eachx_log); //attempt to fix underflow
       double DKprod_sum_log = maxv  + log(sum(exp(DKprod_eachx_log - maxv)));//does this cause issues or fix them?
 
       integral_eachi_log(i) = DKprod_sum_log + log(mesharea);
+
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
@@ -870,7 +883,18 @@ double
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
     
-  return(out);
+    List outls(4);
+    outls = List::create(
+      Named("negloglik") = out,
+      Named("notseen_log") = notseen_log_i,
+      Named("sumallhuexcept") = sumallhuexcept,
+      Named("didntsurvivej_log") = didntsurvivej_log,
+      Named("DKprod_eachx_log") = DKprod_eachx_log_byi
+    );
+    //return(DKprod_eachx_log_byi);
+   // return(Dx_pdotxs);
+    //end testing
+  return(outls);
   }
 
 //---------------Stationary
@@ -931,6 +955,9 @@ double
     clock.tick("loopllk");
     double n = capthist.n_rows;
     NumericVector integral_eachi(n);
+    //for testing
+    //NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
+    //end testing
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
       for(int x = 0; x < meshx.length(); x++){
@@ -975,6 +1002,7 @@ double
       
       integral_eachi(i) = DKprod_sum * mesharea;
       integral_eachi(i) = std::max(integral_eachi(i),  1e-16);
+    //  DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
     }
     clock.tock("loopllk");
     int n_int = std::round(n);

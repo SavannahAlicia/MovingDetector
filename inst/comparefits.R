@@ -157,16 +157,16 @@ do_a_sim_fit <- function(x){
                  sim = x)
 }
 
-#fits <- lapply(as.list(1:nsims), do_a_sim_fit)
-saveRDS(fits, "inst/comparefits_30.Rds")
-fits <- readRDS("inst/comparefits.Rds")
+fits2 <- lapply(as.list(1:nsims), do_a_sim_fit)
+#saveRDS(fits, "inst/comparefits_30.Rds")
+fits <- readRDS("inst/comparefits_30.Rds")
 
 beta1s <- data.frame(which = c(rep("my", length(fits)),
                                  rep("abi", length(fits))),
                      beta1est = c(sapply(fits, function(x){x$est_me["beta1"]}),
-                               sapply(fits, function(x){x$est_abinand["b1"]})),
-                     beta2est = c(sapply(fits, function(x){x$est_me["beta2"]}),
                                sapply(fits, function(x){x$est_abinand["b2"]})),
+                     beta2est = c(sapply(fits, function(x){x$est_me["beta2"]}),
+                               sapply(fits, function(x){x$est_abinand["b1"]})),
                      lambda0est = c(sapply(fits, function(x){x$est_me["lambda0"]}),
                                sapply(fits, function(x){x$est_abinand["lambda0"]})),
                      sigmaest = c(sapply(fits, function(x){x$est_me["sigma"]}),

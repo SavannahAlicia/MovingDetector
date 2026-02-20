@@ -40,13 +40,15 @@ setup_data <- function(sigma,
   )
   uniquetracktypes <- length(unique(tracksdf$occ))
   nexttrack <- tracksdf
-  for(i in 2:trap_n_vert){ #total, so including existing df
-    nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
-    nexttrack[,"occ"] <- nexttrack[,"occ"] + uniquetracktypes
-    nexttrack[,"transect"] <- nexttrack[,"transect"] + 1
-    tracksdf <- rbind(tracksdf, nexttrack)
+  if(trap_n_vert > 1){
+    for(i in 2:(trap_n_vert)){ #total, so including existing df
+      nexttrack[,"y"] <- nexttrack[,"y"] + trapspacing
+      nexttrack[,"occ"] <- nexttrack[,"occ"] + uniquetracktypes
+      nexttrack[,"transect"] <- nexttrack[,"transect"] + 1
+      tracksdf <- rbind(tracksdf, nexttrack)
+    }
   }
-  
+
   df2 <- tracksdf
   occ_1rep <- length(unique(tracksdf$occ))
   for(i in 2:occreps){
