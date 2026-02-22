@@ -887,9 +887,11 @@ List
     outls = List::create(
       Named("negloglik") = out,
       Named("notseen_log") = notseen_log_i,
+      Named("integral_eachi_log") = integral_eachi_log,
       Named("sumallhuexcept") = sumallhuexcept,
       Named("didntsurvivej_log") = didntsurvivej_log,
-      Named("DKprod_eachx_log") = DKprod_eachx_log_byi
+      Named("DKprod_eachx_log") = DKprod_eachx_log_byi,
+      Named("Dx_pdotxs") = Dx_pdotxs
     );
     //return(DKprod_eachx_log_byi);
    // return(Dx_pdotxs);
