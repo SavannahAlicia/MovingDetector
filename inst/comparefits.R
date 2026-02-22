@@ -7,6 +7,24 @@ nsims = 30
 trap_n_vert = round(ntrapsish/trap_n_horiz)
 tracksteplength = round(trapspacing/nsteps_pertrap)
 
+surv_obj <- setup_data(sigma,
+                       N,
+                       beta1,
+                       beta2,
+                       ntrapsish,
+                       trackxmin,
+                       trapspacing,
+                       meshspacing,
+                       trap_n_horiz,
+                       nsteps_pertrap,
+                       occreps
+)
+tracksdf <- surv_obj$tracksdf
+traps <- surv_obj$traps
+mesh <- surv_obj$mesh
+D_mesh <- surv_obj$D_mesh_v
+meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
+
 #create input objects for Abinand's
 survObj <- simulateScrTrapsMask(
   nxTraps = trap_n_horiz,
@@ -20,25 +38,24 @@ survObj <- simulateScrTrapsMask(
   b2 = beta2
 )
 
-trapSteps <- survObj$trapSteps
-mask <- survObj$mask
+#trapSteps <- survObj$trapSteps
+trapSteps <- data.frame(matrix(nrow = nrow(tracksdf), ncol = 0))
+trapSteps$x <- traps$x[tracksdf$trapno]
+trapSteps$y <- traps$y[tracksdf$trapno]
+trapSteps$xStep <- tracksdf$midx
+trapSteps$yStep <- tracksdf$midy
+trapSteps$effort <- tracksdf$inc/100
+trapSteps$transect = tracksdf$transect
+trapSteps$TrapID <- paste0("Trap",tracksdf$trapno)
+trapSteps <- trapSteps[which(tracksdf$rep == 1 & tracksdf$inc != 0),]
+trapSteps$trapOrder <- rep((1:(trap_n_horiz * trapspacing/tracksteplength)),2)
+trapSteps$stepOrder <- rep(c(1:10), (nrow(trapSteps)/10))
+trapSteps$StepID <- paste0("Step", rownames(trapSteps))
 
-surv_obj <- setup_data(sigma,
-                         N,
-                         beta1,
-                         beta2,
-                         ntrapsish,
-                         trackxmin,
-                         trapspacing,
-                         meshspacing,
-                         trap_n_horiz,
-                         nsteps_pertrap,
-                         occreps
-  )
-tracksdf <- surv_obj$tracksdf
-traps <- surv_obj$traps
-mesh <- surv_obj$mesh
-D_mesh <- surv_obj$D_mesh_v
+mask <- mesh
+covariates(mask) <- data.frame(cov = D_mesh,
+                               x = mesh$x,
+                               x2 = mesh$x^2/meshspacing^2)
 
 
 do_a_sim_fit <- function(x){
@@ -57,39 +74,66 @@ do_a_sim_fit <- function(x){
   p <- sim.popn(D = D_mesh * 100^2*3, 
                 core = mask,
                 model2D = 'IHP')
-  CH <- simCapthist(pop = p,
-                    trapSteps = trapSteps, 
-                    mask = mask, 
-                    lambda0 = lambda0*100, 
-                    sigma = sigma,
-                    nOccasionsTransect = occreps)
-  CH <- subset(CH, subset = 1:(dim(ch)[1]))
+  trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
+                        x = traps$x,
+                        y = traps$y),
+                        detector = "proximity")
+  rownames(trapscr) <- paste0("Trap", 1:nrow(traps))
+
+  # CHls <- simCapthist(pop = p,
+  #                   trapSteps = trapSteps, 
+  #                   mask = mask, 
+  #                   lambda0 = lambda0*100, 
+  #                   sigma = sigma,
+  #                   nOccasionsTransect = occreps)
+ # CH <- subset(CHls$capthist, subset = c(rownames(CHls$capthist) %in% c(paste0("ind_", 1:(dim(ch)[1])))))
   
   #replace CH with data from ch (or collapse ch by transect)
-  occkey <- unique(tracksdf[,c("occ", "transect", "rep")])
+  # occkey <- unique(tracksdf[,c("occ", "transect", "rep")])
+  # 
+  # ch_sm <- sapply(as.list(1:occreps),  
+  #                 function(t){
+  #                   apply(ch[,occkey$rep == t,], c(1,3), sum)
+  #                 }, simplify = "array")
+  # ch_sm <- aperm(ch_sm, c(1, 3, 2))
+  # 
+  # 
+  # 
+  # for(i in 1:(dim(CH)[1])){
+  #   for(k in 1:(dim(CH)[2])){
+  #     for(j in 1:(dim(CH)[3])){
+  #       CH[i,k,j] <- ch_sm[i,k,j]
+  #     }
+  #   }
+  # }
+
   
-  ch_sm <- sapply(as.list(1:occreps),  
-                  function(t){
-                    apply(ch[,occkey$rep == t,], c(1,3), sum)
-                  }, simplify = "array")
-  ch_sm <- aperm(ch_sm, c(1, 3, 2))
-  
-  meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
-  
-  for(i in 1:(dim(CH)[1])){
-    for(k in 1:(dim(CH)[2])){
-      for(j in 1:(dim(CH)[3])){
-        CH[i,k,j] <- ch_sm[i,k,j]
-      }
-    }
-  }
   eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
   Z = sum(exp(eta)) * meshspacing^2/100^2
   D = N * exp(eta) / Z
   
   b0 = log(N/Z) 
   
-  fit_abinand <- scrFitMov(capthist = CH, mask = mask, 
+  #stepOrder is just the vector of last step where det happens
+  detinch <- which(ch == 1, arr.ind = T) #ikj
+  CH <- make.capthist(captures = data.frame(
+                          Session = 1,
+                          ID = paste0("ind_", detinch[,1]),
+                         Occasion = c(ifelse(detinch[,2] %%2 ==0,2,1)),
+                         TrapID = paste0("Trap",detinch[,3])
+    ),
+    traps = trapscr,
+    fmt = "trapID"
+  )
+  
+  stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
+    induse[detinch[r,1], detinch[r,3], detinch[r,2]]/10
+  })
+  
+  
+  fit_abinand <- scrFitMov(capthist = CH, 
+                           stepOrder = stepOrder,
+                           mask = mask, 
                            trapSteps = trapSteps,
                            model = list(D ~ x + x2),
                            startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
@@ -156,9 +200,9 @@ do_a_sim_fit <- function(x){
                  est_abinand = est_abinand,
                  sim = x)
 }
-
-fits2 <- lapply(as.list(1:nsims), do_a_sim_fit)
-#saveRDS(fits, "inst/comparefits_30.Rds")
+fit <- do_a_sim_fit()
+fits <- lapply(as.list(1:nsims), do_a_sim_fit)
+saveRDS(fits, "inst/comparefits_30.Rds")
 fits <- readRDS("inst/comparefits_30.Rds")
 
 beta1s <- data.frame(which = c(rep("my", length(fits)),
