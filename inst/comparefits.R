@@ -1,7 +1,6 @@
 #compare fits between my script and Abinand's
 source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
-source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/BananSim.R")
 nsims = 30
 trap_n_vert = round(ntrapsish/trap_n_horiz)
@@ -45,7 +44,7 @@ trapSteps$y <- traps$y[tracksdf$trapno]
 trapSteps$xStep <- tracksdf$midx
 trapSteps$yStep <- tracksdf$midy
 trapSteps$effort <- tracksdf$inc/100
-trapSteps$transect = tracksdf$transect
+trapSteps$transect <- tracksdf$transect
 trapSteps$TrapID <- paste0("Trap",tracksdf$trapno)
 trapSteps <- trapSteps[which(tracksdf$rep == 1 & tracksdf$inc != 0),]
 trapSteps$trapOrder <- rep((1:(trap_n_horiz * trapspacing/tracksteplength)),2)
@@ -58,22 +57,51 @@ covariates(mask) <- data.frame(cov = D_mesh,
                                x2 = mesh$x^2/meshspacing^2)
 
 
-do_a_sim_fit <- function(x){
-  ch_out <- simulate_popandcapthist(traps,
-                                    tracksdf, 
-                                    lambda0,
-                                    sigma,
-                                    D_mesh,
-                                    mesh,
-                                    meshspacing = surv_obj$meshspacing,
-                                    hazdenom = 1)
+#do_a_sim_fit <- function(x){
+
+pop <- sim_pop_C(D_mesh, 
+                 as.matrix(mesh), 
+                 meshspacing)
+
+capthist_full <- sim_capthist_C(as.matrix(traps),
+                                tracksdf, 
+                                lambda0,
+                                sigma,
+                                D_mesh,
+                                as.matrix(mesh),
+                                meshspacing,
+                                hazdenom=1,
+                                pop,
+                                dist_dat_pop = NULL,
+                                report_probseenxk = F)
+
+#standard scr likelihood
+nocc <- length(unique(tracksdf$occ))
+trapspacing <- sort(unique(traps$x))[2]- sort(unique(traps$x))[1]
+
+if(length(which(apply((!is.na(capthist_full)), 1, sum)>0)) == 0){
+  warning("Empty capture history.")
+  capthist <- array(NA, dim = c(1, nocc, nrow(traps)))
+} else {
+  capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
+}
+
+#use
+induse <- create_ind_use_C(capthist,
+                           as.matrix(traps),
+                           trapspacing, 
+                           tracksdf,
+                           scenario = "everything")
+
+#convert capthist to 1s and 0s
+capthist[is.na(capthist)] <- 0
+capthist[capthist!=0] <- 1
+
+ch <- capthist
   
-  ch <- ch_out$capthist
-  induse <- ch_out$induse
-  
-  p <- sim.popn(D = D_mesh * 100^2*3, 
-                core = mask,
-                model2D = 'IHP')
+  # p <- sim.popn(D = D_mesh * 100^2*3, 
+  #               core = mask,
+  #               model2D = 'IHP')
   trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
                         x = traps$x,
                         y = traps$y),
@@ -126,6 +154,9 @@ do_a_sim_fit <- function(x){
     fmt = "trapID"
   )
   
+  detinch <- data.frame(detinch) %>%
+    arrange(as.character(dim1), dim3, dim2)
+  
   stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
     induse[detinch[r,1], detinch[r,3], detinch[r,2]]/10
   })
@@ -158,7 +189,7 @@ do_a_sim_fit <- function(x){
     Z   <- sum(exp_eta) * meshspacing^2
     D_mesh_ <- exp(v[5]) * exp_eta / Z
     
-    out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
+    out_ls <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
                                        sigma = sigma_,  
                                        haz_denom = 1,
                                        D_mesh = D_mesh_,
@@ -169,6 +200,7 @@ do_a_sim_fit <- function(x){
                                        mesh = as.matrix(mesh),
                                        mesharea = meshspacing^2,
                                        meanstepsize = meanstepsize)
+    out <- out_ls$negloglik
     return(out)
   }
   fit_me <- optim(par = start,
@@ -199,7 +231,7 @@ do_a_sim_fit <- function(x){
   out_ls <- list(est_me = est_me,
                  est_abinand = est_abinand,
                  sim = x)
-}
+#}
 fit <- do_a_sim_fit()
 fits <- lapply(as.list(1:nsims), do_a_sim_fit)
 saveRDS(fits, "inst/comparefits_30.Rds")
