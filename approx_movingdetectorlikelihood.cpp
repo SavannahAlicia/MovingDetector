@@ -745,7 +745,7 @@ sim_capthist_C(NumericMatrix traps,
 //-----------------Likelihood --------------------------------------------------
 
 // [[Rcpp::export]]
-List
+double
   negloglikelihood_moving_cpp( //add log link 
     double lambda0,
     double sigma, 
@@ -896,7 +896,7 @@ List
     //return(DKprod_eachx_log_byi);
    // return(Dx_pdotxs);
     //end testing
-  return(outls);
+  return(out);
   }
 
 //---------------Stationary
