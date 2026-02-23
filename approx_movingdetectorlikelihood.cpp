@@ -417,7 +417,7 @@ arma::cube create_ind_use_C(arma::cube ch,
       if(!Rf_isMatrix(linek)){
         stop("Line " + track_id_str + " is not a matrix");
       }
-      NumericVector linetimes = linek(_,4); //time of first pt in line
+      NumericVector linetimes = linek(_,5); //time of first pt in line
       
      // double min_timek = vec_min(linetimes);
       
