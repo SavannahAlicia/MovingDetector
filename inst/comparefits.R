@@ -55,7 +55,7 @@ mask <- mesh
 covariates(mask) <- data.frame(cov = D_mesh,
                                x = mesh$x,
                                x2 = mesh$x^2/meshspacing^2)
-
+saveRDS(mask, "inst/mask.RDS")
 
 #do_a_sim_fit <- function(x){
 
@@ -92,50 +92,24 @@ induse <- create_ind_use_C(capthist,
                            trapspacing, 
                            tracksdf,
                            scenario = "everything")
+saveRDS(induse, "inst/induse.Rds")
+saveRDS(tracksdf, "inst/tracksdf.RDS")
 
 #convert capthist to 1s and 0s
 capthist[is.na(capthist)] <- 0
 capthist[capthist!=0] <- 1
 
 ch <- capthist
-  
-  # p <- sim.popn(D = D_mesh * 100^2*3, 
-  #               core = mask,
-  #               model2D = 'IHP')
+saveRDS(ch, "inst/ch.RDS")
+
   trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
                         x = traps$x,
                         y = traps$y),
                         detector = "proximity")
   rownames(trapscr) <- paste0("Trap", 1:nrow(traps))
+  saveRDS(trapscr, "inst/trapscr.RDS")
 
-  # CHls <- simCapthist(pop = p,
-  #                   trapSteps = trapSteps, 
-  #                   mask = mask, 
-  #                   lambda0 = lambda0*100, 
-  #                   sigma = sigma,
-  #                   nOccasionsTransect = occreps)
- # CH <- subset(CHls$capthist, subset = c(rownames(CHls$capthist) %in% c(paste0("ind_", 1:(dim(ch)[1])))))
-  
-  #replace CH with data from ch (or collapse ch by transect)
-  # occkey <- unique(tracksdf[,c("occ", "transect", "rep")])
-  # 
-  # ch_sm <- sapply(as.list(1:occreps),  
-  #                 function(t){
-  #                   apply(ch[,occkey$rep == t,], c(1,3), sum)
-  #                 }, simplify = "array")
-  # ch_sm <- aperm(ch_sm, c(1, 3, 2))
-  # 
-  # 
-  # 
-  # for(i in 1:(dim(CH)[1])){
-  #   for(k in 1:(dim(CH)[2])){
-  #     for(j in 1:(dim(CH)[3])){
-  #       CH[i,k,j] <- ch_sm[i,k,j]
-  #     }
-  #   }
-  # }
 
-  
   eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
   Z = sum(exp(eta)) * meshspacing^2/100^2
   D = N * exp(eta) / Z
@@ -147,7 +121,7 @@ ch <- capthist
   CH <- make.capthist(captures = data.frame(
                           Session = 1,
                           ID = paste0("ind_", detinch[,1]),
-                         Occasion = c(ifelse(detinch[,2] %%2 ==0,2,1)),
+                         Occasion = c(ifelse(detinch[,2] %% 2 ==0,1,2)), #so occasions 2 and 4 are 1, 1 and 3 are 2
                          TrapID = paste0("Trap",detinch[,3])
     ),
     traps = trapscr,
@@ -161,15 +135,19 @@ ch <- capthist
     induse[detinch[r,1], detinch[r,3], detinch[r,2]]/10
   })
   
+  detinCH <- which(CH==1, arr.ind =T)
+  #reorder CH to put ind_10 at the end
+  CHorderi <- as.numeric(sapply(str_match_all(rownames(CH), "(ind_)(\\d+)"), function(x)x[,3]))
   
-  fit_abinand <- scrFitMov(capthist = CH, 
-                           stepOrder = stepOrder,
-                           mask = mask, 
-                           trapSteps = trapSteps,
-                           model = list(D ~ x + x2),
-                           startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
-                           hessian = F)
   
+  # fit_abinand <- scrFitMov(capthist = CH, 
+  #                          stepOrder = stepOrder,
+  #                          mask = mask, 
+  #                          trapSteps = trapSteps,
+  #                          model = list(D ~ x + x2),
+  #                          startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
+  #                          hessian = F)
+  # 
   start0 <- c(
     log(lambda0),
     log(sigma),
@@ -183,13 +161,19 @@ ch <- capthist
   nll <- function(v_scaled){
     v <- v_scaled * 1
     lambda0_ <- exp(v[1])
-    sigma_ <- exp(v[2])
-    eta <- v[3] * (mesh[,1] + v[4])^2
-    exp_eta <- exp(eta)
-    Z   <- sum(exp_eta) * meshspacing^2
-    D_mesh_ <- exp(v[5]) * exp_eta / Z
+    if (!is.finite(lambda0_)) return(1e12)
     
-    out_ls <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
+    sigma_ <- exp(v[2])
+    if (!is.finite(sigma_)) return(1e12)
+    D_mesh_ <- calcDv(mesh[,1] ,
+                          mesh[,2],
+                          v[3],
+                          v[4],
+                          v[5],
+                          meshspacing
+    )
+    
+    out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
                                        sigma = sigma_,  
                                        haz_denom = 1,
                                        D_mesh = D_mesh_,
@@ -200,9 +184,13 @@ ch <- capthist
                                        mesh = as.matrix(mesh),
                                        mesharea = meshspacing^2,
                                        meanstepsize = meanstepsize)
-    out <- out_ls$negloglik
+    out$D_mesh <- D_mesh_
+   
     return(out)
   }
+  llkme <- nll(start)
+  
+  
   fit_me <- optim(par = start,
                   fn = nll,
                   hessian = F, method = "Nelder-Mead")
