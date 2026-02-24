@@ -184,7 +184,6 @@ saveRDS(ch, "inst/ch.RDS")
                                        mesh = as.matrix(mesh),
                                        mesharea = meshspacing^2,
                                        meanstepsize = meanstepsize)
-    out$D_mesh <- D_mesh_
    
     return(out)
   }
