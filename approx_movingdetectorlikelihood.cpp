@@ -417,7 +417,7 @@ arma::cube create_ind_use_C(arma::cube ch,
       if(!Rf_isMatrix(linek)){
         stop("Line " + track_id_str + " is not a matrix");
       }
-      NumericVector linetimes = linek(_,5); //time of first pt in line
+      NumericVector linetimes = linek(_,5); //time of last pt in line
       
      // double min_timek = vec_min(linetimes);
       
@@ -745,7 +745,7 @@ sim_capthist_C(NumericMatrix traps,
 //-----------------Likelihood --------------------------------------------------
 
 // [[Rcpp::export]]
-double
+List
   negloglikelihood_moving_cpp( //add log link 
     double lambda0,
     double sigma, 
@@ -772,9 +772,10 @@ double
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
     NumericMatrix notseen_mk_log(meshx.length(), capocc);
-    NumericVector Dx_pdotxs(meshx.length());
+    NumericVector pdotxs_log(meshx.length());
+    NumericVector Dx_pdotx_log(meshx.length());
+    arma::cube hu_jkm(captrap,capocc,meshx.length(), arma::fill::zeros);
     for(int m = 0; m < meshx.length(); m++){
-      double Dx = D_mesh(m);
       //Rcpp::NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < capocc; occk++){
         NumericVector hu_eachtrap(captrap);
@@ -789,15 +790,15 @@ double
               hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * 
               (usage(trapj, occk)/haz_denom); 
           }
+          hu_jkm(trapj,occk,m) = hu_eachtrap(trapj);
         }
         notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
       }
       double notseen_alloccs_log = sum(notseen_mk_log.row(m));
-      double pdot = 1 - exp(notseen_alloccs_log);
-      double Dx_pdotx = Dx * pdot;
-      Dx_pdotxs(m) = Dx_pdotx;
+      pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
+      Dx_pdotx_log(m) = log(D_mesh(m)) + pdotxs_log(m);
     }
-    double lambdan = sum(Dx_pdotxs) * mesharea;
+    double lambdan = sum(exp(Dx_pdotx_log)) * mesharea;
     clock.tock("lambdan");
     //rest of likelihood
     clock.tick("loopllk");
@@ -883,20 +884,34 @@ double
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
     
-    List outls(4);
+    List outls(8);
     outls = List::create(
       Named("negloglik") = out,
+      //the probability an individual isn't seen on occasion k given its AC
+      //(dim m x k) on log scale
       Named("notseen_log") = notseen_log_i,
+      //the marginalized probability of the capture history and the density for 
+      //each individual on the log scale (length i)
       Named("integral_eachi_log") = integral_eachi_log,
+      //the sum of the hazard times effort for each trap that didn't make the 
+      //detection + the steps of the trap that did make the detection aside from
+      //the last step given the AC(dim m x k)
       Named("sumallhuexcept") = sumallhuexcept,
+      //the probability that an individual was detected on the last step of the 
+      //trap that detected it on the log scale given the AC (dim m x k)
       Named("didntsurvivej_log") = didntsurvivej_log,
-      Named("DKprod_eachx_log") = DKprod_eachx_log_byi,
-      Named("Dx_pdotxs") = Dx_pdotxs
+      //he joint probability of the density and probability of the capture 
+      //history on the log scale (dim m x i) also does not include log(mesharea)
+      Named("DKprod_eachx_log_byi") = DKprod_eachx_log_byi,
+      ////joint probability of the density and probability of being seen at 
+      //least once (length m)
+      Named("Dpdotxs_log") = Dx_pdotx_log,
+      Named("pdotxs_log") = pdotxs_log 
     );
     //return(DKprod_eachx_log_byi);
    // return(Dx_pdotxs);
     //end testing
-  return(out);
+  return(outls);
   }
 
 //---------------Stationary
