@@ -18,10 +18,10 @@ sim_capthist_bysubset <- function(tracksdf,
   colnames(usetracksdf)[c(1,2)] <- c("x","y")
   usetracksdf <- usetracksdf[rowSums(usetracksdf[,-c(1,2)]) > 0,]
   
-  trapscr <- read.traps(data = usetracksdf,
+  trackstrapscr <- read.traps(data = usetracksdf,
                         detector = "proximity",
                         binary.usage = FALSE)
-  usage(trapscr) <- usetracksdf[,-c(1,2)]
+  usage(trackstrapscr) <- usetracksdf[,-c(1,2)]
   
   popscr <- sim.popn(D = D_mesh * (10000), 
                      core = mesh, 
@@ -38,8 +38,8 @@ sim_capthist_bysubset <- function(tracksdf,
   #              mapping = aes(x = x, 
   #                            y = y),
   #              color = "white", shape = "+", size = 5) +
-  #   geom_point(data = data.frame(x = trapscr$x, 
-  #                                y = trapscr$y),
+  #   geom_point(data = data.frame(x = trackstrapscr$x, 
+  #                                y = trackstrapscr$y),
   #              mapping = aes(x = x, y = y),
   #              color = "red",
   #              size = 1) +
@@ -47,12 +47,12 @@ sim_capthist_bysubset <- function(tracksdf,
   #     #limits = c(-1100,-900)
   #   )
   
-  capthist_full <- sim.capthist(trapscr,
+  capthist_full <- sim.capthist(trackstrapscr,
                                 popn = popscr,
                                 detectfn = "HHN",
                                 detectpar = list("lambda0" = lambda0,
                                                  "sigma" = sigma),
-                                noccasions = ncol(usage(trapscr)),
+                                noccasions = ncol(usage(trackstrapscr)),
                                 renumber = F)
   zero_ch <- array(0, dim = c(nrow(popscr) - (dim(capthist_full)[1]), 
                               dim(capthist_full)[2],
@@ -79,8 +79,8 @@ sim_capthist_bysubset <- function(tracksdf,
   #                            fill = dets),
   #              shape = 21) +
   #   scale_fill_viridis_c(option = "magma") +
-  #   geom_point(data = data.frame(x = trapscr$x, 
-  #                                y = trapscr$y),
+  #   geom_point(data = data.frame(x = trackstrapscr$x, 
+  #                                y = trackstrapscr$y),
   #              mapping = aes(x = x, y = y),
   #              color = "red", 
   #              shape = "+",
@@ -100,14 +100,14 @@ sim_capthist_bysubset <- function(tracksdf,
                                 if(sum(capik) == 1){
                                   thej <- which(capik > 0)
                                   dettime <- tracksdf[which(tracksdf$occ == k &
-                                                              tracksdf$midx == trapscr[thej,1] &
-                                                              tracksdf$midy == trapscr[thej,2]),
+                                                              tracksdf$midx == trackstrapscr[thej,1] &
+                                                              tracksdf$midy == trackstrapscr[thej,2]),
                                                       "time"]
                                 } else {
                                   #which traps detected
                                   js <- which(capik > 0)
                                   #what were the coordinates
-                                  jxys <- trapscr[js,]
+                                  jxys <- trackstrapscr[js,]
                                   jtimes <- array(NA, dim = nrow(jxys))
                                   #check rows of tracksdf to see times of those traps
                                   for(j in 1:nrow(jxys)){
@@ -146,8 +146,8 @@ sim_capthist_bysubset <- function(tracksdf,
   #                             fill = D),
   #               alpha = 0.3) +
   #   new_scale_fill() +
-  #   geom_point(data = data.frame(x = trapscr$x, 
-  #                                y = trapscr$y),
+  #   geom_point(data = data.frame(x = trackstrapscr$x, 
+  #                                y = trackstrapscr$y),
   #              mapping = aes(x = x, y = y),
   #              color = "white", 
   #              shape = 19,
@@ -182,9 +182,9 @@ sim_capthist_bysubset <- function(tracksdf,
 
   
   # allocate track records to grid
-  trapno_step <- rep(0, nrow(trapscr))
+  trapno_step <- rep(0, nrow(trackstrapscr))
   for (tr in 1:length(trapno_step)) {
-    d <- sqrt((trapscr[tr, ]$x - traps[, 1])^2 + (trapscr[tr, ]$y - traps[, 2])^2)
+    d <- sqrt((trackstrapscr[tr, ]$x - traps[, 1])^2 + (trackstrapscr[tr, ]$y - traps[, 2])^2)
     dmin <- min(d)
     #this needs to assign to the first trap
     candidatetrap <- which(d==dmin) #but this returns first trap
@@ -195,7 +195,7 @@ sim_capthist_bysubset <- function(tracksdf,
       #check if there is an earlier tracksdfpt
       if(tr>1){ #if its not the first point in tracksdf
         #calculate the midpoint between two trackpoints
-        midx <- mean(trapscr[tr,"x"],trapscr[tr-1, "x"])
+        midx <- mean(trackstrapscr[tr,"x"],trackstrapscr[tr-1, "x"])
         #return the trap of two candidates closest to that
         trapno_step[tr] <- candidatetrap[which.min(c(gr[candidatetrap[1],1], gr[candidatetrap[2],1])-midx)]
       } else {
@@ -263,13 +263,13 @@ summary(unlist(lapply(ch_bysub_ls, function(ch){
 summary(unlist(lapply(ch_bystep_ls, function(ch){
   (nrow(ch))
 })))
-bigtrapscr <-  read.traps(data = traps,
+bigtrackstrapscr <-  read.traps(data = traps,
                           detector = "multi",
                           binary.usage = FALSE)
-usage(bigtrapscr) <- useall
+usage(bigtrackstrapscr) <- useall
 
 pdot <- pdot(as.matrix(mesh),
-     traps = bigtrapscr,
+     traps = bigtrackstrapscr,
      detectfn = "HHN",
      detectpar = list(lambda0 = lambda0, 
                       sigma = sigma),
