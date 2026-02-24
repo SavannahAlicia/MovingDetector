@@ -44,7 +44,7 @@ nsims = 30
 set.seed(1994)
 fontsize = 22
 printplots = F
-
+hazdenom = 1
 
 #directory names
 dirstart <- paste("compare_moving_stat_2D/simulation_results/",
