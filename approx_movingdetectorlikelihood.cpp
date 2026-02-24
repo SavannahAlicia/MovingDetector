@@ -745,7 +745,7 @@ sim_capthist_C(NumericMatrix traps,
 //-----------------Likelihood --------------------------------------------------
 
 // [[Rcpp::export]]
-List
+double
   negloglikelihood_moving_cpp( //add log link 
     double lambda0,
     double sigma, 
@@ -772,7 +772,7 @@ List
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
     NumericMatrix notseen_mk_log(meshx.length(), capocc);
-    NumericVector pdotxs_log(meshx.length());
+    //NumericVector pdotxs_log(meshx.length());
     NumericVector Dx_pdotx_log(meshx.length());
     arma::cube hu_jkm(captrap,capocc,meshx.length(), arma::fill::zeros);
     for(int m = 0; m < meshx.length(); m++){
@@ -795,8 +795,8 @@ List
         notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
       }
       double notseen_alloccs_log = sum(notseen_mk_log.row(m));
-      pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
-      Dx_pdotx_log(m) = log(D_mesh(m)) + pdotxs_log(m);
+      //pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
+      Dx_pdotx_log(m) = log(D_mesh(m)) + log(1 - exp(notseen_alloccs_log));
     }
     double lambdan = sum(exp(Dx_pdotx_log)) * mesharea;
     clock.tock("lambdan");
@@ -805,10 +805,10 @@ List
     double n = capthist.n_rows;
     NumericVector integral_eachi_log(n);
     //for testing
-    NumericMatrix notseen_log_i(meshx.length(), capocc);
-    NumericMatrix sumallhuexcept(meshx.length(),capocc);
-    NumericMatrix didntsurvivej_log(meshx.length(),capocc);
-    NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
+    //NumericMatrix notseen_log_i(meshx.length(), capocc);
+    //NumericMatrix sumallhuexcept(meshx.length(),capocc);
+    //NumericMatrix didntsurvivej_log(meshx.length(),capocc);
+    //NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
     //end testing
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
@@ -849,22 +849,24 @@ List
             }
           }
           sumtoj_ind_ijk = sumtoj_ind; //sum of all hazards for ind i EXCEPT 
-          
-          sumallhuexcept(x,occk) = sumtoj_ind_ijk;
+          //testing
+         // sumallhuexcept(x,occk) = sumtoj_ind_ijk;
           // trap detected
           if(ikcaught){
             probcapthist_eachocc_log(occk) = -sumtoj_ind_ijk + log(1 - exp(-hu_ind_ijk));
             //testing
-            didntsurvivej_log(x,occk) = log(1 - exp(-hu_ind_ijk));
+            //didntsurvivej_log(x,occk) = log(1 - exp(-hu_ind_ijk));
           } else {
             probcapthist_eachocc_log(occk) = notseen_mk_log(x,occk); //survived all traps
           }
-          notseen_log_i(x,occk) = notseen_mk_log(x,occk);
+          //testing
+          //notseen_log_i(x,occk) = notseen_mk_log(x,occk);
         }
         double probcapthist_alloccs_log = sum(probcapthist_eachocc_log);
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
-      DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
+      //testing
+      //DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
       double maxv = max(DKprod_eachx_log); //attempt to fix underflow
       double DKprod_sum_log = maxv  + log(sum(exp(DKprod_eachx_log - maxv)));//does this cause issues or fix them?
 
@@ -884,34 +886,34 @@ List
     clock.tock("wholeenchilada");
     clock.stop("approxllktimes");
     
-    List outls(8);
-    outls = List::create(
-      Named("negloglik") = out,
-      //the probability an individual isn't seen on occasion k given its AC
-      //(dim m x k) on log scale
-      Named("notseen_log") = notseen_log_i,
-      //the marginalized probability of the capture history and the density for 
-      //each individual on the log scale (length i)
-      Named("integral_eachi_log") = integral_eachi_log,
-      //the sum of the hazard times effort for each trap that didn't make the 
-      //detection + the steps of the trap that did make the detection aside from
-      //the last step given the AC(dim m x k)
-      Named("sumallhuexcept") = sumallhuexcept,
-      //the probability that an individual was detected on the last step of the 
-      //trap that detected it on the log scale given the AC (dim m x k)
-      Named("didntsurvivej_log") = didntsurvivej_log,
-      //he joint probability of the density and probability of the capture 
-      //history on the log scale (dim m x i) also does not include log(mesharea)
-      Named("DKprod_eachx_log_byi") = DKprod_eachx_log_byi,
-      ////joint probability of the density and probability of being seen at 
-      //least once (length m)
-      Named("Dpdotxs_log") = Dx_pdotx_log,
-      Named("pdotxs_log") = pdotxs_log 
-    );
-    //return(DKprod_eachx_log_byi);
-   // return(Dx_pdotxs);
+    //for diagnostics
+    // List outls(8);
+    // outls = List::create(
+    //   //the likelihood value
+    //   Named("negloglik") = out,
+    //   //the probability an individual isn't seen on occasion k given its AC
+    //   //(dim m x k) on log scale
+    //   Named("notseen_log") = notseen_log_i,
+    //   //the marginalized probability of the capture history and the density for 
+    //   //each individual on the log scale (length i)
+    //   Named("integral_eachi_log") = integral_eachi_log,
+    //   //the sum of the hazard times effort for each trap that didn't make the 
+    //   //detection + the steps of the trap that did make the detection aside from
+    //   //the last step given the AC(dim m x k)
+    //   Named("sumallhuexcept") = sumallhuexcept,
+    //   //the probability that an individual was detected on the last step of the 
+    //   //trap that detected it on the log scale given the AC (dim m x k)
+    //   Named("didntsurvivej_log") = didntsurvivej_log,
+    //   //he joint probability of the density and probability of the capture 
+    //   //history on the log scale (dim m x i) also does not include log(mesharea)
+    //   Named("DKprod_eachx_log_byi") = DKprod_eachx_log_byi,
+    //   ////joint probability of the density and probability of being seen at 
+    //   //least once (length m)
+    //   Named("Dpdotxs_log") = Dx_pdotx_log,
+    //   Named("pdotxs_log") = pdotxs_log 
+    // );
     //end testing
-  return(outls);
+  return(out);
   }
 
 //---------------Stationary
