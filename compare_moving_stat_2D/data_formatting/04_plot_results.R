@@ -163,20 +163,6 @@ create_plots <- function(sim_fits_out,
      
       statNdat <- colSums(statDdat) * meshspacing^2
       
-      Nplotdat <- data.frame(model = rep(c("True", "Moving", "Stationary"), 3),
-                             quantile = c("mean", "mean", "mean",
-                                          "2.5%", "2.5%", "2.5%",
-                                          "97.5%", "97.5%", "97.5%"),
-                             value = c(N,
-                                       mean(moveNdat), 
-                                       mean(statNdat),
-                                       NA,
-                                       quantile(moveNdat, probs = 0.025, na.rm = T),
-                                       quantile(statNdat, probs = 0.025, na.rm = T),
-                                       NA,
-                                       quantile(moveNdat, probs = 0.975, na.rm = T),
-                                       quantile(statNdat, probs = 0.975, na.rm = T))
-                             )
     } else if(Dmodel == "flat"){
       D_plotdat <- data.frame(x = rep(mesh$x, 3),
                               y = rep(mesh$y, 3),
@@ -197,39 +183,18 @@ create_plots <- function(sim_fits_out,
                               quantile = c(rep("mean", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
       )
       
-      Nplotdat <- data.frame(model = rep(c("True", "Moving", "Stationary"), 3),
-                             quantile = c("mean", "mean", "mean",
-                                          "2.5%", "2.5%", "2.5%",
-                                          "97.5%", "97.5%", "97.5%"),
-                             value = c(flatD * nrow(mesh) * meshspacing^2,
-                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                        all_outs2$name == "D", "mean"]))* nrow(mesh) * meshspacing^2, 
-                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                        all_outs2$name == "D", "mean"]))* nrow(mesh) * meshspacing^2,
-                                       NA,
-                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                        all_outs2$name == "D", "meanlower"]))* nrow(mesh) * meshspacing^2, 
-                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                        all_outs2$name == "D", "meanlower"]))* nrow(mesh) * meshspacing^2,
-                                       NA,
-                             exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                        all_outs2$name == "D", "meanupper"]))* nrow(mesh) * meshspacing^2, 
-                             exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                        all_outs2$name == "D", "meanupper"]))* nrow(mesh) * meshspacing^2)
-                             )
-    }
+
+     }
 
 
     out <- list(all_outs = all_outs, 
                 all_outs2 = all_outs2,
-                D_plotdat = D_plotdat,
-                Nplotdat = Nplotdat)
+                D_plotdat = D_plotdat)
   }
   plotdat <- make_plot_dat(sim_fits_out)
   all_outs <- plotdat$all_outs
   all_outs2 <- plotdat$all_outs2
   D_plotdat <- plotdat$D_plotdat
-  Nplotdat <- plotdat$Nplotdat
   
   ###--------------------------compare precision -------------------------------
   
@@ -380,7 +345,7 @@ create_plots <- function(sim_fits_out,
                             y = value*1000000,
                             col = name),
               #linetype = "dashed",
-              size = pointsize*2,#/2,
+              size = pointsize,#/2,
               shape = 6
               ) +
     geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
@@ -389,7 +354,7 @@ create_plots <- function(sim_fits_out,
                             y = value*1000000, 
                             col = name),
               #linetype = "dashed", 
-              size = pointsize*2,#/2,
+              size = pointsize,#/2,
               shape = 2
               ) +
     scale_color_manual(values = c(plotcols, "black"), 
@@ -434,8 +399,8 @@ create_plots <- function(sim_fits_out,
       widths = c(1,1),
       heights = c(1,1,1,1),
       layout_matrix = rbind(c(1,6),
-                            c(2,4),
-                            c(7, 7),
+                            c(2,3),
+                            c(7, 4),
                             5))
   }
   if(Dmodel == "flat"){
