@@ -2,66 +2,139 @@
 ###-----------simulate data for moving and stationary detectors-----------------
 ###-------and fit model with stationary and moving detector---------------------
 
-simulate_popandcapthist <- function(traps,
-                                    tracksdf, 
-                                    lambda0,
-                                    sigma,
-                                    D_mesh,
-                                    mesh,
-                                    meshspacing,
-                                    hazdenom){
+simulate_popandcapthist <- function(tracksdf,
+                                                             D_mesh,
+                                                             lambda0,
+                                                             sigma,
+                                                             mesh,
+                                                             traps,
+                                                             trapspacing){
+  
   start.time.sim <- Sys.time()
-  #capthist dim(inds, traps)
-  pop <- sim_pop_C(D_mesh, 
-                   as.matrix(mesh), 
-                   meshspacing)
-  if(is.null(dim(pop))){
-    stop("No population simulated, try larger density.")
-  } else if(nrow(pop) < 2){
-    warning("Only one individual simulated.")
-  } else if(nrow(pop) <20) {
-    warning("Less than 20 individuals simualted.")
-  }
   
+  # use 
+  usetracksdf <- as.data.frame(tidyr::pivot_wider(
+    tracksdf[,c("occ", "inc", "midx", "midy", "trapno")], 
+    names_from = occ, 
+    values_from = inc))
+  usetracksdf[(is.na(usetracksdf))] <- 0
+  colnames(usetracksdf)[c(1,2)] <- c("x","y")
+  usetracksdf <- usetracksdf[
+    rowSums(
+      usetracksdf[,-c(which(colnames(usetracksdf) %in% 
+                              c("x","y","trapno")))]) > 0,
+  ]
   
-  capthist_full <- sim_capthist_C(as.matrix(traps),
-                                  tracksdf, 
-                                  lambda0,
-                                  sigma,
-                                  D_mesh,
-                                  as.matrix(mesh),
-                                  meshspacing,
-                                  hazdenom,
-                                  pop,
-                                  dist_dat_pop = NULL,
-                                  report_probseenxk = F)
+  trackstrapscr <- read.traps(data = usetracksdf,
+                              detector = "proximity",
+                              binary.usage = FALSE)
+  usage(trackstrapscr) <- usetracksdf[,-c(1,2,3)]
   
-  #standard scr likelihood
-  nocc <- length(unique(tracksdf$occ))
-  trapspacing <- sort(unique(traps$x))[2]- sort(unique(traps$x))[1]
+  popscr <- sim.popn(D = D_mesh * (10000), 
+                     core = mesh, 
+                     model2D = "IHP")
   
-  if(length(which(apply((!is.na(capthist_full)), 1, sum)>0)) == 0){
-    warning("Empty capture history.")
-    capthist <- array(NA, dim = c(1, nocc, nrow(traps)))
-  } else {
-    capthist <- capthist_full[which(apply((!is.na(capthist_full)), 1, sum)>0),,]
-  }
+  # simulate with secr and proximity detectors 
+  capthist_full <- sim.capthist(trackstrapscr,
+                                popn = popscr,
+                                detectfn = "HHN",
+                                detectpar = list("lambda0" = lambda0,
+                                                 "sigma" = sigma),
+                                noccasions = ncol(usage(trackstrapscr)),
+                                renumber = F)
+
+  # delete detections after first 
+  capthist <- apply(as.array(1:(dim(capthist_full)[1])), 1, 
+                    function(i){
+                      apply(as.array(1:(dim(capthist_full)[2])), 1, 
+                            function(k){
+                              capik <- capthist_full[i,k,]
+                              #if detection happened that occasion
+                              if(sum(capik) > 0){
+                                if(sum(capik) == 1){
+                                  thej <- which(capik > 0)
+                                  dettime <- tracksdf[which(tracksdf$occ == k &
+                                                              tracksdf$midx == trackstrapscr[thej,1] &
+                                                              tracksdf$midy == trackstrapscr[thej,2]),
+                                                      "time"]
+                                } else {
+                                  #which traps detected
+                                  js <- which(capik > 0)
+                                  #what were the coordinates
+                                  jxys <- trackstrapscr[js,]
+                                  jtimes <- array(NA, dim = nrow(jxys))
+                                  #check rows of tracksdf to see times of those traps
+                                  for(j in 1:nrow(jxys)){
+                                    jtimes[j] <- tracksdf[which(tracksdf$occ == k &
+                                                                  tracksdf$midx == jxys[j,1] &
+                                                                  tracksdf$midy == jxys[j,2]),
+                                                          "time"]
+                                  }
+                                  #keep only first one
+                                  thej <- js[which.min(jtimes)] #index
+                                  dettime <- min(jtimes)
+                                }
+                                
+                                capik <- array(NA, dim = length(capik))
+                                capik[thej] <- dettime
+                                
+                              } else {
+                                #no detections
+                                capik <- array(NA, dim = length(capik))
+                              }
+                              return(capik)
+                            })
+                    })
+  dim(capthist) <- (dim(capthist_full)[c(3,2,1)])
+  capthist <- aperm(capthist, c(3,2,1))
   
-  #use
-  induse <- create_ind_use_C(capthist,
+  capthist_times <- capthist
+  
+  # traps
+  trapno_step <- usetracksdf$trapno
+  
+  # now scale back down to desired traps
+  capthist_attrap_ls <- apply(as.array(1:(dim(capthist)[2])), 1, function(k){
+    apply(as.array(1:(dim(capthist)[1])), 1, function(i){
+      apply(as.array(1:length(unique(trapno_step))), 1, function(j){
+        # index steps based on trap
+        c_ikjs <- capthist_times[i,k,][trapno_step == j]
+        # if all NA no detection happened
+        if(all(is.na(c_ikjs))){
+          ijk <- NA
+          # otherwise keep detection time from steps for that trap
+        } else {
+          ijk <- c_ikjs[which(!is.na(c_ikjs))]
+        }
+      }, simplify = F)
+    })
+  })
+  
+  # rearrange from apply structure
+  capthist_attrap <- aperm(array(
+    unlist(capthist_attrap_ls),
+    dim = c(length(unique(trapno_step)),
+            (dim(capthist)[1]), 
+            (dim(capthist)[2]))
+  ), c(2,3,1))
+  
+  # calculate ind use for traps
+  induse <- create_ind_use_C(capthist_attrap,
                              as.matrix(traps),
-                             trapspacing, 
+                             trapspacing,
                              tracksdf,
                              scenario = "everything")
   
-  #convert capthist to 1s and 0s
-  capthist[is.na(capthist)] <- 0
-  capthist[capthist!=0] <- 1
+  
+  # convert capthist to 1s and 0s
+  capthist_attrap[is.na(capthist_attrap)] <- 0
+  capthist_attrap[capthist_attrap!=0] <- 1
   
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
-  out_ls <- list(capthist = capthist,
+  out_ls <- list(capthist = capthist_attrap,
                  induse = induse,
                  fit.time.sim = fit.time.sim)
+  return(out_ls)
 }
 
 fit_capthist <- function(dist_trapmesh,
@@ -77,7 +150,8 @@ fit_capthist <- function(dist_trapmesh,
                     capthistout,
                     Dmod,
                     meshspacing,
-                    meanstepsize
+                    meanstepsize,
+                    fitstat = FALSE
                     ){
   if(!Dmod %in% c("~1", "~x^2")){
     stop("Dmod must be specified ~1 or ~x^2")
@@ -203,19 +277,27 @@ fit_capthist <- function(dist_trapmesh,
     }
   }  
   
-  start.time.sd <- Sys.time()
-  fit_sd <- optim(par = start,
-                  fn = stat_nll,
-                  hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
-  fit_sd_con = fit_sd$convergence
-  if(fit_sd_con == 0){
-    fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
-                                        method.args = list(eps = 1e-5, d = 1e-3, r = 3))
-    fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
+  if(fitstat){
     
-  } else { #if model did not converge, don't bother hessian 
-    fit_sd$hessian = NA
-    fit.time.sd = NA
+    start.time.sd <- Sys.time()
+    fit_sd <- optim(par = start,
+                    fn = stat_nll,
+                    hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
+    fit_sd_con = fit_sd$convergence
+    if(fit_sd_con == 0){
+      fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
+                                          method.args = list(eps = 1e-5, d = 1e-3, r = 3))
+      fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
+      
+    } else { #if model did not converge, don't bother hessian 
+      fit_sd$hessian = NA
+      fit.time.sd = NA
+    }
+  } else {
+    fit_sd <- list(par = NA, convergence = 4)
+    fit.time.sd <- 99999999
+    fit_sd_con <- 4
+    fit_sd$hessian <- NA
   }
   
   start.time.md <- Sys.time()
@@ -287,7 +369,8 @@ sim_fit <- function(traps,
                     beta2,
                     N,
                     hazdenom, 
-                    Dmod){
+                    Dmod,
+                    fitstat = FALSE){
   tracksdf$stepsize <- c(0,
                          sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
                                 (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
@@ -296,14 +379,13 @@ sim_fit <- function(traps,
   meanstepsize = mean(tracksdf$stepsize)
 
   
-    capthistout <- simulate_popandcapthist(traps,
-                                      tracksdf, 
-                                      lambda0,
-                                      sigma,
-                                      D_mesh,
-                                      mesh,
-                                      meshspacing,
-                                      hazdenom)
+    capthistout <- simulate_popandcapthist(tracksdf,
+                                           D_mesh,
+                                           lambda0,
+                                           sigma,
+                                           mesh,
+                                           traps,
+                                           trapspacing)
   out <- fit_capthist(dist_trapmesh,
                                   useall,
                                   lambda0, 
@@ -317,6 +399,7 @@ sim_fit <- function(traps,
                                   capthistout,
                                   Dmod,
                       meshspacing,
-                      meanstepsize)
+                      meanstepsize,
+                      fitstat)
   return(out)
 }
