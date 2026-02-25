@@ -26,7 +26,7 @@ calcDv <- function(xs,
                    meshspacing) {
   eta = beta1_*((xs/meshspacing + beta2_)^2 )#+ (ys + beta2_)^2)
   Z = sum(exp(eta)) * meshspacing^2
-  D = N * exp(eta) / Z
+  D = N_ * exp(eta) / Z
     return(D)
 }
 
