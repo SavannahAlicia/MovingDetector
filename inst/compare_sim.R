@@ -1,4 +1,28 @@
 ######### trying different simulator
+#compare fits between my script and Abinand's
+source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
+source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
+nsims = 30
+trap_n_vert = round(ntrapsish/trap_n_horiz)
+tracksteplength = round(trapspacing/nsteps_pertrap)
+
+surv_obj <- setup_data(sigma,
+                       N,
+                       beta1,
+                       beta2,
+                       ntrapsish,
+                       trackxmin,
+                       trapspacing,
+                       meshspacing,
+                       trap_n_horiz,
+                       nsteps_pertrap,
+                       occreps
+)
+tracksdf <- surv_obj$tracksdf
+traps <- surv_obj$traps
+mesh <- surv_obj$mesh
+D_mesh <- surv_obj$D_mesh_v
+meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
 
 
 sim_capthist_bysubset <- function(tracksdf,
@@ -11,17 +35,23 @@ sim_capthist_bysubset <- function(tracksdf,
   
   start.time.sim <- Sys.time()
   
-  #tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
-  usetracksdf <- as.data.frame(tidyr::pivot_wider(tracksdf[,c("occ", "inc", "midx", "midy")], 
-                                                  names_from = occ, values_from = inc))
+  # use 
+  usetracksdf <- as.data.frame(tidyr::pivot_wider(
+    tracksdf[,c("occ", "inc", "midx", "midy", "trapno")], 
+                                                  names_from = occ, 
+                                                  values_from = inc))
   usetracksdf[(is.na(usetracksdf))] <- 0
   colnames(usetracksdf)[c(1,2)] <- c("x","y")
-  usetracksdf <- usetracksdf[rowSums(usetracksdf[,-c(1,2)]) > 0,]
+  usetracksdf <- usetracksdf[
+    rowSums(
+      usetracksdf[,-c(which(colnames(usetracksdf) %in% 
+                              c("x","y","trapno")))]) > 0,
+    ]
   
   trackstrapscr <- read.traps(data = usetracksdf,
                         detector = "proximity",
                         binary.usage = FALSE)
-  usage(trackstrapscr) <- usetracksdf[,-c(1,2)]
+  usage(trackstrapscr) <- usetracksdf[,-c(1,2,3)]
   
   popscr <- sim.popn(D = D_mesh * (10000), 
                      core = mesh, 
@@ -47,6 +77,7 @@ sim_capthist_bysubset <- function(tracksdf,
   #     #limits = c(-1100,-900)
   #   )
   
+  # simulate with secr and proximity detectors 
   capthist_full <- sim.capthist(trackstrapscr,
                                 popn = popscr,
                                 detectfn = "HHN",
@@ -54,6 +85,8 @@ sim_capthist_bysubset <- function(tracksdf,
                                                  "sigma" = sigma),
                                 noccasions = ncol(usage(trackstrapscr)),
                                 renumber = F)
+  
+  # add zero capthists back on for visualization
   zero_ch <- array(0, dim = c(nrow(popscr) - (dim(capthist_full)[1]), 
                               dim(capthist_full)[2],
                               dim(capthist_full)[3]))
@@ -89,7 +122,7 @@ sim_capthist_bysubset <- function(tracksdf,
   #     #limits = c(-1100,-900)
   #   )
   
-  #delete detections after first 
+  # delete detections after first 
   capthist <- apply(as.array(1:(dim(capthist_full)[1])), 1, 
                     function(i){
                       apply(as.array(1:(dim(capthist_full)[2])), 1, 
@@ -168,6 +201,7 @@ sim_capthist_bysubset <- function(tracksdf,
   #   )
   # 
   
+  # delete zero capture histories
   if(length(which(apply((!is.na(capthist)), 1, sum)>0)) == 0){
     warning("Empty capture history.")
     capthist <- array(NA, dim = c(1, nocc, nrow(traps)))
@@ -176,62 +210,46 @@ sim_capthist_bysubset <- function(tracksdf,
   }
   capthist_times <- capthist
   
-  #convert capthist to 1s and 0s
-  capthist[is.na(capthist)] <- 0
-  capthist[capthist!=0] <- 1
-
+  # traps
+  trapno_step <- usetracksdf$trapno
   
-  # allocate track records to grid
-  trapno_step <- rep(0, nrow(trackstrapscr))
-  for (tr in 1:length(trapno_step)) {
-    d <- sqrt((trackstrapscr[tr, ]$x - traps[, 1])^2 + (trackstrapscr[tr, ]$y - traps[, 2])^2)
-    dmin <- min(d)
-    #this needs to assign to the first trap
-    candidatetrap <- which(d==dmin) #but this returns first trap
-    if(length(candidatetrap)==1){
-      trapno_step[tr] <- candidatetrap
-    } else { #if there are two candidate traps
-      #we need to choose the first one
-      #check if there is an earlier tracksdfpt
-      if(tr>1){ #if its not the first point in tracksdf
-        #calculate the midpoint between two trackpoints
-        midx <- mean(trackstrapscr[tr,"x"],trackstrapscr[tr-1, "x"])
-        #return the trap of two candidates closest to that
-        trapno_step[tr] <- candidatetrap[which.min(c(gr[candidatetrap[1],1], gr[candidatetrap[2],1])-midx)]
-      } else {
-        #if this if the first point in tracksdf, it doesn't matter
-        trapno_step[tr] <- candidatetrap[2]
-      }
-      #
-    }
-    
-  }
-  
-  #now scale back down to desired trap
-  apply(as.array(1:(dim(capthist)[2])), 1, function(k){
+  # now scale back down to desired traps
+  capthist_attrap_ls <- apply(as.array(1:(dim(capthist)[2])), 1, function(k){
     apply(as.array(1:(dim(capthist)[1])), 1, function(i){
-      
-      
+      apply(as.array(1:length(unique(trapno_step))), 1, function(j){
+        # index steps based on trap
+        c_ikjs <- capthist_times[i,k,][trapno_step == j]
+        # if all NA no detection happened
+        if(all(is.na(c_ikjs))){
+          ijk <- NA
+          # otherwise keep detection time from steps for that trap
+        } else {
+          ijk <- c_ikjs[which(!is.na(c_ikjs))]
+        }
+      }, simplify = F)
     })
   })
   
-  #condense capture history to traps
-  X <- matrix(capthist, nrow = (dim(capthist)[1]) * (dim(capthist)[2]),
-              ncol = (dim(capthist)[3]))
+  # rearrange from apply structure
+  capthist_attrap <- aperm(array(
+    unlist(capthist_attrap_ls),
+    dim = c(length(unique(trapno_step)),
+            (dim(capthist)[1]), 
+            (dim(capthist)[2]))
+  ), c(2,3,1))
   
-  X_new <- rowsum(t(X), trapno_step)
-  X_newt <- t(X_new)
-  capthist_attrap <- array(X_newt, dim = c((dim(capthist)[1]),
-                                           (dim(capthist)[2]),
-                                           (nrow(traps))))
-  #I need to condense before calculating induse!!!
-  #use
-  # induse <- create_ind_use_C(capthist,
-  #                            as.matrix(traps),
-  #                            trapspacing, 
-  #                            tracksdf,
-  #                            scenario = "everything")
+  # calculate ind use for traps
+  induse <- create_ind_use_C(capthist_attrap,
+                             as.matrix(traps),
+                             trapspacing,
+                             tracksdf,
+                             scenario = "everything")
 
+  
+  # convert capthist to 1s and 0s
+  capthist_attrap[is.na(capthist_attrap)] <- 0
+  capthist_attrap[capthist_attrap!=0] <- 1
+  
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
   out_ls <- list(capthist = capthist_attrap,
                  induse = induse,
@@ -239,48 +257,60 @@ sim_capthist_bysubset <- function(tracksdf,
   return(out_ls)
 }
 
-ch_bysub <- sim_capthist_bysubset(tracksdf, D_mesh_v,
-                                  lambda0, sigma, mesh, traps,
+ch_bysub <- sim_capthist_bysubset(tracksdf,
+                                  D_mesh,
+                                  lambda0,
+                                  sigma,
+                                  mesh,
+                                  traps,
                                   trapspacing)
 
-ch_bysub_ls <- lapply(1:300, function(x){
-  sim_capthist_bysubset(tracksdf, D_mesh_v,
-                      lambda0, sigma, mesh, traps)$capthist})
+saveRDS(ch_bysub$capthist, "inst/ch.Rds")
+saveRDS(ch_bysub$induse, "inst/induse.Rds")
 
-ch_bystep_ls <- lapply(1:300, function(x){
-  simulate_popandcapthist(traps,
-                        tracksdf, 
-                        lambda0,
-                        sigma,
-                        D_mesh_v,
-                        mesh,
-                        meshspacing,
-                        hazdenom)$capthist})
-
-summary(unlist(lapply(ch_bysub_ls, function(ch){
-  (nrow(ch))
-  })))
-summary(unlist(lapply(ch_bystep_ls, function(ch){
-  (nrow(ch))
-})))
-bigtrackstrapscr <-  read.traps(data = traps,
-                          detector = "multi",
-                          binary.usage = FALSE)
-usage(bigtrackstrapscr) <- useall
-
-pdot <- pdot(as.matrix(mesh),
-     traps = bigtrackstrapscr,
-     detectfn = "HHN",
-     detectpar = list(lambda0 = lambda0, 
-                      sigma = sigma),
-     noccasions = length(unique(tracksdf$occ))
-     )
-sum(pdot * D_mesh_v)*meshspacing^2
-
-
-dim(ch_bysub$capthist)
-summary(apply(ch_bysub$capthist, 1, function(x){sum((x))}))    
-dim(ch_bystep$capthist)
-summary(apply(ch_bystep$capthist, 1, function(x){sum((x))}))    
-
+# ch_bysub_ls <- lapply(1:10, function(x){
+#   sim_capthist_bysubset(tracksdf,
+#                         D_mesh,
+#                         lambda0,
+#                         sigma,
+#                         mesh,
+#                         traps,
+#                         trapspacing)$capthist})
+# 
+# ch_bystep_ls <- lapply(1:10, function(x){
+#   simulate_popandcapthist(traps,
+#                         tracksdf, 
+#                         lambda0,
+#                         sigma,
+#                         D_mesh,
+#                         mesh,
+#                         meshspacing,
+#                         hazdenom)$capthist})
+# 
+# summary(unlist(lapply(ch_bysub_ls, function(ch){
+#   (nrow(ch))
+#   })))
+# summary(unlist(lapply(ch_bystep_ls, function(ch){
+#   (nrow(ch))
+# })))
+# bigtrackstrapscr <-  read.traps(data = traps,
+#                           detector = "multi",
+#                           binary.usage = FALSE)
+# usage(bigtrackstrapscr) <- useall
+# 
+# pdot <- pdot(as.matrix(mesh),
+#      traps = bigtrackstrapscr,
+#      detectfn = "HHN",
+#      detectpar = list(lambda0 = lambda0, 
+#                       sigma = sigma),
+#      noccasions = length(unique(tracksdf$occ))
+#      )
+# sum(pdot * D_mesh)*meshspacing^2
+# 
+# 
+# dim(ch_bysub$capthist)
+# summary(apply(ch_bysub$capthist, 1, function(x){sum((x))}))    
+# dim(ch_bystep$capthist)
+# summary(apply(ch_bystep$capthist, 1, function(x){sum((x))}))    
+# 
 

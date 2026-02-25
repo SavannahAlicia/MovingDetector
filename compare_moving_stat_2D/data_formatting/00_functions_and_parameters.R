@@ -15,7 +15,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .008 #expected number of detections per m of trackline at AC
 sigma = 300
-N <- 69
+N <- 77
 beta1 <-  -0.015
 beta2 <- 0
 calcDv <- function(xs, 
