@@ -22,7 +22,7 @@ clusterEvalQ(cl,
 clusterExport(cl, varlist = c(
   "sim_fit", "simulate_popandcapthist", "fit_capthist",
   "calcDv",
-  "traps", "tracksdf", "mesh", "meshspacing",
+  "traps", "tracksdf", "mesh", "meshspacing", "trapspacing",
   "dist_trapmesh", "useall", "lambda0", "sigma",
   "D_mesh_v", "D_mesh_f", "beta1", "beta2", "N", "hazdenom"
 ))
