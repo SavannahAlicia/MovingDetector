@@ -169,7 +169,7 @@ saveRDS(ch, "inst/ch.RDS")
                           mesh[,2],
                           v[3],
                           v[4],
-                          v[5],
+                          exp(v[5]),
                           meshspacing
     )
     

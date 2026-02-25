@@ -164,7 +164,7 @@ fit_capthist <- function(dist_trapmesh,
                                      mesh[,2],
                                      v[3],
                                      v[4],
-                                     v[5],
+                                    exp(v[5]),
                                      meshspacing)
       if (any(!is.finite(D_mesh_))) return(1e12)
       
@@ -188,7 +188,7 @@ fit_capthist <- function(dist_trapmesh,
                          mesh[,2],
                          v[3],
                          v[4],
-                         v[5],
+                         exp(v[5]),
                          meshspacing)
       
       out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
