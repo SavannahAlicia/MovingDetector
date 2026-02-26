@@ -145,6 +145,8 @@ setup_data <- function(sigma,
   #calculate distance matrix for all trap cells and mesh cells
   dist_trapmesh <- calc_dist_matC(as.matrix(traps),(as.matrix(mesh)))
   
+  meanstepsize = mean(tracksdf_$inc[tracksdf_$inc != 0])
+  
   out_ls <- list(traps = traps,
                  tracksdf = tracksdf, 
                  mesh = mesh,
@@ -152,7 +154,8 @@ setup_data <- function(sigma,
                  dist_trapmesh = dist_trapmesh,
                  useall = useall,
                  D_mesh_f = D_mesh_f,
-                 D_mesh_v = D_mesh_v
+                 D_mesh_v = D_mesh_v,
+                 meanstepsize = meanstepsize
                  )
   return(out_ls)
 }

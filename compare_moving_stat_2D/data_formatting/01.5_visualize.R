@@ -21,6 +21,7 @@ useall <- setup$useall
 D_mesh_f <- setup$D_mesh_f
 D_mesh_v <- setup$D_mesh_v
 nocc <- length(unique(tracksdf$occ))
+meanstepsize <- setup$meanstepsize
 
 rm(setup)
 

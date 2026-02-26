@@ -357,48 +357,47 @@ fit_capthist <- function(dist_trapmesh,
   return(out)
 }
 
-sim_fit <- function(traps,
-                    tracksdf, 
-                    mesh, 
-                    meshspacing,
-                    dist_trapmesh,
-                    useall,
-                    lambda0, 
-                    sigma, 
-                    D_mesh, 
-                    beta1, 
-                    beta2,
-                    N,
-                    hazdenom, 
-                    Dmod,
+sim_fit <- function(traps_,
+                    tracksdf_, 
+                    mesh_, 
+                    meshspacing_,
+                    dist_trapmesh_,
+                    useall_,
+                    lambda0_, 
+                    sigma_, 
+                    D_mesh_, 
+                    beta1_, 
+                    beta2_,
+                    N_,
+                    hazdenom_, 
+                    Dmod_,
+                    trapspacing_,
+                    meanstepsize_,
                     fitstat = FALSE){
-
-  meanstepsize = mean(tracksdf$inc[tracksdf$inc != 0])
-
   
-    capthistout <- simulate_popandcapthist(tracksdf,
-                                           D_mesh,
-                                           lambda0,
-                                           sigma,
-                                           mesh,
-                                           traps,
-                                           trapspacing)
-  out <- fit_capthist(dist_trapmesh,
-                                  useall,
-                                  lambda0,
-                                  sigma,
-                                  D_mesh,
-                                  beta1,
-                                  beta2,
-                                  N,
-                                  hazdenom,
-                                  mesh,
-                                  capthistout,
-                                  Dmod,
-                      meshspacing,
-                      meanstepsize,
-                      fitstat)
-
+  
+  capthistout <- simulate_popandcapthist(tracksdf_,
+                                         D_mesh_,
+                                         lambda0_,
+                                         sigma_,
+                                         mesh_,
+                                         traps_,
+                                         trapspacing_)
+  out <- fit_capthist(dist_trapmesh_,
+                      useall_,
+                      lambda0_,
+                      sigma_,
+                      D_mesh_,
+                      beta1_,
+                      beta2_,
+                      N_,
+                      hazdenom_,
+                      mesh_,
+                      capthistout,
+                      Dmod_,
+                      meshspacing_,
+                      meanstepsize_,
+                      fitstat_)
   return(out)
 }
 

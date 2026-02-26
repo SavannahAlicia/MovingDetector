@@ -21,7 +21,7 @@ clusterEvalQ(cl,
 # Export all objects/functions needed by sim_fit
 clusterExport(cl, varlist = c(
   "sim_fit", "simulate_popandcapthist", "fit_capthist",
-  "calcDv",
+  "calcDv", "meanstepsize",
   "traps", "tracksdf", "mesh", "meshspacing", "trapspacing",
   "dist_trapmesh", "useall", "lambda0", "sigma",
   "D_mesh_v", "D_mesh_f", "beta1", "beta2", "N", "hazdenom"
@@ -31,12 +31,23 @@ clusterExport(cl, varlist = c(
 start.time.all_q <- Sys.time()
 all_sim_fits_q <- parLapply(cl, 1:nsims, function(sim) {
   tryCatch({
-    sim_fit(traps, tracksdf, mesh, meshspacing,
-            dist_trapmesh, useall,
-            lambda0, sigma, D_mesh_v, 
-            beta1, beta2, N,
+    sim_fit(traps,
+            tracksdf, 
+            mesh, 
+            meshspacing,
+            dist_trapmesh,
+            useall,
+            lambda0, 
+            sigma, 
+            D_mesh_v, 
+            beta1, 
+            beta2,
+            N,
             hazdenom, 
-            Dmod = "~x^2")
+            Dmod = "~x^2",
+            trapspacing,
+            meanstepsize,
+            fitstat = FALSE)
   }, error = function(e) {
     list(
       ok = FALSE,
@@ -54,12 +65,23 @@ saveRDS(all_sim_fits_q, paste(dirstart,"variable_dens.Rds", sep = ""))
 start.time.all1 <- Sys.time()
 all_sim_fits <- parLapply(cl, 1:nsims, function(sim) {
   tryCatch({
-    sim_fit(traps, tracksdf, mesh, meshspacing,
-            dist_trapmesh, useall,
-            lambda0, sigma, D_mesh_f, 
-            beta1, beta2, N,
-            hazdenom,
-            Dmod = "~1")
+    sim_fit(traps,
+            tracksdf, 
+            mesh, 
+            meshspacing,
+            dist_trapmesh,
+            useall,
+            lambda0, 
+            sigma, 
+            D_mesh_f, 
+            beta1, 
+            beta2,
+            N,
+            hazdenom, 
+            Dmod = "~1",
+            trapspacing,
+            meanstepsize,
+            fitstat = FALSE)
   }, error = function(e) {
     list(
       ok = FALSE,
