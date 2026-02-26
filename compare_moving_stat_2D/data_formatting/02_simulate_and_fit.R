@@ -372,12 +372,8 @@ sim_fit <- function(traps,
                     hazdenom, 
                     Dmod,
                     fitstat = FALSE){
-  tracksdf$stepsize <- c(0,
-                         sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
-                                (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
-  tracksdf$stepsize[apply(as.array(unique(tracksdf$occ)), 1, 
-                          function(k){min(which(tracksdf$occ == k))})] <- 0
-  meanstepsize = mean(tracksdf$stepsize[tracksdf$inc != 0])
+
+  meanstepsize = mean(tracksdf$inc[tracksdf$inc != 0])
 
   
     capthistout <- simulate_popandcapthist(tracksdf,

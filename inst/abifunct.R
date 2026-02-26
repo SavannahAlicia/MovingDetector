@@ -12,8 +12,8 @@ modifymodel <- function(model, user_model){
 
 
 prep_dat_for_lik <- function(trapSteps,
-                             capthistscr,
-                             ){
+                             capthistscr
+){
   
   trapOrder <- trapSteps %>%
     select(x,y,TrapID,transect,effort) %>%
@@ -69,7 +69,7 @@ lik_opt <- function(startparams,
                     noDets,
                     effort,
                     model = NULL
-                    ){
+){
   n <- nrow(capthistscr)
   a <- attr(mask,'spacing')^2/100^2
   
@@ -85,13 +85,13 @@ lik_opt <- function(startparams,
   }else{
     model = correct_model
   }
-
+  
   ## Create design matrix
   desmat <- lapply(model, model.matrix,
                    data = data.frame(cbind(D = 1, 
-                                      lambda0 = 1, 
-                                      sigma = 1, 
-                                      covariates(mask))))
+                                           lambda0 = 1, 
+                                           sigma = 1, 
+                                           covariates(mask))))
   
   ## Calculate number of parameters
   npars = lapply(desmat,ncol)
@@ -140,9 +140,9 @@ lik_opt <- function(startparams,
       rowSums(sapply(seq_len(nrow(ind_dat)), function(j){
         colSums(rbind(
           log(1 - dpois(0, lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/10)),
-                      dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],] * ind_dat$last[j]/10,log = T),
-                      ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)
-          ))
+          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],] * ind_dat$last[j]/10,log = T),
+          ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)
+        ))
       })) - rowSums(transectLambda %*% diag(noDets[i,]))
     ) * D
     inner <- log(sum(exp(DKprod_eachx_log)) * a)
@@ -166,22 +166,14 @@ lik_opt <- function(startparams,
 }
 
 
-  
-  
-  
-  ## Local function to optimise
-  optimiser <- local ({
-    wrap <- function(params){
-      like_opt(params)
-    }
-  })
-  
-  args = list(f = optimiser,p = params,hessian = hessian, print.level = 1)
-  
-  ## Run optimiser
-  mod = do.call(nlm,args)
-  
-  ## Output optimised parameters, lambda matrix and p.
-  
-  return(mod)
-  
+
+
+
+## Local function to optimise
+optimiser <- local ({
+  wrap <- function(params){
+    like_opt(params)
+  }
+})
+
+

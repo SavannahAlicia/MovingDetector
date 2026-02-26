@@ -142,34 +142,4 @@ stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
 detinCH <- which(CH==1, arr.ind =T)
 #reorder CH to put ind_10 at the end
 CHorderi <- as.numeric(sapply(str_match_all(rownames(CH), "(ind_)(\\d+)"), function(x)x[,3]))
-  
-  
-  # fit_abinand <- scrFitMov(capthist = CH, 
-  #                          stepOrder = stepOrder,
-  #                          mask = mask, 
-  #                          trapSteps = trapSteps,
-  #                          model = list(D ~ x + x2),
-  #                          startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
-  #                          hessian = F)
-  # 
-set.seed(1)
-simdch <- simulate_popandcapthist(tracksdf, D_mesh_v, lambda0, sigma,
-                                  mesh, traps, trapspacing)
-calc_nll(dist_trapmesh,
-           useall,
-           lambda0, 
-           sigma, 
-           D_mesh, 
-           beta1, 
-           beta2,
-           N,
-           hazdenom, 
-           mesh, 
-           capthistout = simdch,
-           Dmod = "~x^2",
-           meshspacing,
-           meanstepsize)
-
-
-set.seed(1)
 
