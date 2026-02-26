@@ -26,7 +26,7 @@ create_plots <- function(sim_fits_out,
   bothconv <- (statconv == 1 & movconv == 1)
   bothconv[is.na(bothconv)] <- FALSE
   
-  sim_fits_out <- sim_fits_out[bothconv]
+  sim_fits_out <- sim_fits_out[movconv]
   
   ###------------------------compare computation time-----------------------------
   
