@@ -7,6 +7,8 @@ source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/abifunct.R")
 
 #--------------Try calculating one llk value------------------------------------
+sim_fit <- function(sim){
+
 simdch <- simulate_popandcapthist(tracksdf, D_mesh_v, lambda0, sigma,
                                   mesh, traps, trapspacing)
 ch <- simdch$capthist
@@ -75,3 +77,20 @@ fit_my <- fit_capthist(dist_trapmesh,
                        meanstepsize = mean(tracksdf$inc[tracksdf$inc != 0]),
                        fitstat = FALSE
 )
+abi_out <- c(b0 = fit_abi$estimate[1],
+                beta2 = fit_abi$estimate[2],
+                beta1 = fit_abi$estimate[3],
+                lambda0 = fit_abi$estimate[4],
+                sigma = fit_abi$estimate[5],
+                code = fit_abi$code)
+my_out <- c(lambda0 = fit_my$movdet_est$value[1],
+               sigma = fit_my$movdet_est$value[2],
+               beta1 = fit_my$movdet_est$value[3],
+               beta2 = fit_my$movdet_est$value[4],
+               N = fit_my$movdet_est$value[5],
+               code = fit_my$mov_conv)
+return(list(myout = my_out,
+            abiout = abi_out))
+}
+fits <- mclapply(1:nsims, sim_fit, mc.cores = 25)
+
