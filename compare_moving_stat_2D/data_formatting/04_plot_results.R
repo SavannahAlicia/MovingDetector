@@ -283,10 +283,10 @@ create_plots <- function(sim_fits_out,
   
   beta2plot <- ggplot() +
     geom_boxplot(all_outs[all_outs$name == "beta2",],
-                 mapping = aes(y = 100*(value-beta2)/sd_value, col = model), size = linesize) +
+                 mapping = aes(y = beta2, col = model), size = linesize) +
     scale_color_manual(values = plotcols) +
     scale_fill_manual(values = plotcols) +
-    ylab("beta2 % \nstandardized bias") +
+    ylab("beta2") +
     theme_bw() +
     theme(axis.title.y = element_text(size = fontsize),
           axis.text.x = element_blank(),
