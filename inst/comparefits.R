@@ -92,5 +92,7 @@ my_out <- c(lambda0 = fit_my$movdet_est$value[1],
 return(list(myout = my_out,
             abiout = abi_out))
 }
-fits <- mclapply(1:nsims, sim_fit, mc.cores = 25)
+fit <- sim_fit(1)
+#fits <- mclapply(1:nsims, sim_fit, mc.cores = 25)
+
 
