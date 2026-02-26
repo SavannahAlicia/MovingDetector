@@ -1,3 +1,5 @@
+library(rlang)
+library(tidyverse)
 
 lambda_hhn <- function(d,lambda0,sigma){
   return(lambda0*exp(-d^2/(2*(sigma^2))))
@@ -51,10 +53,11 @@ prep_dat_for_lik <- function(trapSteps,
     dplyr::select(effort,transect) %>%
     split(.,.$transect) %>%
     map(\(t) t$effort)
-  
+  distmat = lapply(traps, \(x) edist(x[,1:2],mask))
   outs <- list(dets = dets,
                noDets = noDets,
-               effort = effort)
+               effort = effort,
+               distmat = distmat)
   
   return(outs)
   
@@ -136,12 +139,16 @@ lik_opt <- function(startparams,
   
   llk_inner <- function(i){
     ind_dat <- dets[[i]]
+    Js <- seq_len(nrow(ind_dat))
     DKprod_eachx_log <- (
-      rowSums(sapply(seq_len(nrow(ind_dat)), function(j){
+      rowSums(sapply(Js, function(j){
+        tr_j <- ind_dat$transect[j]
+        o_j <- ind_dat$order[j]
+        l_j <- ind_dat$last[j]
         colSums(rbind(
-          log(1 - dpois(0, lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/10)),
-          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],] * ind_dat$last[j]/10,log = T),
-          ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)
+          log(1 - dpois(0, lambda_x_mat[[tr_j]][o_j,]/10)),
+          dpois(0,lambda_x_mat[[tr_j]][o_j,] * l_j/10,log = T),
+          ifelse(o_j>1,1,0)*dpois(0,lambda_x_mat[[tr_j]][c(1:(o_j-1)),]/10,log = T)
         ))
       })) - rowSums(transectLambda %*% diag(noDets[i,]))
     ) * D
@@ -149,20 +156,20 @@ lik_opt <- function(startparams,
     out_ls <- list(DKprod_eachx_log = DKprod_eachx_log,
                    inner = inner)
   }
-  
+  inds <- rownames(capthistscr)
   DKprod_eachx_log <- sapply(inds, function(i){llk_inner(i)$DKprod_eachx_log})
-  lik_all_ind <- sapply(inds,function(i){llk_inner(i)$inner})
+  integral_eachi_log <- sapply(inds,function(i){llk_inner(i)$inner})
   
   ### the full likelihood
-  loglik = - sum(D * a * prob_capt) - lfactorial(n) + sum(lik_all_ind)
-  out_ls <- list(negloglik = -loglike,
-                 notseen_log,
-                 #integral_eachi_log,
+  loglik =  -sum(D * a * prob_capt) - lfactorial(n) + sum(integral_eachi_log)
+  out_ls <- list(negloglik = -loglik,
+                 notseen_log = notseen_log,
+                 integral_eachi_log = integral_eachi_log,
                  #sumallhuexcept,
                  #didntsurvivej_log,
-                 DKprod_eachx_log,
-                 Dx_pdotxs)
-  return(-loglik)
+                 DKprod_eachx_log = DKprod_eachx_log,
+                 pdotxs = prob_capt)
+  return(out_ls)
 }
 
 

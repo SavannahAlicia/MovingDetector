@@ -9,27 +9,13 @@ source("inst/abifunct.R")
 simdch <- simulate_popandcapthist(tracksdf, D_mesh_v, lambda0, sigma,
                                   mesh, traps, trapspacing)
 ch <- simdch$capthist
+induse <- simdch$induse
 
-#me
-myllk <- calc_nll(dist_trapmesh,
-                  useall,
-                  lambda0, 
-                  sigma, 
-                  D_mesh = D_mesh_v, 
-                  beta1, 
-                  beta2,
-                  N,
-                  hazdenom, 
-                  mesh, 
-                  capthistout = simdch,
-                  Dmod = "~x^2",
-                  meshspacing,
-                  meanstepsize = mean(tracksdf$inc[tracksdf$inc != 0]))
-#Abinand
+#Abinand data setup
 eta = beta1*((mesh$x/meshspacing + beta2)^2 )
 Z = sum(exp(eta)) * meshspacing
 b0 = log(N/Z) 
-startparams <- c(b0,beta2,beta1,log(lambda0),log(sigma))
+startparams <- c(b0,beta2,beta1,log(lambda0*100),log(sigma))
 #make trapSteps
 trapSteps <- data.frame(matrix(nrow = nrow(tracksdf), ncol = 0))
 trapSteps$x <- traps$x[tracksdf$trapno]
@@ -71,38 +57,57 @@ fmt = "trapID"
 stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
   induse[detinch[r,1], detinch[r,3], detinch[r,2]]/10
 })
+distmat = lapply(as.list(1:nrow(traps)), \(x) edist(traps[x,1:2],mesh))
 
 datobj <- prep_dat_for_lik(trapSteps, CH)
+
+
+#likelihoods
+myllk <- calc_nll(dist_trapmesh,
+                  useall,
+                  lambda0, 
+                  sigma, 
+                  D_mesh = D_mesh_v, 
+                  beta1, 
+                  beta2,
+                  N,
+                  hazdenom, 
+                  mesh, 
+                  capthistout = simdch,
+                  Dmod = "~x^2",
+                  meshspacing,
+                  meanstepsize = mean(tracksdf$inc[tracksdf$inc != 0]))
+
 abillk <- lik_opt(startparams,
                   capthistscr= CH,
-                  mask = mesh,
-                  distmat = ,
-                  nOccasion = nreps,
-                  dets,
-                  noDets,
-                  effort,
-                  model = NULL
+                  mask = mask,
+                  distmat = datobj$distmat,
+                  nOccasion = occreps,
+                  dets = datobj$dets,
+                  noDets = datobj$noDets,
+                  effort = datobj$effort,
+                  model = list(D ~ x + x2)
 )
 
 #Try one fit
-
-myfit <- fit_capthist(dist_trapmesh,
-                      useall,
-                      lambda0, 
-                      sigma, 
-                      D_mesh, 
-                      beta1, 
-                      beta2,
-                      N,
-                      hazdenom, 
-                      mesh, 
-                      capthistout,
-                      Dmod,
-                      meshspacing,
-                      meanstepsize,
-                      fitstat = FALSE
-)
-
-abifit <- nlm(lik_opt, startparams, print = 1)
+# 
+# myfit <- fit_capthist(dist_trapmesh,
+#                       useall,
+#                       lambda0, 
+#                       sigma, 
+#                       D_mesh, 
+#                       beta1, 
+#                       beta2,
+#                       N,
+#                       hazdenom, 
+#                       mesh, 
+#                       capthistout,
+#                       Dmod,
+#                       meshspacing,
+#                       meanstepsize,
+#                       fitstat = FALSE
+# )
+# 
+# abifit <- nlm(lik_opt, startparams, print = 1)
 
 
