@@ -1,6 +1,7 @@
 #compare fits between my script and Abinand's
 source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
+source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/BananSim.R")
 nsims = 30
 trap_n_vert = round(ntrapsish/trap_n_horiz)
@@ -22,6 +23,8 @@ tracksdf <- surv_obj$tracksdf
 traps <- surv_obj$traps
 mesh <- surv_obj$mesh
 D_mesh <- surv_obj$D_mesh_v
+useall <- surv_obj$useall
+dist_trapmesh <- surv_obj$dist_trapmesh
 meanstepsize = mean(tracksdf$inc[tracksdf$inc !=0])
 
 #create input objects for Abinand's
@@ -102,23 +105,23 @@ capthist[capthist!=0] <- 1
 ch <- capthist
 saveRDS(ch, "inst/ch.RDS")
 
-  trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
+trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
                         x = traps$x,
                         y = traps$y),
                         detector = "proximity")
-  rownames(trapscr) <- paste0("Trap", 1:nrow(traps))
-  saveRDS(trapscr, "inst/trapscr.RDS")
+rownames(trapscr) <- paste0("Trap", 1:nrow(traps))
+saveRDS(trapscr, "inst/trapscr.RDS")
 
 
-  eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
-  Z = sum(exp(eta)) * meshspacing^2/100^2
-  D = N * exp(eta) / Z
+eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
+Z = sum(exp(eta)) * meshspacing^2/100^2
+D = N * exp(eta) / Z
   
-  b0 = log(N/Z) 
+b0 = log(N/Z) 
   
-  #stepOrder is just the vector of last step where det happens
-  detinch <- which(ch == 1, arr.ind = T) #ikj
-  CH <- make.capthist(captures = data.frame(
+#stepOrder is just the vector of last step where det happens
+detinch <- which(ch == 1, arr.ind = T) #ikj
+CH <- make.capthist(captures = data.frame(
                           Session = 1,
                           ID = paste0("ind_", detinch[,1]),
                          Occasion = c(ifelse(detinch[,2] %% 2 ==0,1,2)), #so occasions 2 and 4 are 1, 1 and 3 are 2
@@ -128,16 +131,16 @@ saveRDS(ch, "inst/ch.RDS")
     fmt = "trapID"
   )
   
-  detinch <- data.frame(detinch) %>%
+detinch <- data.frame(detinch) %>%
     arrange(as.character(dim1), dim3, dim2)
   
-  stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
+stepOrder <- apply(as.array(1:nrow(detinch)), 1, function(r){
     induse[detinch[r,1], detinch[r,3], detinch[r,2]]/10
   })
   
-  detinCH <- which(CH==1, arr.ind =T)
-  #reorder CH to put ind_10 at the end
-  CHorderi <- as.numeric(sapply(str_match_all(rownames(CH), "(ind_)(\\d+)"), function(x)x[,3]))
+detinCH <- which(CH==1, arr.ind =T)
+#reorder CH to put ind_10 at the end
+CHorderi <- as.numeric(sapply(str_match_all(rownames(CH), "(ind_)(\\d+)"), function(x)x[,3]))
   
   
   # fit_abinand <- scrFitMov(capthist = CH, 
@@ -148,46 +151,23 @@ saveRDS(ch, "inst/ch.RDS")
   #                          startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
   #                          hessian = F)
   # 
-  start0 <- c(
-    log(lambda0),
-    log(sigma),
-    beta1, 
-    beta2, 
-    log(N))
-  scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
-  start <- start0/scaling_factors
-  
-  #moving detector likelihood
-  nll <- function(v_scaled){
-    v <- v_scaled * 1
-    lambda0_ <- exp(v[1])
-    if (!is.finite(lambda0_)) return(1e12)
-    
-    sigma_ <- exp(v[2])
-    if (!is.finite(sigma_)) return(1e12)
-    D_mesh_ <- calcDv(mesh[,1] ,
-                          mesh[,2],
-                          v[3],
-                          v[4],
-                          exp(v[5]),
-                          meshspacing
-    )
-    
-    out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
-                                       sigma = sigma_,  
-                                       haz_denom = 1,
-                                       D_mesh = D_mesh_,
-                                       capthist = ch, 
-                                       usage = surv_obj$useall,
-                                       indusage = induse, 
-                                       distmat = surv_obj$dist_trapmesh,
-                                       mesh = as.matrix(mesh),
-                                       mesharea = meshspacing^2,
-                                       meanstepsize = meanstepsize)
-   
-    return(out)
-  }
-  llkme <- nll(start)
+calc_nll(dist_trapmesh,
+           useall,
+           lambda0, 
+           sigma, 
+           D_mesh, 
+           beta1, 
+           beta2,
+           N,
+           hazdenom, 
+           mesh, 
+           capthistout = list(capthist = capthist, 
+                              induse = induse),
+           Dmod = "~x^2",
+           meshspacing,
+           meanstepsize)
+
+  llkme <- calc_nll(start)
   
   
   fit_me <- optim(par = start,

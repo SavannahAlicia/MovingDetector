@@ -343,6 +343,7 @@ fit_capthist <- function(dist_trapmesh,
     }
     
     return(interval)
+    
   } 
   
   out <- list(statdet_est = assemble_CIs(fit_sd), 
@@ -403,3 +404,149 @@ sim_fit <- function(traps,
                       fitstat)
   return(out)
 }
+
+calc_nll <- function(dist_trapmesh,
+                         useall,
+                         lambda0, 
+                         sigma, 
+                         D_mesh, 
+                         beta1, 
+                         beta2,
+                         N,
+                         hazdenom, 
+                         mesh, 
+                         capthistout,
+                         Dmod,
+                         meshspacing,
+                         meanstepsize
+){
+  if(!Dmod %in% c("~1", "~x^2")){
+    stop("Dmod must be specified ~1 or ~x^2")
+  }
+  
+  capthist = capthistout$capthist
+  induse = capthistout$induse
+  fit.time.sim = capthistout$fit.time.sim
+  
+  #in case mesh is df
+  mesh_mat <- as.matrix(mesh)
+  
+  #grid with stationary detector likelihood
+  if (Dmod == "~1"){
+    start0 <- c( 
+      log(lambda0),
+      log(sigma), log(D_mesh[1]))
+    scaling_factors <-  rep(1, length(start0)) #10^round(log10(pmax(abs(start0), 1e-8)))
+    start <- start0/scaling_factors
+    
+    stat_nll <- function(v_scaled ){
+      v <- v_scaled * scaling_factors 
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
+      sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
+      D_mesh_ <- rep(exp(v[3]), nrow(mesh_mat))
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
+      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+                                             hazdenom, D_mesh_, 
+                                             capthist, useall,
+                                             dist_trapmesh, mesh_mat,
+                                             mesharea = meshspacing^2)
+      
+      return(out)
+    }
+    #moving detector likelihood
+    nll <- function(v_scaled ){
+      v <- v_scaled * scaling_factors 
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
+      sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
+      D_mesh_ <- rep(exp(v[3]), nrow(mesh))
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
+      out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
+                                         hazdenom, D_mesh_,
+                                         capthist, useall,
+                                         induse, 
+                                         dist_trapmesh, 
+                                         mesh_mat,
+                                         mesharea = meshspacing^2,
+                                         meanstepsize)
+      return(out)
+    }
+    
+    
+  }else if(Dmod == "~x^2"){  
+    start0 <- c(
+      log(lambda0),
+      log(sigma),
+      beta1, 
+      beta2, 
+      log(N))
+    scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
+    start <- start0/scaling_factors
+    
+    #quadratic density function
+    stat_nll <- function(v_scaled){
+      v <- v_scaled * scaling_factors 
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
+      sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
+      D_mesh_  <- calcDv(mesh[,1] ,
+                         mesh[,2],
+                         v[3],
+                         v[4],
+                         exp(v[5]),
+                         meshspacing)
+      if (any(!is.finite(D_mesh_))) return(1e12)
+      
+      out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+                                             hazdenom, D_mesh_, 
+                                             capthist, useall,
+                                             dist_trapmesh, mesh_mat,
+                                             mesharea = meshspacing^2)
+      return(out)
+    }
+    #moving detector likelihood
+    nll <- function(v_scaled){
+      v <- v_scaled * scaling_factors 
+      lambda0_ <- exp(v[1])
+      if (!is.finite(lambda0_)) return(1e12)
+      
+      sigma_ <- exp(v[2])
+      if (!is.finite(sigma_)) return(1e12)
+      
+      D_mesh_  <- calcDv(mesh[,1] ,
+                         mesh[,2],
+                         v[3],
+                         v[4],
+                         exp(v[5]),
+                         meshspacing)
+      
+      out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
+                                         hazdenom, D_mesh_,
+                                         capthist, useall,
+                                         induse, 
+                                         dist_trapmesh,
+                                         mesh_mat,
+                                         mesharea = meshspacing^2,
+                                         meanstepsize)
+      return(out)
+    }
+  }  
+  
+  out_sd  <- stat_nll(start)
+  out_md <- nll(start)
+  return(list(sd = out_sd,
+              md = out_md))
+    
+  } 
