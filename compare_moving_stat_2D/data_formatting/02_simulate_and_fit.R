@@ -377,7 +377,7 @@ sim_fit <- function(traps,
                                 (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
   tracksdf$stepsize[apply(as.array(unique(tracksdf$occ)), 1, 
                           function(k){min(which(tracksdf$occ == k))})] <- 0
-  meanstepsize = mean(tracksdf$stepsize)
+  meanstepsize = mean(tracksdf$stepsize[tracksdf$inc != 0])
 
   
     capthistout <- simulate_popandcapthist(tracksdf,
@@ -387,22 +387,36 @@ sim_fit <- function(traps,
                                            mesh,
                                            traps,
                                            trapspacing)
-  out <- fit_capthist(dist_trapmesh,
-                                  useall,
-                                  lambda0, 
-                                  sigma, 
-                                  D_mesh, 
-                                  beta1, 
-                                  beta2,
-                                  N,
-                                  hazdenom, 
-                                  mesh, 
-                                  capthistout,
-                                  Dmod,
-                      meshspacing,
-                      meanstepsize,
-                      fitstat)
-  return(out)
+  # out <- fit_capthist(dist_trapmesh,
+  #                                 useall,
+  #                                 lambda0, 
+  #                                 sigma, 
+  #                                 D_mesh, 
+  #                                 beta1, 
+  #                                 beta2,
+  #                                 N,
+  #                                 hazdenom, 
+  #                                 mesh, 
+  #                                 capthistout,
+  #                                 Dmod,
+  #                     meshspacing,
+  #                     meanstepsize,
+  #                     fitstat)
+  test <- calc_nll(dist_trapmesh,
+                   useall,
+                   lambda0, 
+                   sigma, 
+                   D_mesh, 
+                   beta1, 
+                   beta2,
+                   N,
+                   hazdenom, 
+                   mesh, 
+                   capthistout,
+                   Dmod,
+                   meshspacing,
+                   meanstepsize)
+  return(test)
 }
 
 calc_nll <- function(dist_trapmesh,
