@@ -1,6 +1,7 @@
 #compare fits between my script and Abinand's
 source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
+#source("compare_moving_stat_2D/data_formatting/01.5_visualize.R")
 source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/BananSim.R")
 nsims = 30
@@ -151,6 +152,9 @@ CHorderi <- as.numeric(sapply(str_match_all(rownames(CH), "(ind_)(\\d+)"), funct
   #                          startparams = c(b0,beta2,beta1,log(lambda0),log(sigma)),
   #                          hessian = F)
   # 
+set.seed(1)
+simdch <- simulate_popandcapthist(tracksdf, D_mesh_v, lambda0, sigma,
+                                  mesh, traps, trapspacing)
 calc_nll(dist_trapmesh,
            useall,
            lambda0, 
@@ -161,13 +165,53 @@ calc_nll(dist_trapmesh,
            N,
            hazdenom, 
            mesh, 
-           capthistout = list(capthist = capthist, 
-                              induse = induse),
+           capthistout = simdch,
            Dmod = "~x^2",
            meshspacing,
            meanstepsize)
-
-  llkme <- calc_nll(start)
+set.seed(1)
+  sim_fit(traps, tracksdf, mesh, meshspacing, dist_trapmesh, useall, lambda0, sigma, D_mesh_v, beta1, beta2, N, 1, Dmod = "~x^2")
+  
+  start0 <- c(
+    log(lambda0),
+    log(sigma),
+    beta1, 
+    beta2, 
+    log(N))
+  scaling_factors <- rep(1, length(start0)) #10^round(log10(abs(start0)))
+  start <- start0/scaling_factors
+  
+  #moving detector likelihood
+  nll <- function(v_scaled){
+    v <- v_scaled * 1
+    lambda0_ <- exp(v[1])
+    if (!is.finite(lambda0_)) return(1e12)
+    
+    sigma_ <- exp(v[2])
+    if (!is.finite(sigma_)) return(1e12)
+    D_mesh_ <- calcDv(mesh[,1] ,
+                      mesh[,2],
+                      v[3],
+                      v[4],
+                      exp(v[5]),
+                      meshspacing
+    )
+    
+    out <- negloglikelihood_moving_cpp(lambda0 = lambda0_, 
+                                       sigma = sigma_,  
+                                       haz_denom = 1,
+                                       D_mesh = D_mesh_,
+                                       capthist = simdch$capthist, 
+                                       usage = useall,
+                                       indusage = simdch$induse, 
+                                       distmat = dist_trapmesh,
+                                       mesh = as.matrix(mesh),
+                                       mesharea = meshspacing^2,
+                                       meanstepsize = meanstepsize)
+    
+    return(out)
+  }
+  llkme2 <- nll(start)
   
   
   fit_me <- optim(par = start,
