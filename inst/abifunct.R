@@ -1,11 +1,8 @@
-library(rlang)
-library(tidyverse)
+##### Half normal encounter rate function
 
 lambda_hhn <- function(d,lambda0,sigma){
   return(lambda0*exp(-d^2/(2*(sigma^2))))
 }
-
-
 
 
 modifymodel <- function(model, user_model){
@@ -13,9 +10,45 @@ modifymodel <- function(model, user_model){
 }
 
 
-prep_dat_for_lik <- function(trapSteps,
-                             capthistscr
-){
+scrFitMov <- function(capthist,
+                      stepOrder,
+                      mask,
+                      trapSteps,
+                      model = NULL, 
+                      startparams = NULL,
+                      hessian = F){
+  
+  ## Define the standard formula
+  correct_model = list(D~1,lambda0~1,sigma~1)
+  ##Name the list with the formulae
+  names(correct_model) <- lapply(correct_model, f_lhs)
+  
+  ## Use initial parameters if provided
+  if(!is.null(model)) {
+    names(model) <- lapply(model, f_lhs)
+    model = modifymodel(correct_model,model)
+  }else{
+    model = correct_model
+  }
+  
+  ## Remove single encounters
+  
+  lambda_x <- lambda_hhn  ### Hazard half normal encounter rate
+  
+  ## Create design matrix
+  desmat <- lapply(model,model.matrix,data = 
+                     data.frame(cbind(D = 1,lambda0 = 1,sigma = 1, covariates(mask))))
+  
+  ## Calculate number of parameters
+  npars = lapply(desmat,ncol)
+  
+  ### extract number of individuals detected
+  n <- nrow(capthist)
+  
+  inds <- rownames(capthist)
+  
+  ### Area of each pixel
+  a <- attr(mask,'spacing')^2/100^2
   
   trapOrder <- trapSteps %>%
     select(x,y,TrapID,transect,effort) %>%
@@ -25,9 +58,9 @@ prep_dat_for_lik <- function(trapSteps,
     group_by(transect) %>%
     mutate(order = 1:n())
   
-  nOccasion <- max(occasion(capthistscr))
+  nOccasion <- max(occasion(capthist))
   
-  capthistMov <- data.frame(capthistscr) %>%
+  capthistMov <- data.frame(capthist) %>%
     arrange(ID) %>% 
     mutate(last = stepOrder-1) %>% 
     left_join(trapOrder) %>%
@@ -53,56 +86,15 @@ prep_dat_for_lik <- function(trapSteps,
     dplyr::select(effort,transect) %>%
     split(.,.$transect) %>%
     map(\(t) t$effort)
+  ## distance from traps to each mask point
   distmat = lapply(traps, \(x) edist(x[,1:2],mask))
-  outs <- list(dets = dets,
-               noDets = noDets,
-               effort = effort,
-               distmat = distmat)
   
-  return(outs)
   
-}
-
-lik_opt <- function(startparams,
-                    capthistscr,
-                    mask,
-                    distmat,
-                    nOccasion,
-                    dets,
-                    noDets,
-                    effort,
-                    model = NULL
-){
-  n <- nrow(capthistscr)
-  a <- attr(mask,'spacing')^2/100^2
-  
-  ## Define the standard formula
-  correct_model = list(D~1, lambda0~1, sigma~1)
-  ##Name the list with the formulae
-  names(correct_model) <- lapply(correct_model, f_lhs)
-  
-  ## Use initial parameters if provided
-  if(!is.null(model)) {
-    names(model) <- lapply(model, f_lhs)
-    model = modifymodel(correct_model,model)
-  }else{
-    model = correct_model
-  }
-  
-  ## Create design matrix
-  desmat <- lapply(model, model.matrix,
-                   data = data.frame(cbind(D = 1, 
-                                           lambda0 = 1, 
-                                           sigma = 1, 
-                                           covariates(mask))))
-  
-  ## Calculate number of parameters
-  npars = lapply(desmat,ncol)
   ## Set up the parameter vector
   if(!is.null(startparams)){
     params = startparams
   }else{
-    autopars = autoini(capthistscr,mask)
+    autopars = autoini(capthist,mask)
     D = numeric(length = npars$D)
     D[1] = log(autopars$D)
     lambda0 = numeric(length = npars$lambda0)
@@ -113,74 +105,55 @@ lik_opt <- function(startparams,
   }
   
   ## Vector of the index of each parameter
-  args.index = split(1:length(params),
-                     rep(c('D','lambda0','sigma'),
-                         times = c(npars$D,npars$lambda0,npars$sigma)))
+  args.index = split(1:length(params),rep(c('D','lambda0','sigma'),times = c(npars$D,npars$lambda0,npars$sigma)))
   
-  D = exp(desmat$D %*% params[args.index$D])
-  lambda0 = exp(params[args.index$lambda0])
-  sigma = exp(params[args.index$sigma])
+  ## Local function to optimise
+  optimiser <- local ({
+    lik_opt <- function(params){
+      D = exp(desmat$D %*% params[args.index$D])
+      lambda0 = exp(params[args.index$lambda0])
+      sigma = exp(params[args.index$sigma])
+      
+      lambda_x_mat <- lapply(1:length(distmat),\(x) t(t(lambda_x(distmat[[x]],lambda0,sigma)) %*% diag(effort[[x]])))
+      
+      ### 21*1092 (traps x mask)
+      
+      transectLambda <- sapply(lambda_x_mat,colSums)
+      
+      prob_no_capt <-  exp(-rowSums(transectLambda*nOccasion)) ### Probability of 0 encounters
+      
+      prob_capt <- 1 - prob_no_capt ### probability of atleast 2 encounters
+      
+      lik_all_ind <- sapply(inds,\(i){
+        ind_dat <- dets[[i]]
+        log(sum(exp(
+          rowSums(sapply(seq_len(nrow(ind_dat)), \(j){
+            colSums(rbind(log(1 - dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/10)),
+                          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]*ind_dat$last[j]/10,log = T),
+                          ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)))
+          })) - rowSums(transectLambda %*% diag(noDets[i,]))
+        )*D*a))
+      })
+      
+      ### the full likelihood
+      loglik = - sum(D * a * prob_capt) - lfactorial(n) + sum(lik_all_ind)
+      
+      return(-loglik)
+    }
+  })
   
-  #hu list length ntransects, matrix of ntrap (per transect) by nmesh 
-  lambda_x_mat <- lapply(1:length(distmat),function(x){
-    t(t(lambda_hhn(distmat[[x]],lambda0,sigma)) %*% diag(effort[[x]]))
-  } )
+  #return(optimiser(params))
   
-  #sum of hu nmesh by ntransect
-  transectLambda <- sapply(lambda_x_mat,colSums)
-  notseen_log <- t(do.call(rbind, 
-                           replicate(nOccasion, t(-transectLambda), simplify = F)))
+  args = list(f = optimiser,p = params,hessian = hessian, print.level = 1)
   
+  ## Run optimiser
+  mod = do.call(nlm,args)
   
-  prob_no_capt <-  exp(-rowSums(transectLambda*nOccasion)) ### Probability of 0 encounters
+  ## Output optimised parameters, lambda matrix and p.
   
-  prob_capt <- 1 - prob_no_capt ### probability of atleast 2 encounters
-  Dx_pdotxs <- prob_capt * D
+  return(mod)
   
-  llk_inner <- function(i){
-    ind_dat <- dets[[i]]
-    Js <- seq_len(nrow(ind_dat))
-    DKprod_eachx_log <- (
-      rowSums(sapply(Js, function(j){
-        tr_j <- ind_dat$transect[j]
-        o_j <- ind_dat$order[j]
-        l_j <- ind_dat$last[j]
-        colSums(rbind(
-          log(1 - dpois(0, lambda_x_mat[[tr_j]][o_j,]/10)),
-          dpois(0,lambda_x_mat[[tr_j]][o_j,] * l_j/10,log = T),
-          ifelse(o_j>1,1,0)*dpois(0,lambda_x_mat[[tr_j]][c(1:(o_j-1)),]/10,log = T)
-        ))
-      })) - rowSums(transectLambda %*% diag(noDets[i,]))
-    ) * D
-    inner <- log(sum(exp(DKprod_eachx_log)) * a)
-    out_ls <- list(DKprod_eachx_log = DKprod_eachx_log,
-                   inner = inner)
-  }
-  inds <- rownames(capthistscr)
-  DKprod_eachx_log <- sapply(inds, function(i){llk_inner(i)$DKprod_eachx_log})
-  integral_eachi_log <- sapply(inds,function(i){llk_inner(i)$inner})
-  
-  ### the full likelihood
-  loglik =  -sum(D * a * prob_capt) - lfactorial(n) + sum(integral_eachi_log)
-  out_ls <- list(negloglik = -loglik,
-                 notseen_log = notseen_log,
-                 integral_eachi_log = integral_eachi_log,
-                 #sumallhuexcept,
-                 #didntsurvivej_log,
-                 DKprod_eachx_log = DKprod_eachx_log,
-                 pdotxs = prob_capt)
-  return(out_ls)
 }
 
-
-
-
-
-## Local function to optimise
-optimiser <- local ({
-  wrap <- function(params){
-    like_opt(params)
-  }
-})
 
 
