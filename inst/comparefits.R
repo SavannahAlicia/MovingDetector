@@ -106,5 +106,5 @@ return(list(myout = my_out,
 }
 #fit <- sim_fit(1)
 fits <- mclapply(1:nsims, sim_fit, mc.cores = nsims)
-
+saveRDS(fits, "inst/fitstocompare.Rds")
 
