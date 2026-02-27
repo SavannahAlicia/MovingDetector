@@ -74,28 +74,35 @@ setup_data <- function(sigma,
   xgr <- seq(min(tracksdf$x)+(0.5 * trapspacing), max(tracksdf$x), by = trapspacing)
   ygr <- seq(min(tracksdf$y),#-(0.5 * trapspacing),
              max(tracksdf$y), by = trapspacing)
+  #candidate traps
   gr <- expand.grid(xgr, ygr)
   # allocate track records to grid
   trapno <- rep(0, nrow(tracksdf))
-  for (tr in 1:length(trapno)) {
-    cat(tr, " / ", length(trapno), "\r")
-    d <- sqrt((tracksdf[tr, ]$x - gr[, 1])^2 + (tracksdf[tr, ]$y - gr[, 2])^2)
+  for (tdf_row in 1:nrow(tracksdf)) {
+    cat(tdf_row, " / ", length(trapno), "\r")
+    #distance from this tracksdf midpoint (between it and prev) to all grid points
+    d <- sqrt((tracksdf[tdf_row, ]$midx - gr[, 1])^2 + (tracksdf[tdf_row, ]$midy - gr[, 2])^2)
     dmin <- min(d)
-    #this needs to assign to the first trap
-    candidatetrap <- which(d==dmin) #but this returns first trap
+    #candidate traps are those traps at min distance
+    candidatetrap <- which(d==dmin) # of gr
     if(length(candidatetrap)==1){
-      trapno[tr] <- candidatetrap
+      trapno[tdf_row] <- candidatetrap
     } else { #if there are two candidate traps
       #we need to choose the first one
       #check if there is an earlier tracksdfpt
-      if(tr>1){ #if its not the first point in tracksdf
-        #calculate the midpoint between two trackpoints
-        midx <- mean(c(tracksdf[tr,"x"],tracksdf[tr-1, "x"]))
-        #return the trap of two candidates closest to that
-        trapno[tr] <- candidatetrap[which.min(c(gr[candidatetrap[1],1], gr[candidatetrap[2],1])-midx)]
-      } else {
+      if(tdf_row == 1){ 
         #if this if the first point in tracksdf, it doesn't matter
-        trapno[tr] <- candidatetrap[2]
+        trapno[tdf_row] <- candidatetrap[2]
+      } else {
+        # associate the step with whichever trap is closest to the xy in row tdf_row
+        # (which is the endpoint of the step) since this is where detection is 
+        # attributed (and effort will be cut off between traps)
+        td <- sqrt((gr[candidatetrap,1] - tracksdf[tdf_row,"x"])^2 + 
+                     (gr[candidatetrap,2] - tracksdf[tdf_row,"y"])^2)
+        candidatetrap <- candidatetrap[which(td == min(td))]
+        
+        trapno[tdf_row] <- candidatetrap
+                
       }
       #
     }
