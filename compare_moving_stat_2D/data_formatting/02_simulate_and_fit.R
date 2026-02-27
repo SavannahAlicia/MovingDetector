@@ -280,12 +280,12 @@ fit_capthist <- function(dist_trapmesh,
   if(fitstat){
     
     start.time.sd <- Sys.time()
-    fit_sd <- optim(par = start,
-                    fn = stat_nll,
-                    hessian = F, method = "Nelder-Mead") #NM is best at this likelihood, even though slower
-    fit_sd_con = fit_sd$convergence
-    if(fit_sd_con == 0){
-      fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$par,method = "Richardson",
+    fit_sd <- nlm(p = start,
+                    f = stat_nll,
+                  hessian = FALSE) 
+    fit_sd_con = fit_sd$code
+    if(fit_sd_con == 1){
+      fit_sd$hessian <- numDeriv::hessian(stat_nll, x = fit_sd$estimate,method = "Richardson",
                                           method.args = list(eps = 1e-5, d = 1e-3, r = 3))
       fit.time.sd <- difftime(Sys.time(), start.time.sd, units = "secs") #includes hessian
       
@@ -301,12 +301,12 @@ fit_capthist <- function(dist_trapmesh,
   }
   
   start.time.md <- Sys.time()
-  fit_md <- optim(par = start,
-                  fn = nll,
-                  hessian = F, method = "Nelder-Mead")
-  fit_md_con = fit_md$convergence
-  if(fit_md_con == 0){
-    fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$par,method = "Richardson",
+  fit_md <- nlm(p = start,
+                  f = nll,
+                hessian = FALSE)
+  fit_md_con = fit_md$code
+  if(fit_md_con == 1){
+    fit_md$hessian <- numDeriv::hessian(nll, x = fit_md$estimate,method = "Richardson",
                                         method.args = list(eps = 1e-6, d = 1e-4, r = 4))
     
     fit.time.md <- difftime(Sys.time(), start.time.md, units = "secs")
@@ -323,14 +323,14 @@ fit_capthist <- function(dist_trapmesh,
                   "beta2", "N")
   }
   assemble_CIs <- function(fit){
-    if(fit$convergence == 0){
+    if(fit$code == 1){
       fisher_info <- MASS::ginv(fit$hessian)
       prop_sigma <- sqrt(diag(fisher_info))
       prop_sigma <- diag(prop_sigma)
-      upper <- fit$par+1.96*prop_sigma
-      lower <- fit$par-1.96*prop_sigma
+      upper <- fit$estimate+1.96*prop_sigma
+      lower <- fit$estimate-1.96*prop_sigma
       interval <- data.frame(name = outnames,
-                             value = fit$par * scaling_factors, 
+                             value = fit$estimate * scaling_factors, 
                              upper = diag(upper) * scaling_factors, 
                              lower = diag(lower) * scaling_factors
       )
@@ -373,7 +373,7 @@ sim_fit <- function(traps_,
                     Dmod_,
                     trapspacing_,
                     meanstepsize_,
-                    fitstat = FALSE){
+                    fitstat_ = FALSE){
   
   
   capthistout <- simulate_popandcapthist(tracksdf_,

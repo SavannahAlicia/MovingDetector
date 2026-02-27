@@ -1,7 +1,8 @@
 #fit multiple models and save output
-ncores <- 30
+ncores <- n_cores
 cl <- makeCluster(ncores)
 
+clusterSetRNGStream(cl, theseed)
 # Load packages on workers
 clusterEvalQ(cl, 
              {library(Rcpp)
@@ -47,7 +48,7 @@ all_sim_fits_q <- parLapply(cl, 1:nsims, function(sim) {
             Dmod = "~x^2",
             trapspacing,
             meanstepsize,
-            fitstat = FALSE)
+            fitstat_ = FALSE)
   }, error = function(e) {
     list(
       ok = FALSE,
@@ -81,7 +82,7 @@ all_sim_fits <- parLapply(cl, 1:nsims, function(sim) {
             Dmod = "~1",
             trapspacing,
             meanstepsize,
-            fitstat = FALSE)
+            fitstat_ = FALSE)
   }, error = function(e) {
     list(
       ok = FALSE,

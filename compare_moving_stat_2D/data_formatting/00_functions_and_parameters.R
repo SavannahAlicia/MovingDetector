@@ -15,7 +15,7 @@ Rcpp::sourceCpp("approx_movingdetectorlikelihood.cpp")
 #--------------------------------------true parameters -------------------------
 lambda0 = .008 #expected number of detections per m of trackline at AC
 sigma = 300
-N <- 77
+N <- 65
 beta1 <-  -0.015
 beta2 <- 0
 calcDv <- function(xs, 
@@ -41,7 +41,9 @@ nsteps_pertrap = 10
 occreps = 5
 
 nsims = 30
-set.seed(1994)
+n_cores = 30
+theseed = 1994
+set.seed(theseed)
 fontsize = 22
 printplots = F
 hazdenom = 1

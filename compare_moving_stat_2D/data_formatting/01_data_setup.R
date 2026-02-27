@@ -52,12 +52,10 @@ setup_data <- function(sigma,
   df2 <- tracksdf
   occ_1rep <- length(unique(tracksdf$occ))
   for(i in 2:occreps){
-    rep <- 1
-    df2$occ <- df2$occ + (occ_1rep * rep)
+    df2$occ <- df2$occ + (occ_1rep * (i-1))
     df2$time <- df2$time + 24*60*60
     df2$rep <- i
     tracksdf <- rbind(tracksdf, df2)
-    rep <- rep + 1
     
   }
   
@@ -92,7 +90,7 @@ setup_data <- function(sigma,
       #check if there is an earlier tracksdfpt
       if(tr>1){ #if its not the first point in tracksdf
         #calculate the midpoint between two trackpoints
-        midx <- mean(tracksdf[tr,"x"],tracksdf[tr-1, "x"])
+        midx <- mean(c(tracksdf[tr,"x"],tracksdf[tr-1, "x"]))
         #return the trap of two candidates closest to that
         trapno[tr] <- candidatetrap[which.min(c(gr[candidatetrap[1],1], gr[candidatetrap[2],1])-midx)]
       } else {
