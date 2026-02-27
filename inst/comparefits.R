@@ -4,6 +4,7 @@ source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
 source("compare_moving_stat_2D/data_formatting/01.5_visualize.R")
 source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
+source("inst/BananSim.R")
 source("inst/abifunct.R")
 
 #--------------Try calculating one llk value------------------------------------
@@ -21,7 +22,18 @@ trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
 
 rownames(trapscr) <- paste0("Trap", 1:nrow(traps))
 
-
+obj <- simulateScrTrapsMask(
+    nxTraps = trap_n_horiz,
+    nyTraps = (ntrapsish/trap_n_horiz),
+    nSteps = nsteps_pertrap,
+    maskSpacing = meshspacing,        #spacing between mask points
+    sigma = sigma,
+    trapSpacing = trapspacing,   # Spacing between traps in grid
+    N = N,
+    b1 = beta1,
+    b2 = beta2)
+mask <- obj$mask
+trapSteps <- obj$trapSteps
 
 eta = beta1*((mask$x/meshspacing + beta2)^2 )#+ (ys + beta2_)^2)
 Z = sum(exp(eta)) * meshspacing^2/100^2
@@ -33,7 +45,7 @@ b0 = log(N/Z)
 
 #stepOrder is just the vector of last step where det happens
 detinch <- which(ch == 1, arr.ind = T) #ikj
-
+trap_n_vert <- ntrapsish/trap_n_horiz
 CH <- make.capthist(captures = data.frame(
   Session = 1,
   ID = paste0("ind_", detinch[,1]),
@@ -92,7 +104,7 @@ my_out <- c(lambda0 = fit_my$movdet_est$value[1],
 return(list(myout = my_out,
             abiout = abi_out))
 }
-fit <- sim_fit(1)
-#fits <- mclapply(1:nsims, sim_fit, mc.cores = 25)
+#fit <- sim_fit(1)
+fits <- mclapply(1:nsims, sim_fit, mc.cores = nsims)
 
 
