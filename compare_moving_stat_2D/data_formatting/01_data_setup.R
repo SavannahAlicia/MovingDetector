@@ -122,15 +122,16 @@ setup_data <- function(sigma,
   mesh <- make.mask(traps[,c("x","y")], 
                     buffer = 4*sigma, 
                     spacing = meshspacing)
+  #should mesh be a dataframe? or matrix?
   
-  D_mesh_v  <- calcDv(mesh$x,
-                      mesh$y,
+  D_mesh_v  <- calcDv(mesh[, "x"],
+                      mesh[, "y"],
                       beta1, #will be 0 for flat D
                       beta2,
                       N,
                       meshspacing)
-  D_mesh_f  <- calcDv(mesh$x,
-                      mesh$y,
+  D_mesh_f  <- calcDv(mesh[, "x"],
+                      mesh[, "y"],
                       0, 
                       0,
                       N,

@@ -114,8 +114,8 @@ create_plots <- function(sim_fits_out,
     if (Dmodel == "variable"){
 
       meshstep = meshspacing/3
-      newmeshxys = expand.grid(seq(min(mesh$x), max(mesh$x), meshstep),
-                                seq(min(mesh$x), max(mesh$x), meshstep))
+      newmeshxys = expand.grid(seq(min(mesh[, "x"]), max(mesh[, "x"]), meshstep),
+                                seq(min(mesh[, "x"]), max(mesh[, "x"]), meshstep))
 
       
       #calculate D for meshx (row) and estimated betas (column)
@@ -164,8 +164,8 @@ create_plots <- function(sim_fits_out,
       statNdat <- colSums(statDdat) * meshspacing^2
       
     } else if(Dmodel == "flat"){
-      D_plotdat <- data.frame(x = rep(mesh$x, 3),
-                              y = rep(mesh$y, 3),
+      D_plotdat <- data.frame(x = rep(mesh[, "x"], 3),
+                              y = rep(mesh[, "y"], 3),
                               trueD = rep(D_mesh_f, 3),
                               stationarydets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                                 all_outs2$name == "D", "mean"])), nrow(mesh)),
@@ -460,7 +460,7 @@ ggsave(file = paste(dirstart, "plots/flat_moving_2D.png", sep = ""),
 
 ggsave(file = paste(dirstart, "plots/setup.png", sep = ""),
        plot = ggplot() +
-         geom_raster(data.frame(x = mesh$x, y = mesh$y, D = D_mesh_v), 
+         geom_raster(data.frame(x = mesh[, "x"], y = mesh[, "y"], D = D_mesh_v), 
                      mapping = aes(x = x, y = y, fill = D)) +
          geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
                     size = 1.5,shape = "+", color= "white") +

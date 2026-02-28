@@ -34,7 +34,7 @@ if(printplots){
   testmesh <- D_mesh_v
   
   layoutplot <- ggplot() +
-    geom_raster(data.frame(x = mesh$x, y = mesh$y, D = testmesh),
+    geom_raster(data.frame(x = mesh[, "x"], y = mesh[, "y"], D = testmesh),
                 mapping = aes(x = x, y = y, fill = D)) +
     geom_point(data = tracksdf, mapping = aes(x = x, y = y, group = occ),
                size = 3,shape = "+", color= "white"
