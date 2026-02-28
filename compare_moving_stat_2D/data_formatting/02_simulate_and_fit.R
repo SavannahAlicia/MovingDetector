@@ -298,6 +298,7 @@ fit_capthist <- function(dist_trapmesh,
     fit.time.sd <- 99999999
     fit_sd_con <- 4
     fit_sd$hessian <- NA
+    fit_sd$code <- 99
   }
   
   start.time.md <- Sys.time()
