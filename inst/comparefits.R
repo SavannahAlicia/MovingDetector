@@ -107,4 +107,57 @@ return(list(myout = my_out,
 #fit <- sim_fit(1)
 fits <- mclapply(1:nsims, sim_fit, mc.cores = nsims)
 saveRDS(fits, "inst/fitstocompare.Rds")
+fits <- readRDS("inst/fitstocompare.Rds")
 
+datmy <- data.frame(lambda = exp(sapply(fits, function(x){x$myout["lambda0"]})),
+                     sigma = exp(sapply(fits, function(x){x$myout["sigma"]})),
+                     beta1 = sapply(fits, function(x){x$myout["beta1"]}),
+                     beta2 = sapply(fits, function(x){x$myout["beta2"]}),
+                     N = exp(sapply(fits, function(x){x$myout["N"]})), 
+                    b0 = NA,
+                     code = sapply(fits, function(x){x$myout["code"]}),
+                     fit = "my")
+databi<- data.frame(lambda = exp(sapply(fits, function(x){x$abiout["lambda0"]}))/100,
+           sigma = exp(sapply(fits, function(x){x$abiout["sigma"]})),
+           beta1 = sapply(fits, function(x){x$abiout["beta1"]}),
+           beta2 = sapply(fits, function(x){x$abiout["beta2"]}),
+           b0 = sapply(fits, function(x){x$abiout["b0"]}), 
+           code = sapply(fits, function(x){x$abiout["code"]}),
+           fit = "abi")
+databi$N <- sapply(1:nrow(databi), function(x){
+  #but density is in hectares...
+  sum(exp(databi$b0[x] + 
+            databi$beta1[x]* mesh$x + 
+            databi$beta2[x] * (mesh$x)^2))#* meshspacing^2/100^2
+  })
+datout <- rbind(datmy, databi)
+
+truesigma <- sigma
+truelambda0 <- lambda0
+truebeta1 <- beta1
+truebeta2 <- beta2
+trueN <- N
+ggplot() + 
+  geom_boxplot(datout, mapping = aes(y = ((sigma) - truesigma)/truesigma * 100, 
+                                     x = fit, 
+                                     color = fit)) +
+  theme_bw()
+
+ggplot() + 
+  geom_boxplot(datout, mapping = aes(y = ((lambda) - truelambda0)/truelambda0 * 100, 
+                                     x = fit, 
+                                     color = fit))+
+  theme_bw()
+
+ggplot() + 
+  geom_boxplot(datout, mapping = aes(y = (beta1 - truebeta1)/truebeta1 * 100, 
+                                     x = fit, 
+                                     color = fit))
+ggplot() + 
+  geom_boxplot(datout, mapping = aes(y = (beta2 - truebeta2) , 
+                                     x = fit, 
+                                     color = fit))
+ggplot() + 
+  geom_boxplot(datout, mapping = aes(y = (N - trueN)/trueN * 100 , 
+                                     x = fit, 
+                                     color = fit))
