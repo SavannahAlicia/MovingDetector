@@ -140,76 +140,14 @@ modifymodel <- function(model, user_model){
   modifyList(model,user_model[intersect(names(model),names(user_model))])
 }
 
-lik_opt <- function(params,
-                    desmat,
-                    args.index,
-                    distmat,
-                    effort, # list of length nverttraps, each length n horiz traps
-                    nOccasion, #occasion reps
-                    dets,
-                    inds,
-                    n,
-                    lambda_x,#hazard function 
-                    noDets,
-                    a){
-  D = exp(desmat$D %*% params[args.index$D])
-  lambda0 = exp(params[args.index$lambda0])
-  sigma = exp(params[args.index$sigma])
-  
-  #hu list length ntransects, matrix of ntrap (per transect) by nmesh 
-  lambda_x_mat <- lapply(1:length(distmat),\(x) t(t(lambda_x(distmat[[x]],lambda0,sigma)) %*% diag(effort[[x]])))
-  
-  ntotsurveys <- nOccasion * length(effort)
-  nhoriz <- length(effort[[1]])
-  nvert <- length(effort)
-  
-  #sum of hu nmesh by ntransect
-  transectLambda <- sapply(lambda_x_mat,colSums)
-  notseen_log <- t(do.call(rbind, replicate(5, t(-transectLambda), simplify = F)))
-  
-
-  prob_no_capt <-  exp(-rowSums(transectLambda*nOccasion)) ### Probability of 0 encounters
-  
-  prob_capt <- 1 - prob_no_capt ### probability of atleast 2 encounters
-  Dx_pdotxs <- prob_capt * D
-  
-  llk_inner <- function(i){
-    ind_dat <- dets[[i]]
-    DKprod_eachx_log <- (
-      rowSums(sapply(seq_len(nrow(ind_dat)), \(j){
-        colSums(rbind(log(1 - dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/10)),
-                      dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]*ind_dat$last[j]/10,log = T),
-                      ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)))
-      })) - rowSums(transectLambda %*% diag(noDets[i,]))
-    )*D
-     inner <- log(sum(exp(DKprod_eachx_log))*a)
-    out_ls <- list(DKprod_eachx_log = DKprod_eachx_log,
-                   inner = inner)
-  }
-  
-  DKprod_eachx_log <- sapply(inds, function(i){llk_inner(i)$DKprod_eachx_log})
-  lik_all_ind <- sapply(inds,function(i){llk_inner(i)$inner})
-  
-  ### the full likelihood
-  loglik = - sum(D * a * prob_capt) - lfactorial(n) + sum(lik_all_ind)
-  out_ls <- list(negloglik = -loglike,
-                  notseen_log,
-                  integral_eachi_log,
-                  sumallhuexcept,
-                  didntsurvivej_log,
-                  DKprod_eachx_log,
-                  Dx_pdotxs)
-  return(-loglik)
-}
-
 
 scrFitMov <- function(capthist,
-                                 stepOrder,
-                                 mask,
-                                 trapSteps,
-                                 model = NULL, 
-                                 startparams = NULL,
-                                 hessian = F){
+                      stepOrder,
+                      mask,
+                      trapSteps,
+                      model = NULL, 
+                      startparams = NULL,
+                      hessian = F){
   
   ## Define the standard formula
   correct_model = list(D~1,lambda0~1,sigma~1)
@@ -235,6 +173,7 @@ scrFitMov <- function(capthist,
   ## Calculate number of parameters
   npars = lapply(desmat,ncol)
   
+  nsteps <- max(trapSteps$stepOrder)
   ### extract number of individuals detected
   n <- nrow(capthist)
   
@@ -302,7 +241,40 @@ scrFitMov <- function(capthist,
   
   ## Local function to optimise
   optimiser <- local ({
-   })
+    lik_opt <- function(params){
+      D = exp(desmat$D %*% params[args.index$D])
+      lambda0 = exp(params[args.index$lambda0])
+      sigma = exp(params[args.index$sigma])
+      
+      lambda_x_mat <- lapply(1:length(distmat),\(x) t(t(lambda_x(distmat[[x]],lambda0,sigma)) %*% diag(effort[[x]])))
+      
+      ### 21*1092 (traps x mask)
+      
+      transectLambda <- sapply(lambda_x_mat,colSums)
+      
+      prob_no_capt <-  exp(-rowSums(transectLambda*nOccasion)) ### Probability of 0 encounters
+      
+      prob_capt <- 1 - prob_no_capt ### probability of atleast 2 encounters
+      
+      lik_all_ind <- sapply(inds,\(i){
+        ind_dat <- dets[[i]]
+        log(sum(exp(
+          rowSums(sapply(seq_len(nrow(ind_dat)), \(j){
+            colSums(rbind(log(1 - dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]/nsteps)),
+                          dpois(0,lambda_x_mat[[ind_dat$transect[j]]][ind_dat$order[j],]*ind_dat$last[j]/nsteps,log = T),
+                          ifelse(ind_dat$order[j]>1,1,0)*dpois(0,lambda_x_mat[[ind_dat$transect[j]]][c(1:(ind_dat$order[j]-1)),],log = T)))
+          })) - rowSums(transectLambda %*% diag(noDets[i,]))
+        )*D*a))
+      })
+      
+      ### the full likelihood
+      loglik = - sum(D * a * prob_capt) - lfactorial(n) + sum(lik_all_ind)
+      
+      return(-loglik)
+    }
+  })
+  
+  # return(optimiser(params))
   
   args = list(f = optimiser,p = params,hessian = hessian, print.level = 1)
   
