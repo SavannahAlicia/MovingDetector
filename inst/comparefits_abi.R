@@ -1,18 +1,10 @@
-rm(list = ls())
+#rm(list = ls())
 
 source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
 source("compare_moving_stat_2D/data_formatting/02_simulate_and_fit.R")
 source("inst/BananSim.R")
 
-nsims = 30
-ntrapsish = 150
-trap_n_vert = round(ntrapsish/trap_n_horiz)
-N = 69
-meshspacing = 100
-nsteps_pertrap = 5
-trapspacing = 100
-occreps = 2
 
 surv_obj <- setup_data(sigma,
                        N,
@@ -67,9 +59,7 @@ covariates(mask) <- data.frame(cov = D_mesh,
                                x2 = mesh$x^2/meshspacing^2)
 
 
-fit_secr <- fit_abi <- fit_sav <- list()
-
-for (i in seq_len(nsims)){
+do_fits <- function(i){
   
   ch_out <- simulate_popandcapthist(tracksdf = tracksdf,
                                     D_mesh = D_mesh,
@@ -128,7 +118,7 @@ for (i in seq_len(nsims)){
     induse[detinch[r,1], detinch[r,3], detinch[r,2]]/(trapspacing/nsteps_pertrap)
   })
 
-  fit_abi[[i]] <- scrFitMov(capthist = CH, 
+  fit_abi <- scrFitMov(capthist = CH, 
                            stepOrder = stepOrder,
                            mask = mask, 
                            trapSteps = trapSteps,
@@ -175,119 +165,125 @@ for (i in seq_len(nsims)){
   
 
 
-  fit_sav[[i]] <- nlm(f = nll,p = start, hessian = F,print.level = 1)
+  fit_sav <- nlm(f = nll,p = start, hessian = F,print.level = 1)
   
-  
+  return(list(fitabi = fit_abi,
+              fitsav = fit_sav,
+              i = i))
 }
 
-# save(fit_abi,fit_sav,fit_secr,file = 'comparefits_30.RData')
+fits <- mclapply(1:nsims, do_fits, mc.cores = n_cores)
+saveRDS(fits, "inst/fitstocompare_abisscript.Rds")
 
-
-est_abi <- t(sapply(fit_abi, \(x) x$estimate)) %>% 
-  data.frame() %>%
-  setNames(c('b0','b1','b2','logLambda0','logSigma')) %>%
-  rowwise() %>%
-  mutate(lambda0 = exp(logLambda0),
-         sigma = exp(logSigma),
-         N = sum(exp(b0 + b1*covariates(mask)$x + b2*covariates(mask)$x2)) * spacing(mask)^2/100^2,
-         model = 'Abi')
-
-
-est_sav <- t(sapply(fit_sav, \(x) x$estimate)) %>% 
-  data.frame() %>%
-  setNames(c('logLambda0','logSigma','b1','b2','N')) %>%
-  rowwise() %>%
-  mutate(lambda0 = exp(logLambda0)*100,
-         sigma = exp(logSigma),
-         N = exp(N),
-         model = 'Sav')
-
-est_scr <- t(sapply(fit_secr, \(x) x$fit$estimate)) %>%
-  data.frame() %>%
-  setNames(c('b0','b1','b2','logLambda0','logSigma')) %>%
-  rowwise() %>%
-  mutate(lambda0 = exp(logLambda0)*4,
-         sigma = exp(logSigma),
-         N = sum(exp(b0 + b1*scale(mask$x) + b2*scale(mask$x)^2)) * spacing(mask)^2/100^2,
-         model = 'Stationary')
-
-expN <- N
-trueSigma = 300
-trueLambda0 = 0.8
-allEst <- bind_rows(est_sav,est_abi,est_scr)
-
-p1 <- allEst %>%
-  ggplot()+
-  geom_boxplot(aes(y = N, x = model, fill = model))+
-  # geom_hline(yintercept = expN)+
-  geom_hline(aes(yintercept = expN,col = model,group = model),alpha = 0.5) + 
-  theme_bw()
-
-p2 <- allEst %>%
-  ggplot()+
-  geom_boxplot(aes(y = sigma/trueSigma*100 - 100, x = model, fill = model))+
-  geom_hline(yintercept = 0) + 
-  ylab('sigma bias (%)')+
-  theme_bw()
-
-p3 <- allEst %>%
-  ggplot()+
-  geom_boxplot(aes(y = lambda0/trueLambda0*100 - 100, x = model, fill = model))+
-  geom_hline(yintercept = trueLambda0)+
-  ylab('lambda0 bias (%)')+
-  theme_bw()
-
-
-x1 <- unique(mask$x)
-
-xlinD <- cbind(1,x1,(x1/spacing(mask))^2)
-
-xlinD_sav <- cbind(1,x1,(x1/spacing(mask))^2)
-
-xlinDs <- unique(fit_secr[[1]]$designD)
-
-trueD = exp(b0 + beta2^2*beta1 + 2*beta1*beta2*x1/spacing(mask) + beta1*x1^2/spacing(mask)^2)
-
-movD_abi <- exp(xlinD %*% t(as.matrix(est_abi[,1:3]))) %>%
-  apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
-  t() %>%
-  data.frame() %>%
-  setNames(c('lcl','est','ucl')) %>%
-  mutate(mod = 'abi',x = x1, trueD = trueD)
-
-
-
-
-movD_sav <- sapply(1:nrow(est_sav), \(x) calcDv(x1,
-                                                0,
-                                                est_sav$b1[x], 
-                                                est_sav$b2[x],
-                                                est_sav$N[x],
-                                                meshspacing)*300) %>% 
-  apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
-  t() %>%
-  data.frame() %>%
-  setNames(c('lcl','est','ucl')) %>%
-  mutate(mod = 'sav',x = x1, trueD = trueD)
-
-
-statD <- exp(xlinDs %*% t(as.matrix(est_scr[,1:3]))) %>%
-  apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
-  t() %>%
-  data.frame() %>%
-  setNames(c('lcl','est','ucl')) %>%
-  mutate(mod = 'stationary',x = x1, trueD = trueD)
-
-p4 <- bind_rows(movD_abi,movD_sav,statD) %>%
-  ggplot(aes(x = x))+
-  geom_line(aes(y = est, col = mod))+
-  geom_line(aes(y = lcl, col = mod), linetype = 2)+
-  geom_line(aes(y = ucl, col = mod), linetype = 2)+
-  geom_line(aes(y = trueD))+
-  theme_bw()
-
-library(ggpubr)
-
-
-ggarrange(ggarrange(p1,p2,p3,nrow = 1,common.legend = T),p4,
-           nrow = 2)
+# 
+# # save(fit_abi,fit_sav,fit_secr,file = 'comparefits_30.RData')
+# 
+# 
+# est_abi <- t(sapply(fit_abi, \(x) x$estimate)) %>% 
+#   data.frame() %>%
+#   setNames(c('b0','b1','b2','logLambda0','logSigma')) %>%
+#   rowwise() %>%
+#   mutate(lambda0 = exp(logLambda0),
+#          sigma = exp(logSigma),
+#          N = sum(exp(b0 + b1*covariates(mask)$x + b2*covariates(mask)$x2)) * spacing(mask)^2/100^2,
+#          model = 'Abi')
+# 
+# 
+# est_sav <- t(sapply(fit_sav, \(x) x$estimate)) %>% 
+#   data.frame() %>%
+#   setNames(c('logLambda0','logSigma','b1','b2','N')) %>%
+#   rowwise() %>%
+#   mutate(lambda0 = exp(logLambda0)*100,
+#          sigma = exp(logSigma),
+#          N = exp(N),
+#          model = 'Sav')
+# 
+# est_scr <- t(sapply(fit_secr, \(x) x$fit$estimate)) %>%
+#   data.frame() %>%
+#   setNames(c('b0','b1','b2','logLambda0','logSigma')) %>%
+#   rowwise() %>%
+#   mutate(lambda0 = exp(logLambda0)*4,
+#          sigma = exp(logSigma),
+#          N = sum(exp(b0 + b1*scale(mask$x) + b2*scale(mask$x)^2)) * spacing(mask)^2/100^2,
+#          model = 'Stationary')
+# 
+# expN <- N
+# trueSigma = 300
+# trueLambda0 = 0.8
+# allEst <- bind_rows(est_sav,est_abi,est_scr)
+# 
+# p1 <- allEst %>%
+#   ggplot()+
+#   geom_boxplot(aes(y = N, x = model, fill = model))+
+#   # geom_hline(yintercept = expN)+
+#   geom_hline(aes(yintercept = expN,col = model,group = model),alpha = 0.5) + 
+#   theme_bw()
+# 
+# p2 <- allEst %>%
+#   ggplot()+
+#   geom_boxplot(aes(y = sigma/trueSigma*100 - 100, x = model, fill = model))+
+#   geom_hline(yintercept = 0) + 
+#   ylab('sigma bias (%)')+
+#   theme_bw()
+# 
+# p3 <- allEst %>%
+#   ggplot()+
+#   geom_boxplot(aes(y = lambda0/trueLambda0*100 - 100, x = model, fill = model))+
+#   geom_hline(yintercept = trueLambda0)+
+#   ylab('lambda0 bias (%)')+
+#   theme_bw()
+# 
+# 
+# x1 <- unique(mask$x)
+# 
+# xlinD <- cbind(1,x1,(x1/spacing(mask))^2)
+# 
+# xlinD_sav <- cbind(1,x1,(x1/spacing(mask))^2)
+# 
+# xlinDs <- unique(fit_secr[[1]]$designD)
+# 
+# trueD = exp(b0 + beta2^2*beta1 + 2*beta1*beta2*x1/spacing(mask) + beta1*x1^2/spacing(mask)^2)
+# 
+# movD_abi <- exp(xlinD %*% t(as.matrix(est_abi[,1:3]))) %>%
+#   apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
+#   t() %>%
+#   data.frame() %>%
+#   setNames(c('lcl','est','ucl')) %>%
+#   mutate(mod = 'abi',x = x1, trueD = trueD)
+# 
+# 
+# 
+# 
+# movD_sav <- sapply(1:nrow(est_sav), \(x) calcDv(x1,
+#                                                 0,
+#                                                 est_sav$b1[x], 
+#                                                 est_sav$b2[x],
+#                                                 est_sav$N[x],
+#                                                 meshspacing)*300) %>% 
+#   apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
+#   t() %>%
+#   data.frame() %>%
+#   setNames(c('lcl','est','ucl')) %>%
+#   mutate(mod = 'sav',x = x1, trueD = trueD)
+# 
+# 
+# statD <- exp(xlinDs %*% t(as.matrix(est_scr[,1:3]))) %>%
+#   apply(.,1, quantile,c(0.025,0.5,0.975)) %>%
+#   t() %>%
+#   data.frame() %>%
+#   setNames(c('lcl','est','ucl')) %>%
+#   mutate(mod = 'stationary',x = x1, trueD = trueD)
+# 
+# p4 <- bind_rows(movD_abi,movD_sav,statD) %>%
+#   ggplot(aes(x = x))+
+#   geom_line(aes(y = est, col = mod))+
+#   geom_line(aes(y = lcl, col = mod), linetype = 2)+
+#   geom_line(aes(y = ucl, col = mod), linetype = 2)+
+#   geom_line(aes(y = trueD))+
+#   theme_bw()
+# 
+# library(ggpubr)
+# 
+# 
+# ggarrange(ggarrange(p1,p2,p3,nrow = 1,common.legend = T),p4,
+#            nrow = 2)
