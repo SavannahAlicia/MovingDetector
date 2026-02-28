@@ -52,10 +52,12 @@ setup_data <- function(sigma,
   df2 <- tracksdf
   occ_1rep <- length(unique(tracksdf$occ))
   for(i in 2:occreps){
-    df2$occ <- df2$occ + (occ_1rep * (i-1))
+    rep <- 1
+    df2$occ <- df2$occ + (occ_1rep * rep)
     df2$time <- df2$time + 24*60*60
     df2$rep <- i
     tracksdf <- rbind(tracksdf, df2)
+    rep <- rep + 1
     
   }
   
