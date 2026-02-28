@@ -53,10 +53,10 @@ simulate_popandcapthist <- function(tracksdf,
                               if(sum(capik) > 0){
                                 if(sum(capik) == 1){
                                   thej <- which(capik > 0)
-                                  dettime <- tracksdf[which(tracksdf$occ == k &
+                                  dettime <- as.numeric(tracksdf[which(tracksdf$occ == k &
                                                               tracksdf$midx == trackstrapscr[thej,1] &
                                                               tracksdf$midy == trackstrapscr[thej,2]),
-                                                      "time"]
+                                                      "time"])
                                 } else {
                                   #which traps detected
                                   js <- which(capik > 0)
@@ -545,4 +545,5 @@ calc_nll <- function(dist_trapmesh,
   return(list(sd = out_sd,
               md = out_md))
     
-  } 
+} 
+
