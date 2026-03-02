@@ -15,14 +15,14 @@ create_plots <- function(sim_fits_out,
     } else {
       out = x$stat_conv
     }
-    })) == 0
+    })) == 1
   movconv <- unlist(lapply(sim_fits_out, function(x){
     if(is.null(x$mov_conv)){
       out = NA
     } else {
       out = x$mov_conv
     }
-    })) == 0
+    })) == 1
   bothconv <- (statconv == 1 & movconv == 1)
   bothconv[is.na(bothconv)] <- FALSE
   
@@ -39,7 +39,11 @@ create_plots <- function(sim_fits_out,
   
   timeplot <- ggplot() +
     geom_boxplot(data = tidyr::pivot_longer(times, cols = c("stat", "move")),
-                 mapping = aes(y = log(value), group = name, color = name),
+                 mapping = aes(y = log(value), 
+                               group = name,
+                               color = name,
+                               fill = name),
+                 alpha = 0.5, 
                  linewidth = linesize) +
     scale_color_manual(name = "Model", labels = c("Moving", "Stationary"),
                                                   values = plotcols[1:2]) +
@@ -124,7 +128,7 @@ create_plots <- function(sim_fits_out,
       statDdat <- apply(as.array(1:length(sim_fits_out)), 1, function(sim){
         calcDv(newmeshxys[,1],
                newmeshxys[,2],
-        beta1_ = beta1, #sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
+        beta1_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta1"],
         beta2_ = sim_fits_out[[sim]]$statdet_est$value[enames == "beta2"],
         N_ = exp(sim_fits_out[[sim]]$statdet_est$value[enames == "N"]),
         meshspacing)
@@ -132,7 +136,7 @@ create_plots <- function(sim_fits_out,
       moveDdat <- apply(as.array(1:length(sim_fits_out)), 1, function(sim){
           calcDv(newmeshxys[,1],
                  newmeshxys[,2],
-          beta1_ = beta1, #sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
+          beta1_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta1"],
           beta2_ = sim_fits_out[[sim]]$movdet_est$value[enames == "beta2"],
           N_ = exp(sim_fits_out[[sim]]$movdet_est$value[enames == "N"]),
           meshspacing)
@@ -146,41 +150,41 @@ create_plots <- function(sim_fits_out,
                                                  beta1, beta2, N,
                                                  meshspacing), 
                                           3),
-                              stationarydets = c(rowMeans(statDdat),
+                              stationarydets = c(apply(statDdat, 1, function(x) quantile(x, probs = .5, na.rm = T)),
                                                  apply(statDdat, 1, function(x) quantile(x, probs = .025, na.rm = T)),
                                                  apply(statDdat, 1, function(x) quantile(x, probs = .975, na.rm = T))
                                                  ),
-                              movingdets = c(rowMeans(moveDdat),
+                              movingdets = c(apply(moveDdat, 1, function(x) quantile(x, probs = .5, na.rm = T)),
                                              apply(moveDdat, 1, function(x) quantile(x, probs = .025, na.rm = T)),
                                              apply(moveDdat, 1, function(x) quantile(x, probs = .975, na.rm = T))
                                              ),
-                              quantile = c(rep("mean", nrow(newmeshxys)),
+                              quantile = c(rep("median", nrow(newmeshxys)),
                                            rep("2.5%",nrow(newmeshxys)),
                                            rep("97.5%",nrow(newmeshxys)))
       )
       #mean and quantiles for sum D
-      moveNdat <- colSums(moveDdat) * meshspacing^2
+      moveNdat <- colSums(moveDdat) * meshstep^2
      
-      statNdat <- colSums(statDdat) * meshspacing^2
+      statNdat <- colSums(statDdat) * meshstep^2
       
     } else if(Dmodel == "flat"){
       D_plotdat <- data.frame(x = rep(mesh[, "x"], 3),
                               y = rep(mesh[, "y"], 3),
                               trueD = rep(D_mesh_f, 3),
                               stationarydets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
-                                                                                all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                                                                all_outs2$name == "D", "median"])), nrow(mesh)),
                                                  rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                                 all_outs2$name == "D", "meanupper"])), nrow(mesh)),
                                                  rep(exp(as.numeric(all_outs2[all_outs2$model == "stationary" & 
                                                                                 all_outs2$name == "D", "meanlower"])), nrow(mesh))),
                               movingdets = c(rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
-                                                                            all_outs2$name == "D", "mean"])), nrow(mesh)),
+                                                                            all_outs2$name == "D", "median"])), nrow(mesh)),
                                              rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                             all_outs2$name == "D", "meanupper"])), nrow(mesh)),
                                              rep(exp(as.numeric(all_outs2[all_outs2$model == "moving" & 
                                                                             all_outs2$name == "D", "meanlower"])), nrow(mesh)) 
                               ),
-                              quantile = c(rep("mean", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
+                              quantile = c(rep("median", nrow(mesh)), rep("2.5%", nrow(mesh)), rep("97.5%",nrow(mesh)))
       )
       
 
@@ -204,7 +208,8 @@ create_plots <- function(sim_fits_out,
     ggplot() +
      geom_boxplot(all_outs[all_outs$name == "lambda0",], 
                   mapping = aes(y = 100*(exp(value)-lambda0)/lambda0, #per km instead of m
-                                col = model, fill = model),
+                                col = model,
+                                fill = model),
                   alpha = 0.5, size = linesize) +
     xlab("Model") +
      ylab(expression(paste("\u03bb"[0], " (dets/km) \n% relative bias"))) + 
@@ -238,7 +243,8 @@ create_plots <- function(sim_fits_out,
     ggplot() +
     geom_boxplot(all_outs[all_outs$name == "sigma",], 
                  mapping = aes(y = 100*(exp(value)-sigma)/sigma, #per km instead of m
-                               col = model, fill = model),
+                               col = model, 
+                               fill = model),
                  alpha = 0.5, size = linesize) +
 
     scale_color_manual(name = "",
@@ -267,7 +273,11 @@ create_plots <- function(sim_fits_out,
   
   beta1plot <- ggplot() +
     geom_boxplot(all_outs[all_outs$name == "beta1",],
-                 mapping = aes(y = 100*(value-beta1)/beta1, col = model), size = linesize) +
+                 mapping = aes(y = 100*(value-beta1)/beta1, 
+                               col = model,
+                               fill = model),
+                 alpha = 0.5, 
+                 size = linesize) +
     scale_color_manual(values = plotcols) +
     scale_fill_manual(values = plotcols) +
     ylab("beta1 % \nrelative bias") +
@@ -283,7 +293,11 @@ create_plots <- function(sim_fits_out,
   
   beta2plot <- ggplot() +
     geom_boxplot(all_outs[all_outs$name == "beta2",],
-                 mapping = aes(y = beta2, col = model), size = linesize) +
+                 mapping = aes(y = value, 
+                               col = model,
+                               fill = model),
+                 alpha = 0.5, 
+                 size = linesize) +
     scale_color_manual(values = plotcols) +
     scale_fill_manual(values = plotcols) +
     ylab("beta2") +
@@ -299,8 +313,10 @@ create_plots <- function(sim_fits_out,
   Nplot <- ggplot() +
     geom_boxplot(all_outs[all_outs$name == "N",], 
                  mapping = aes(y = 100*(exp(value)-N)/N, #per km instead of m
-                               col = model, fill = model),
-                 alpha = 0.5, size = linesize) +
+                               col = model, 
+                               fill = model),
+                 alpha = 0.5, 
+                 size = linesize) +
     scale_x_discrete(labels = c("moving" = "Moving", "stationary" = "Stationary")) +
     scale_color_manual(name = "",
                       values = plotcols, 
@@ -332,38 +348,38 @@ create_plots <- function(sim_fits_out,
 
   Dplot <- 
     ggplot() + 
-    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "mean",], 
+    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "2.5%" &
+                                            D_plotdatlong$name != "trueD"),],
+               mapping = aes(x = x/1000,
+                             y = value*1000000,
+                             col = name),
+               #linetype = "dashed",
+               size = pointsize,#/2,
+               shape = 6
+    ) +
+    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
+                                            D_plotdatlong$name != "trueD"),], 
+               mapping = aes(x = x/1000, 
+                             y = value*1000000, 
+                             col = name),
+               #linetype = "dashed", 
+               size = pointsize,#/2,
+               shape = 2
+    ) +
+    geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "median",], 
               mapping = aes(x = x/1000, 
                             y = value*1000000, 
                             col = name,
                             alpha = name,
-                          #  linewidth = name
+                            linewidth = name
                             )) +
-    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "2.5%" &
-                                            D_plotdatlong$name != "trueD"),],
-              mapping = aes(x = x/1000,
-                            y = value*1000000,
-                            col = name),
-              #linetype = "dashed",
-              size = pointsize,#/2,
-              shape = 6
-              ) +
-    geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
-                                            D_plotdatlong$name != "trueD"),], 
-              mapping = aes(x = x/1000, 
-                            y = value*1000000, 
-                            col = name),
-              #linetype = "dashed", 
-              size = pointsize,#/2,
-              shape = 2
-              ) +
     scale_color_manual(values = c(plotcols, "black"), 
                        labels = c("Moving", "Stationary", "True"),
                        name = "") +
-    # scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*2),
-    #                        labels = c("Moving", "Stationary", "True"),
-    #                        name = "") +
-    scale_alpha_manual(values = c(1,1,.6)
+     scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*3),
+                            labels = c("Moving", "Stationary", "True"),
+                            name = "") +
+    scale_alpha_manual(values = c(1,1,.2)
                        ) +
     #ylim(0,.5) +
     xlim(c(-beta2 - 1000, - beta2 + 1000)/1000)+
@@ -398,9 +414,9 @@ create_plots <- function(sim_fits_out,
       grobs = plotlist,
       widths = c(1,1),
       heights = c(1,1,1,1),
-      layout_matrix = rbind(c(1,6),
-                            c(2,3),
-                            c(7, 4),
+      layout_matrix = rbind(c(6,1),
+                            c(3,2),
+                            c(4,7),
                             5))
   }
   if(Dmodel == "flat"){
@@ -440,11 +456,12 @@ vpl <- create_plots(all_sim_fits_q, Dmodel = "variable",
                     pointsize = .5,#1.5, 
                     fontsize = 8,
                     linesize = .5,#2,
-                    output = "plotdat")
+                    output = "plots")
 fpl <- create_plots(all_sim_fits, Dmodel = "flat", 
                     pointsize = .5,#1.5, 
                     fontsize = 8,
-                    linesize = .5, output = "plotdat")
+                    linesize = .5, 
+                    output = "plots")
 ggsave(file = paste(dirstart, "plots/variable_moving_2D.png", sep = ""),
        plot = vpl,
        width = 169,
