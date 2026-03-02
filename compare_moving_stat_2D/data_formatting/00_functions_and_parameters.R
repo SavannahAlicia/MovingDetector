@@ -43,8 +43,8 @@ trap_n_vert = round(ntrapsish/trap_n_horiz)
 nsteps_pertrap = 10
 occreps = 3
 
-nsims = 30
-n_cores = 30
+nsims = 105
+n_cores = 7
 theseed = 1994
 set.seed(theseed)
 fontsize = 22

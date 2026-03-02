@@ -151,7 +151,7 @@ fit_capthist <- function(dist_trapmesh,
                     Dmod,
                     meshspacing,
                     meanstepsize,
-                    fitstat = FALSE
+                    fitstat# = FALSE
                     ){
   if(!Dmod %in% c("~1", "~x^2")){
     stop("Dmod must be specified ~1 or ~x^2")
@@ -296,7 +296,7 @@ fit_capthist <- function(dist_trapmesh,
   } else {
     fit_sd <- list(par = NA, convergence = 4)
     fit.time.sd <- 99999999
-    fit_sd_con <- 4
+    fit_sd_con <- 99
     fit_sd$hessian <- NA
     fit_sd$code <- 99
   }
@@ -374,7 +374,8 @@ sim_fit <- function(traps_,
                     Dmod_,
                     trapspacing_,
                     meanstepsize_,
-                    fitstat_ = FALSE){
+                    fitstat_ #= FALSE
+                    ){
   
   
   capthistout <- simulate_popandcapthist(tracksdf_,

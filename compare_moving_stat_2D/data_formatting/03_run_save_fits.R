@@ -48,7 +48,7 @@ all_sim_fits_q <- parLapply(cl, 1:nsims, function(sim) {
             Dmod = "~x^2",
             trapspacing,
             meanstepsize,
-            fitstat_ = FALSE)
+            fitstat_ = TRUE)
   }, error = function(e) {
     list(
       ok = FALSE,
@@ -82,7 +82,7 @@ all_sim_fits <- parLapply(cl, 1:nsims, function(sim) {
             Dmod = "~1",
             trapspacing,
             meanstepsize,
-            fitstat_ = FALSE)
+            fitstat_ = TRUE)
   }, error = function(e) {
     list(
       ok = FALSE,
