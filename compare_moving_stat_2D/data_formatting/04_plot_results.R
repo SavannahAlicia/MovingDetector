@@ -47,6 +47,8 @@ create_plots <- function(sim_fits_out,
                  linewidth = linesize) +
     scale_color_manual(name = "Model", labels = c("Moving", "Stationary"),
                                                   values = plotcols[1:2]) +
+    scale_fill_manual(name = "Model", labels = c("Moving", "Stationary"),
+                       values = plotcols[1:2]) +
     ylab("Log seconds") +
     xlab("Model") +
     theme_bw() +
@@ -230,6 +232,7 @@ create_plots <- function(sim_fits_out,
     theme_bw() +
     theme(#axis.title = element_text(size = 10),
           legend.position = "none",
+          axis.title.y = element_text(hjust = 0.5, vjust = 1),
           #axis.text.y = element_blank(),
           text = element_text(size = fontsize),
           axis.text.x = element_blank(),
@@ -354,7 +357,7 @@ create_plots <- function(sim_fits_out,
                              y = value*1000000,
                              col = name),
                #linetype = "dashed",
-               size = pointsize,#/2,
+               size = pointsize/1.5,
                shape = 6
     ) +
     geom_point(data = D_plotdatlong[which(D_plotdatlong$quantile == "97.5%" & 
@@ -363,7 +366,7 @@ create_plots <- function(sim_fits_out,
                              y = value*1000000, 
                              col = name),
                #linetype = "dashed", 
-               size = pointsize,#/2,
+               size = pointsize/1.5,
                shape = 2
     ) +
     geom_line(data = D_plotdatlong[D_plotdatlong$quantile == "median",], 
@@ -373,7 +376,7 @@ create_plots <- function(sim_fits_out,
                             alpha = name,
                             linewidth = name
                             )) +
-    scale_color_manual(values = c(plotcols, "black"), 
+    scale_color_manual(values = c(plotcols), 
                        labels = c("Moving", "Stationary", "True"),
                        name = "") +
      scale_linewidth_manual(values = c(linesize/2, linesize/2, linesize*3),
@@ -414,9 +417,9 @@ create_plots <- function(sim_fits_out,
       grobs = plotlist,
       widths = c(1,1),
       heights = c(1,1,1,1),
-      layout_matrix = rbind(c(6,1),
+      layout_matrix = rbind(c(6,7),
                             c(3,2),
-                            c(4,7),
+                            c(4,1),
                             5))
   }
   if(Dmodel == "flat"){
