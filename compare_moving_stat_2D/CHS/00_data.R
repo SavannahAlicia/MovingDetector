@@ -52,6 +52,7 @@ oldoccs <- unique(sight[which(sight$occ_key %in% which(prim$primary == 11)),"occ
 tracks <- tracks[tracks$ID %in% surveys,]
 tracks <- tracks[order(tracks$ID, tracks$t),]
 
+
 #sort by track ID, then t
 tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1, 
                                    function(x){which(unique(tracks$ID) == tracks$ID[x])}),
@@ -61,6 +62,23 @@ tracksdf <- data.frame(occ = apply(as.array(1:nrow(tracks)), 1,
                        time = tracks$t) #time right now only determines order, not relative time
 #note SIghting 1 in survey 710 (occasion 4) happens immediately, and the two trackpts aren't labelled on effort
 tracksdf[which(tracksdf$occ == 4 & tracksdf$time < 101),"effort"] <- "OnEffort"
+# midpoint is between previous pt and current row pt
+tracksdf[,c("midx", "midy")] <- calc_trackmidpts(tracksdf)
+# step size from previous to current row pt
+tracksdf$inc <- c(0,sqrt((tracksdf$x[2:nrow(tracksdf)] - tracksdf$x[1:(nrow(tracksdf)-1)])^2 + 
+                           (tracksdf$y[2:nrow(tracksdf)] - tracksdf$y[1:(nrow(tracksdf)-1)])^2))
+#set first inc of each occ to 0
+tracksdf$inc[apply(as.array(unique(tracksdf$occ)), 1, function(x){min(which(tracksdf$occ == x))})] <- 0
+
+# set inc to 0 if previous was off effort
+for(row in 2:nrow(tracksdf)){
+  if(is.na(tracksdf[(row-1), "effort"])){
+    tracksdf[row,"inc"] <- 0
+  }
+  else if(tracksdf[(row-1), "effort"] == "OffEffort"){
+    tracksdf[row,"inc"] <- 0
+  }
+}
 
 traps <- traps[which(rowSums(usage(traps)[,c(oldoccs)])>0),]
 trapscr <- traps
@@ -68,12 +86,37 @@ saveRDS(trapscr, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D
 
 # allocate track records to grid
 trapno <- rep(0, nrow(tracksdf))
-for (tr in 1:length(trapno)) {
-  cat(tr, " / ", length(trapno), "\r")
-  d <- sqrt((tracksdf[tr, ]$x - traps[, 1])^2 + (tracksdf[tr, ]$y - traps[, 2])^2)
+for (tdf_row in 1:nrow(tracksdf)) {
+  cat(tdf_row, " / ", length(trapno), "\r")
+  #distance from this tracksdf midpoint (between it and prev) to all grid points
+  d <- sqrt((tracksdf[tdf_row, ]$midx - traps[, 1])^2 + (tracksdf[tdf_row, ]$midy - traps[, 2])^2)
   dmin <- min(d)
-  trapno[tr] <- which.min(d)
+  #candidate traps are those traps at min distance
+  candidatetrap <- which(d==dmin) # of gr
+  if(length(candidatetrap)==1){
+    trapno[tdf_row] <- candidatetrap
+  } else { #if there are two candidate traps
+    #we need to choose the first one
+    #check if there is an earlier tracksdfpt
+    if(tdf_row == 1){ 
+      #if this if the first point in tracksdf, it doesn't matter
+      trapno[tdf_row] <- candidatetrap[2]
+    } else {
+      # associate the step with whichever trap is closest to the xy in row tdf_row
+      # (which is the endpoint of the step) since this is where detection is 
+      # attributed (and effort will be cut off between traps)
+      td <- sqrt((gr[candidatetrap,1] - tracksdf[tdf_row,"x"])^2 + 
+                   (gr[candidatetrap,2] - tracksdf[tdf_row,"y"])^2)
+      candidatetrap <- candidatetrap[which(td == min(td))]
+      
+      trapno[tdf_row] <- candidatetrap
+      
+    }
+    #
+  }
+  
 }
+
 
 # pick out possible traps as used cells
 un <- sort(unique(trapno))
@@ -85,7 +128,7 @@ nocc <- length(unique(tracksdf$occ))
 dx = 2000
 
 #-------------Subset capthist -------------------------------------------------
-capthist <- subset(capthist, occasions = oldoccs)
+capthist <- subset(capthist, occasions = oldoccs) #for comparison, not used later
 sight <- sight[sight$survey %in% surveys,]
 sight$occ_key <- apply(as.array(sight$survey), 1, function(x){which(surveys == x)})
 
@@ -117,6 +160,10 @@ for (i in 1:nrow(sight)){
       wpt_summaries$SightingNum == sightnumi), 
   ]
   sight[i, "t"] <- wpt$t
+  sight[i, "x"] <- wpt$x
+  sight[i, "y"] <- wpt$y #note waypoint logs sighting at different point than 
+                    #sightings spreadsheet. Suspect they used "start" instead of
+                    # "boat"
 }
 #discard any second detections
 pcomboIDsurv <- do.call(paste, sight[,c("ID", "survey")])
@@ -134,6 +181,8 @@ for(row in 1:nrow(repeaters)){
 }
 
 sight_single$trap <- NA
+#add 1 second to sighting times (this is how it is added to tracksdat)
+sight_single$t <- sight_single$t + 1
 
 #closest trap
 for (tr in 1:nrow(sight_single)) {
@@ -143,7 +192,12 @@ for (tr in 1:nrow(sight_single)) {
     sight_single[tr, "trap"] <- NA
     next
   }
-  sight_single[tr, "trap"] <- which.min(d)
+  if(length(which.min(d))==1){
+    sight_single[tr, "trap"] <- which.min(d)
+    
+  } else {
+    print(paste(tr))
+  }
 }
 
 
@@ -172,3 +226,45 @@ ch_10 <- ch_t
 ch_10[is.na(ch_10)] <- 0
 ch_10[ch_10!=0] <- 1
 saveRDS(ch_10, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHSinput/ch.Rds")
+
+exi <- 200
+exk <- which(ch_10[exi,,] > 0, arr.ind = T)[1,1]
+exline <- as.data.frame(create_line_list_C(tracksdf,"onison")[[exk]])
+testbbx <- create_grid_bboxes_C(traps, 2000)
+exj <- which(ch_10[exi,exk,]>0)
+exsight <- sight_single[which(sight_single$ID == unique(sight_single$ID)[exi] &
+                                sight_single$occ_key == exk),]
+exwpts <- wpt_summaries[wpt_summaries$ID == unique(tracks$ID)[exk],]
+exwpts <- exwpts[exwpts$SightingNumber == exsight$Sighting,]
+ggplot() +
+  geom_point(data.frame(x = traps$x, 
+                        y = traps$y,
+                        use = induse[exi,,exk],
+                        cap = ch_10[exi,exk,]),
+             mapping = aes(x = x, 
+                           y =y, 
+                           color = use,
+                           size = cap)) +
+  geom_vline(xintercept = testbbx[exj,c(1,2)], linetype = "dashed") +
+  geom_hline(yintercept = testbbx[exj,c(3,4)], linetype = "dashed") +
+  scale_color_viridis_c() +
+  geom_segment(exline[which(exline$timeend <= ch_t[exi,exk,exj]),], 
+               mapping = aes(x = x1,
+                             y = y1,
+                             xend = x2, 
+                             yend = y2
+                                     )) +
+  geom_point(exsight,
+             mapping = aes(x = x, y = y),
+             color = "red") +
+  geom_point(exwpts, 
+             mapping = aes(
+    x = x,
+    y =y
+  ), color = "green", size = .5) #+
+ # scale_x_continuous(limits = c(1165550, 1167500)) +
+ # scale_y_continuous(limits = c(3649700, 3650000)) 
+ # coord_fixed()
+  
+
+
