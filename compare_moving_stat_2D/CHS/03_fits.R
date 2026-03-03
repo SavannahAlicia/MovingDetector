@@ -9,11 +9,16 @@ move_fit <- function(capthist,
                      useall,
                      induse,
                      DdesignX, 
+                     S,
                      hazdenom, 
                      mesh, 
-                     startpar0){
+                     startpar0,
+                     spar   #smoothing hyperparameter
+                     ){
   
   mesh_mat <- as.matrix(mesh)
+  mesharea <- attr(mesh, "spacing")^2
+  meanstepsize <- mean(tracksdf$inc[tracksdf$inc != 0])
   par0 <- unlist(startpar0)
   #rescale for easy hessian
   scaling_factors <- 10^round(log10(abs(par0)))
@@ -21,6 +26,7 @@ move_fit <- function(capthist,
   lambda0parindex <- which(names(par) == "lambda0")
   sigmaparindex <- which(names(par) == "sigma")
   Dparindex <- grep("D", names(par))
+
   
    #stationary detector likelihood
    stat_nll <- function(v_scaled){
@@ -28,10 +34,13 @@ move_fit <- function(capthist,
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
     D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
-     out <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
+     nllk <- negloglikelihood_stationary_cpp(lambda0_, sigma_,
                                             hazdenom, D_mesh_, 
                                             capthist, useall,
-                                            dist_trapmesh, mesh_mat)
+                                            dist_trapmesh, mesh_mat,
+                                            mesharea)
+     penalty <- spar * t(v[Dparindex][-1]) %*% S %*% (v[Dparindex][-1])
+     out <- nllk + 0.5 * penalty
      return(out)
    }
   #moving detector likelihood
@@ -40,10 +49,14 @@ move_fit <- function(capthist,
     lambda0_ <- exp(v[lambda0parindex])
     sigma_ <- exp(v[sigmaparindex])
     D_mesh_ <- exp(DdesignX %*% v[Dparindex]) 
-    out <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
+    nllk <- negloglikelihood_moving_cpp(lambda0_, sigma_,  
                                        hazdenom, D_mesh_,
                                        capthist, useall,
-                                       induse, dist_trapmesh, mesh_mat)
+                                       induse, dist_trapmesh,
+                                       mesh_mat, mesharea,
+                                       meanstepsize)
+    penalty <- spar * t(v[Dparindex][-1]) %*% S %*% (v[Dparindex][-1])
+    out <- nllk + 0.5 * penalty
     return(out)
   }
   
@@ -99,7 +112,8 @@ formulas <- list(D~s(x,y,k=5),
                  D~s(x,y,k=8),
                  D~s(x,y,k=9),
                  D~s(x, y, bs = "so", xt = list(bnd = bound)),
-                 D~s(x, y, bs = "so", xt = list(bnd = bound)))
+                 D~s(x, y, bs = "so", xt = list(bnd = bound))
+                 )
 
 get_X_mat <- function(f, knots = NULL){
   formula <- formulas[[f]]
@@ -115,11 +129,29 @@ get_X_mat <- function(f, knots = NULL){
   DdesignX = cbind( rep(1, nrow(scrmesh)), sml[[1]]$X)
   colnames(DdesignX) = c("(Intercept)", paste0("s(x,y).", 1:(ncol(DdesignX)-1)))
   return(DdesignX)
-  }
+}
 
-fit_smooth <- function(f, startpar, addtl_name = ""){
+get_S <- function(f, knots = NULL){
+  formula <- formulas[[f]]
+  split <- interpret.gam(formula)
+  sml =  mgcv::smoothCon(split$smooth.spec[[1]], data = scrmesh, 
+                         knots = knots, absorb.cons = T, 
+                         scale.penalty = T, 
+                         null.space.penalty = F,
+                         sparse.cons = 0, 
+                         diagonal.penalty = F, 
+                         apply.by = T, 
+                         modCon = 0)
+  S = sml[[1]]$S[[1]]
+  return(S)
+}
+#add this penalty to likelihood!
+
+
+fit_smooth <- function(f, startpar, hyperpar = 10, addtl_name = ""){
   formula = formulas[[f]]
   DdesignX <- Xmats[[f]]
+  Sf <- Ss[[f]]
   
   m_move <- move_fit(capthist = ch_10,
                      tracksdf = tracksdf, 
@@ -128,17 +160,22 @@ fit_smooth <- function(f, startpar, addtl_name = ""){
                      useall = usage(trapscr),
                      induse = induse,
                      DdesignX = DdesignX, 
+                     S = Sf,
                      hazdenom = 1, 
                      mesh = scrmesh, 
-                     startpar0 = startpar)
+                     startpar0 = startpar,
+                     spar = hyperpar)
   saveRDS(m_move, file = paste("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_move", paste(formula)[3], addtl_name, ".Rds", sep = ""))
   return(m_move)
 }
 
 Xmats <- lapply(as.list(1:5), get_X_mat)
-Xmats[[6]] <- get_X_mat(f = 6, knots = knots_soap)
-Xmats[[7]] <- get_X_mat(f = 6, knots = knots_soap2)
+Ss <- lapply(as.list(1:5), get_S)
+
+#Xmats[[6]] <- get_X_mat(f = 6, knots = knots_soap)
+#Xmats[[7]] <- get_X_mat(f = 6, knots = knots_soap2)
 saveRDS(Xmats, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/Xmats.Rds")
+saveRDS(Ss, "~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/Ss.Rds")
 
 myfits <- list(fit_smooth(1, startpar = list(lambda0 = (fits[[2]]$fit$par[fits[[2]]$parindx$lambda0]), 
                                                            sigma = (fits[[2]]$fit$par[fits[[2]]$parindx$sigma]),
@@ -154,14 +191,15 @@ myfits <- list(fit_smooth(1, startpar = list(lambda0 = (fits[[2]]$fit$par[fits[[
                                              D = fits[[5]]$fit$par[fits[[5]]$parindx$D])),
                fit_smooth(5, startpar = list(lambda0 = (fits[[6]]$fit$par[fits[[6]]$parindx$lambda0]), 
                                              sigma = (fits[[6]]$fit$par[fits[[6]]$parindx$sigma]),
-                                             D = fits[[6]]$fit$par[fits[[6]]$parindx$D])),
-               fit_smooth(6, startpar = list(lambda0 = (fits[[4]]$fit$par[fits[[4]]$parindx$lambda0]), 
-                                             sigma = (fits[[4]]$fit$par[fits[[4]]$parindx$sigma]),
-                                             D = fits[[4]]$fit$par[fits[[4]]$parindx$D])),
-               fit_smooth(7, startpar = list(lambda0 = (fits[[8]]$fit$par[fits[[8]]$parindx$lambda0]), 
-                                             sigma = (fits[[8]]$fit$par[fits[[8]]$parindx$sigma]),
-                                             D = fits[[8]]$fit$par[fits[[8]]$parindx$D]),
-                          addtl_name = "moreknots"))
+                                             D = fits[[6]]$fit$par[fits[[6]]$parindx$D]))#,
+               #fit_smooth(6, startpar = list(lambda0 = (fits[[4]]$fit$par[fits[[4]]$parindx$lambda0]), 
+              #                               sigma = (fits[[4]]$fit$par[fits[[4]]$parindx$sigma]),
+              #                               D = fits[[4]]$fit$par[fits[[4]]$parindx$D])),
+              # fit_smooth(7, startpar = list(lambda0 = (fits[[8]]$fit$par[fits[[8]]$parindx$lambda0]), 
+              #                               sigma = (fits[[8]]$fit$par[fits[[8]]$parindx$sigma]),
+              #                               D = fits[[8]]$fit$par[fits[[8]]$parindx$D]),
+               #           addtl_name = "moreknots")
+              )
 myfits <- list(readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 5).Rds"),
                readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 6).Rds"),
                readRDS("~/Documents/UniStAndrews/MovingDetector/compare_moving_stat_2D/CHS/CHS_results/m_moves(x, y, k = 7).Rds"),
