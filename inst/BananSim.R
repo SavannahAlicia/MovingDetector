@@ -274,7 +274,7 @@ scrFitMov <- function(capthist,
     }
   })
   
-  # return(optimiser(params))
+   return(optimiser(params))
   
   args = list(f = optimiser,p = params,hessian = hessian, print.level = 1)
   
