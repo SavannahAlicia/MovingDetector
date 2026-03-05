@@ -60,7 +60,7 @@ covariates(mask) <- data.frame(cov = D_mesh,
 
 
 do_fits <- function(i){
-  
+  browser()
   ch_out <- simulate_popandcapthist(tracksdf = tracksdf,
                                     D_mesh = D_mesh,
                                     lambda0 = lambda0, 
@@ -174,9 +174,72 @@ do_fits <- function(i){
 
 fits <- mclapply(1:nsims, do_fits, mc.cores = n_cores)
 saveRDS(fits, "inst/fitstocompare_abisscript.Rds")
+fits <- readRDS("inst/fitstocompare_abisscript.Rds")
+
+
+dat <- lapply(as.list(1:length(fits)),
+              function(x){
+                if(class(fits[[x]]) == "list"){
+                savs = data.frame(value = c(exp(fits[[x]]$fitsav$estimate[1:2]),
+                                     NA,
+                                     fits[[x]]$fitsav$estimate[3:4],
+                                     exp(fits[[x]]$fitsav$estimate[5])),
+                            name = c("lambda", 
+                                     "sigma",
+                                     "b0",
+                                     "beta1",
+                                     "beta2",
+                                     "N"),
+                            model = "sav") 
+                # abis = data.frame(value = c(exp(fits[[x]]$fitabi$estimate[4])/100,
+                #                             exp(fits[[x]]$fitabi$estimate[5]),
+                #                             fits[[x]]$fitabi$estimate[c(1,3,2)],
+                #                             NA),
+                #                               name = c("lambda", 
+                #                                        "sigma",
+                #                                        "b0",
+                #                                        "beta1",
+                #                                        "beta2",
+                #                                        "N"),
+                #                               model = "abi") 
+              #  out = rbind(savs, abis)
+                out <- savs
+                out$sim = x
+                return(out)
+                }
+              })
+
+fitdat <- do.call(rbind, dat)
+
+truelambda = lambda0
+ggplot() +
+  geom_boxplot(fitdat[fitdat$name == "lambda",], 
+               mapping = aes(y = (value-truelambda)/truelambda*100, x = model))
+
+truesigma = sigma
+ggplot() +
+  geom_boxplot(fitdat[fitdat$name == "sigma",], 
+               mapping = aes(y = (value-truesigma)/truesigma*100, x = model))
+
+truebeta1 = beta1
+ggplot() +
+  geom_boxplot(fitdat[fitdat$name == "beta1",], 
+               mapping = aes(y = (value-truebeta1)/truebeta1*100, x = model))
+
+truebeta2 = beta2
+ggplot() +
+  geom_boxplot(fitdat[fitdat$name == "beta2",], 
+               mapping = aes(y = (value-truebeta2), x = model))
+trueN <- N
+ggplot() +
+  geom_boxplot(fitdat[fitdat$name == "N",], 
+               mapping = aes(y = (value-trueN)/trueN, x = model))
+
 
 # 
 # # save(fit_abi,fit_sav,fit_secr,file = 'comparefits_30.RData')
+
+
 # 
 # 
 # est_abi <- t(sapply(fit_abi, \(x) x$estimate)) %>% 
