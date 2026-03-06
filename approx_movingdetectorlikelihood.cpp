@@ -919,7 +919,7 @@ double
 //---------------Stationary
 
 // [[Rcpp::export]]
-double
+List
   negloglikelihood_stationary_cpp( //add log link 
     double lambda0,
     double sigma, 
@@ -945,7 +945,7 @@ double
     //begin for loops for lambdan calculation
     clock.tick("lambdan");
     NumericMatrix notseen_mk_log(meshx.length(), capocc);
-    //NumericVector pdotxs_log(meshx.length());
+    NumericVector pdotxs_log(meshx.length());
     NumericVector Dx_pdotx_log(meshx.length());
     arma::cube hu_jkm(captrap,capocc,meshx.length(), arma::fill::zeros);
     for(int m = 0; m < meshx.length(); m++){
@@ -967,7 +967,7 @@ double
         notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
       }
       double notseen_alloccs_log = sum(notseen_mk_log.row(m));
-      //pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
+      pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
       Dx_pdotx_log(m) = log(D_mesh(m)) + log(1 - exp(notseen_alloccs_log));
     }
     double lambdan = sum(exp(Dx_pdotx_log)) * mesharea;
@@ -977,7 +977,7 @@ double
     double n = capthist.n_rows;
     NumericVector integral_eachi_log(n);
     //for testing
-    //NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
+    NumericMatrix DKprod_eachx_log_byi(meshx.length(), n);
     //end testing
     for(int i = 0; i < n; i++){
       NumericVector DKprod_eachx_log(meshx.length());
@@ -1001,23 +1001,19 @@ double
           }
           double sum_hujs = arma::sum(hu_jkm.slice(x).col(occk));
           if(ikcaught){
-            probcapthist_eachocc_log(occk) = log(hu_ind_ijk)-log(sum_hujs) + log(1 - exp(-sum_hujs));
+            probcapthist_eachocc_log(occk) = log(hu_ind_ijk) - log(sum_hujs) + log(1 - exp(-sum_hujs));
           } else {
             //prob i wasn't detected in k
             probcapthist_eachocc_log(occk) = -sum_hujs ; //survived all traps
           }
-          //prevent underflow crash
-          probcapthist_eachocc_log(occk) = std::max(probcapthist_eachocc_log(occk), 1e-16);
         }
         double probcapthist_alloccs_log = sum(probcapthist_eachocc_log);
         DKprod_eachx_log(x) = log(D_mesh(x)) + probcapthist_alloccs_log;
       }
       double maxv = max(DKprod_eachx_log); //prevent underflow
       double DKprod_sum_log = maxv + log(sum(exp(DKprod_eachx_log - maxv)));
-      
       integral_eachi_log(i) = DKprod_sum_log + log(mesharea);
-      integral_eachi_log(i) = std::max(integral_eachi_log(i),  1e-16);
-      //  DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
+      DKprod_eachx_log_byi(_,i) = DKprod_eachx_log;
     }
     clock.tock("loopllk");
     int n_int = std::round(n);
@@ -1031,7 +1027,30 @@ double
     clock.tock("wholeenchilada");
     clock.stop("approxstatllktimes");
     
-    return(out);
+    //for diagnostics
+    List outls(7);
+    outls = List::create(
+      //the likelihood value
+      Named("negloglik") = out,
+      //the probability an individual isn't seen on occasion k given its AC
+      //(dim m x k) on log scale
+      Named("notseen_log") = notseen_mk_log,
+      //the marginalized probability of the capture history and the density for
+      //each individual on the log scale (length i)
+      Named("integral_eachi_log") = integral_eachi_log,
+      //the hazard times effort for trap, occasion, and meshpt
+      Named("hu_jkm") = hu_jkm,
+      //he joint probability of the density and probability of the capture
+      //history on the log scale (dim m x i) also does not include log(mesharea)
+      Named("DKprod_eachx_log_byi") = DKprod_eachx_log_byi,
+      ////joint probability of the density and probability of being seen at
+      //least once (length m)
+      Named("Dpdotxs_log") = Dx_pdotx_log,
+      Named("pdotxs_log") = pdotxs_log
+    );
+    //end testing
+    return(outls);
+    //return(out);
   }
 
 

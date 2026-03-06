@@ -1,5 +1,5 @@
 
-#compare fits between my script and Abinand's
+#compare fits between my script and secr
 source("compare_moving_stat_2D/data_formatting/00_functions_and_parameters.R")
 source("compare_moving_stat_2D/data_formatting/01_data_setup.R")
 source("compare_moving_stat_2D/data_formatting/01.5_visualize.R")
@@ -17,7 +17,7 @@ mask <- mesh
 
 covariates(mask) <- data.frame(cov = D_mesh_v,
                                x = mesh$x,
-                               x2 = mesh$x^2/meshspacing^2)
+                               x2 = mesh$x^2)
 trapscr <- read.traps(data = data.frame(TrapID = paste0("Trap", 1:nrow(traps)),
                                         x = traps$x,
                                         y = traps$y),
@@ -68,7 +68,7 @@ stat_nll <- function(v){
   sigma_ <- exp(v[2])
   if (!is.finite(sigma_)) return(1e12)
   
-  D_mesh_  <- calcDv(mesh[,1] ,
+  D_mesh_  <- calcDv(scale(mesh[,1]),
                      mesh[,2],
                      v[3],
                      v[4],
@@ -83,11 +83,16 @@ stat_nll <- function(v){
                                          mesharea = meshspacing^2)
   return(out)
 }
+wrapper <- function(v){
+  out <- stat_nll(v)
+  return(out$negloglik)
+}
 
 fitmy <- nlm(p = start,
-              f = stat_nll,
+              f = wrapper,
              print.level = 1,
               hessian = FALSE) 
+diagmy <- statnll()
 
 estmy <- fitmy$estimate
 estsecr <- fit_secr$fit$par
@@ -112,3 +117,9 @@ truedf <- data.frame(lambda0 = lambda0,
 dat <-rbind(mydf, secrdf, truedf)
 rownames(dat) <- c("my", "secr", "true")
 dat
+
+
+
+pdotsecr <- pdot(as.matrix(mesh), trapscr, detectfn = "HHN", 
+     detectpar = list(lambda0 = lambda0,sigma =  sigma), 
+     noccasions = dim(ch)[2])
