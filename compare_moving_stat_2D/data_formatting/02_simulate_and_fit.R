@@ -44,7 +44,7 @@ simulate_popandcapthist <- function(tracksdf,
                                 renumber = F)
 
   # delete detections after first 
-  capthist <- apply(as.array(1:(dim(capthist_full)[1])), 1, 
+  capthist_tracks <- apply(as.array(1:(dim(capthist_full)[1])), 1, 
                     function(i){
                       apply(as.array(1:(dim(capthist_full)[2])), 1, 
                             function(k){
@@ -85,10 +85,10 @@ simulate_popandcapthist <- function(tracksdf,
                               return(capik)
                             })
                     })
-  dim(capthist) <- (dim(capthist_full)[c(3,2,1)])
-  capthist <- aperm(capthist, c(3,2,1))
+  dim(capthist_tracks) <- (dim(capthist_full)[c(3,2,1)])
+  capthist_tracks <- aperm(capthist_tracks, c(3,2,1))
   
-  capthist_times <- capthist
+  capthist_times <- capthist_tracks
   
   # traps
   trapno_step <- usetracksdf$trapno
@@ -127,11 +127,12 @@ simulate_popandcapthist <- function(tracksdf,
   
   
   # convert capthist to 1s and 0s
-  capthist_attrap[is.na(capthist_attrap)] <- 0
-  capthist_attrap[capthist_attrap!=0] <- 1
+  capthist <- capthist_attrap
+  capthist[is.na(capthist)] <- 0
+  capthist[capthist!=0] <- 1
   
   fit.time.sim <- difftime(Sys.time(), start.time.sim, units = "secs")
-  out_ls <- list(capthist = capthist_attrap,
+  out_ls <- list(capthist = capthist,
                  induse = induse,
                  fit.time.sim = fit.time.sim)
   return(out_ls)
