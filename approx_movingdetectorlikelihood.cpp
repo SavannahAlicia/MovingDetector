@@ -949,22 +949,19 @@ List
     NumericVector Dx_pdotx_log(meshx.length());
     arma::cube hu_jkm(captrap,capocc,meshx.length(), arma::fill::zeros);
     for(int m = 0; m < meshx.length(); m++){
-      //NumericVector notseen_eachocc((occs.size()));
       for(int occk = 0; occk < capocc; occk++){
-        NumericVector hu_eachtrap(captrap);
         for(int trapj = 0; trapj < captrap; trapj++){
           if(usage(trapj, occk) == 0){
-            hu_eachtrap(trapj) = 0; //if the trap isn't used, can't be seen at it
+            hu_jkm(trapj,occk,m) = 0; //if the trap isn't used, can't be seen at it
           } else {
             double thisdist = distmat(trapj, m);  //note this can be recycled
             //below except for individuals never detected.
-            hu_eachtrap(trapj) = 
+            hu_jkm(trapj,occk,m) = 
               hazdist_cpp(lambda0, sigma, thisdist, haz_denom) * 
               (usage(trapj, occk)/haz_denom); 
           }
-          hu_jkm(trapj,occk,m) = hu_eachtrap(trapj);
         }
-        notseen_mk_log(m,occk) = -sum(hu_eachtrap); // survival is exp(-sum(x))
+        notseen_mk_log(m,occk) = -arma::accu(hu_jkm.slice(m).col(occk));; // survival is exp(-sum(x))
       }
       double notseen_alloccs_log = sum(notseen_mk_log.row(m));
       pdotxs_log(m) = log(1 - exp(notseen_alloccs_log));
@@ -985,9 +982,7 @@ List
         NumericVector probcapthist_eachocc_log = NumericVector(capocc, 0.0);
         for(int occk = 0; occk < capocc; occk++){
           bool ikcaught = false;
-          //int trapijk = 0;
           double hu_ind_ijk = 0;
-          //arma::vec hu_js(captrap, arma::fill::zeros);
           arma::vec usek = usage.col(occk);
           for(int trapj = 0; trapj < captrap; trapj++){
             //limit to traps used in occasion
@@ -999,7 +994,7 @@ List
               }
             }
           }
-          double sum_hujs = arma::sum(hu_jkm.slice(x).col(occk));
+          double sum_hujs = -notseen_mk_log(x,occk);
           if(ikcaught){
             probcapthist_eachocc_log(occk) = log(hu_ind_ijk) - log(sum_hujs) + log(1 - exp(-sum_hujs));
           } else {
